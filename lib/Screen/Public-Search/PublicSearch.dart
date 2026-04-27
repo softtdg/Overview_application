@@ -3,7 +3,7 @@ import 'package:overview_app/Screen/Public-Search/Services/PublicSearchService.d
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
-import 'package:overview_app/Screen/SOPSearch/sopSearch.dart';
+import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:overview_app/Screen/Login/login.dart';
 
@@ -228,7 +228,6 @@ class _PublicSearchState extends State<Publicsearch> {
   }
 
   static const List<double> _bomColWidths = [90, 150, 150, 150, 150, 150, 150];
-  static const Color _drawerBrand = Color.fromARGB(255, 57, 73, 95);
 
   Widget _bomHeaderCell(String label, double w) {
     final borderColor = Colors.grey.shade300;
@@ -312,162 +311,15 @@ class _PublicSearchState extends State<Publicsearch> {
     );
   }
 
-  Widget _buildSimpleDrawer() {
-    return Drawer(
-      backgroundColor: Colors.white,
-      child: SafeArea(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Container(
-              width: double.infinity,
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-              child: Column(
-                children: [
-                  Image.asset(
-                    'assets/images/tdg_logo.png',
-                    height: 52,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(
-                      Icons.business_rounded,
-                      size: 48,
-                      color: _drawerBrand,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    username.isEmpty ? 'User' : username,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A1A1A),
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  // const SizedBox(height: 12),
-                  Container(
-                    // padding: const EdgeInsets.symmetric(
-                    //   horizontal: 14,
-                    //   vertical: 10,
-                    // ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Sign out',
-                          style: TextStyle(
-                            color: _drawerBrand,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          style: IconButton.styleFrom(
-                            minimumSize: const Size(36, 36),
-                          ),
-                          icon: const Icon(Icons.logout_rounded),
-                          color: _drawerBrand,
-                          onPressed: () {
-                            Navigator.pop(context);
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (!mounted) return;
-                              _showLogoutConfirmDialog();
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              height: 1,
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: _drawerBrand, width: 1),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                children: [
-                  ListTile(
-                    leading: Icon(Icons.search_rounded, color: _drawerBrand),
-                    title: const Text('SOP Search'),
-                    onTap: () => {
-                      Navigator.pop(context),
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => SOPSearch()),
-                      ),
-                    },
-                  ),
-                  ListTile(
-                    leading: Icon(Icons.public_rounded, color: _drawerBrand),
-                    title: const Text('Public Search'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => Publicsearch()),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'TDG Overview',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: _buildSimpleDrawer(),
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Color.fromARGB(255, 57, 73, 95),
-        automaticallyImplyLeading: false,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Image.asset('assets/images/tdg_logo.png', height: 35),
-            Builder(
-              builder: (context) {
-                return IconButton(
-                  icon: const Icon(Icons.menu, color: Colors.white),
-                  onPressed: () => Scaffold.of(context).openDrawer(),
-                );
-              },
-            ),
-          ],
-        ),
+      appBar: CommonAppBar(),
+      drawer: CommonDrawer(
+        username: username,
+        onLogout: _showLogoutConfirmDialog,
       ),
+      backgroundColor: Colors.white,
 
       body: Container(
         color: Colors.white,
@@ -643,20 +495,14 @@ class _PublicSearchState extends State<Publicsearch> {
                                   item.description,
                                   _bomColWidths[1],
                                 ),
-                                _bomDataCell(
-                                  item.material,
-                                  _bomColWidths[2],
-                                ),
+                                _bomDataCell(item.material, _bomColWidths[2]),
                                 _bomDataCell(
                                   item.quantity.toString(),
                                   _bomColWidths[3],
                                 ),
                                 _bomDataCell(item.state, _bomColWidths[4]),
                                 _bomDataCell(item.vendor, _bomColWidths[5]),
-                                _bomDataCell(
-                                  item.PathName,
-                                  _bomColWidths[6],
-                                ),
+                                _bomDataCell(item.PathName, _bomColWidths[6]),
                               ],
                             ),
                           ),

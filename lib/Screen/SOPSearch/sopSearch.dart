@@ -40,7 +40,6 @@ class _SOPSearchState extends State<SOPSearch> {
     if (isLoading) return;
 
     String sopNumber = SOPController.text.trim();
-    // String sopNumber = "70456";
 
     // check emptry sop search
     if (sopNumber.isEmpty) {
@@ -195,42 +194,6 @@ class _SOPSearchState extends State<SOPSearch> {
     );
   }
 
-  // Widget _buildNoticeItem() {
-  //   return Container(
-  //     margin: const EdgeInsets.only(bottom: 10),
-  //     padding: const EdgeInsets.all(10),
-  //     decoration: BoxDecoration(borderRadius: BorderRadius.circular(10)),
-  //     child: Row(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         Container(
-  //           width: 8,
-  //           height: 8,
-  //           margin: const EdgeInsets.only(top: 6),
-  //           decoration: const BoxDecoration(shape: BoxShape.circle),
-  //         ),
-  //         const SizedBox(width: 10),
-  //         const Expanded(
-  //           child: Column(
-  //             crossAxisAlignment: CrossAxisAlignment.start,
-  //             children: [
-  //               Text(
-  //                 "Notice message goes here...",
-  //                 style: TextStyle(fontWeight: FontWeight.w500),
-  //               ),
-  //               SizedBox(height: 4),
-  //               Text(
-  //                 "Response / ETA / Status",
-  //                 style: TextStyle(color: Colors.grey),
-  //               ),
-  //             ],
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
   // static const Color _drawerBrand = Color.fromARGB(255, 57, 73, 95);
 
   void _showLogoutConfirmDialog() {
@@ -263,136 +226,6 @@ class _SOPSearchState extends State<SOPSearch> {
     );
   }
 
-  // Widget _buildSimpleDrawer() {
-  //   return Drawer(
-  //     backgroundColor: Colors.white,
-  //     child: SafeArea(
-  //       child: Column(
-  //         mainAxisAlignment: MainAxisAlignment.end,
-  //         children: [
-  //           Container(
-  //             width: double.infinity,
-  //             color: Colors.white,
-  //             padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-  //             child: Column(
-  //               children: [
-  //                 Image.asset(
-  //                   'assets/images/tdg_logo.png',
-  //                   height: 52,
-  //                   fit: BoxFit.contain,
-  //                   errorBuilder: (_, __, ___) => const Icon(
-  //                     Icons.business_rounded,
-  //                     size: 48,
-  //                     color: _drawerBrand,
-  //                   ),
-  //                 ),
-  //                 const SizedBox(height: 16),
-  //                 Text(
-  //                   username.isEmpty ? 'User' : username,
-  //                   textAlign: TextAlign.center,
-  //                   style: const TextStyle(
-  //                     fontSize: 17,
-  //                     fontWeight: FontWeight.w600,
-  //                     color: Color(0xFF1A1A1A),
-  //                   ),
-  //                   maxLines: 2,
-  //                   overflow: TextOverflow.ellipsis,
-  //                 ),
-  //                 // const SizedBox(height: 12),
-  //                 Container(
-  //                   // padding: const EdgeInsets.symmetric(
-  //                   //   horizontal: 14,
-  //                   //   vertical: 10,
-  //                   // ),
-  //                   child: Row(
-  //                     mainAxisAlignment: MainAxisAlignment.center,
-  //                     children: [
-  //                       Text(
-  //                         'Sign out',
-  //                         style: TextStyle(
-  //                           color: _drawerBrand,
-  //                           fontSize: 14,
-  //                           fontWeight: FontWeight.w600,
-  //                         ),
-  //                       ),
-  //                       IconButton(
-  //                         padding: EdgeInsets.zero,
-  //                         constraints: const BoxConstraints(),
-  //                         style: IconButton.styleFrom(
-  //                           minimumSize: const Size(36, 36),
-  //                         ),
-  //                         icon: const Icon(Icons.logout_rounded),
-  //                         color: _drawerBrand,
-  //                         onPressed: () {
-  //                           Navigator.pop(context);
-  //                           WidgetsBinding.instance.addPostFrameCallback((_) {
-  //                             if (!mounted) return;
-  //                             _showLogoutConfirmDialog();
-  //                           });
-  //                         },
-  //                       ),
-  //                     ],
-  //                   ),
-  //                 ),
-  //               ],
-  //             ),
-  //           ),
-  //           Container(
-  //             height: 1,
-  //             decoration: BoxDecoration(
-  //               border: Border(
-  //                 bottom: BorderSide(color: _drawerBrand, width: 1),
-  //               ),
-  //               boxShadow: [
-  //                 BoxShadow(
-  //                   color: Colors.black.withValues(alpha: 0.12),
-  //                   blurRadius: 8,
-  //                   offset: const Offset(0, 4),
-  //                 ),
-  //               ],
-  //             ),
-  //           ),
-  //           Expanded(
-  //             child: ListView(
-  //               padding: const EdgeInsets.symmetric(vertical: 8),
-  //               children: [
-  //                 ListTile(
-  //                   leading: Icon(Icons.search_rounded, color: _drawerBrand),
-  //                   title: const Text('SOP Search'),
-  //                   onTap: () => Navigator.pop(context),
-  //                 ),
-  //                 ListTile(
-  //                   leading: Icon(Icons.public_rounded, color: _drawerBrand),
-  //                   title: const Text('Public Search'),
-  //                   onTap: () {
-  //                     Navigator.pop(context);
-  //                     Navigator.push(
-  //                       context,
-  //                       MaterialPageRoute(builder: (_) => Publicsearch()),
-  //                     );
-  //                   },
-  //                 ),
-  //                 ListTile(
-  //                   leading: Icon(Icons.public, color: _drawerBrand),
-  //                   title: const Text("Picked History"),
-  //                 ),
-  //               ],
-  //             ),
-  //           ),
-  //           Padding(
-  //             padding: const EdgeInsets.all(16),
-  //             child: Text(
-  //               'TDG Overview',
-  //               textAlign: TextAlign.center,
-  //               style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-  //             ),
-  //           ),
-  //         ],
-  //       ),
-  //     ),
-  //   );
-  // }
-
   // UI Design here
   @override
   Widget build(BuildContext context) {
@@ -405,34 +238,6 @@ class _SOPSearchState extends State<SOPSearch> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      // drawer: _buildSimpleDrawer(),
-      // appBar: AppBar(
-      //   backgroundColor: Color.fromARGB(255, 57, 73, 95),
-      //   automaticallyImplyLeading: false,
-      //   iconTheme: const IconThemeData(color: Colors.white),
-      //   title: Row(
-      //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      //     children: [
-      //       Image.asset('assets/images/tdg_logo.png', height: 35),
-      //       Builder(
-      //         builder: (context) {
-      //           return IconButton(
-      //             icon: const Icon(Icons.menu, color: Colors.white),
-      //             onPressed: () => Scaffold.of(context).openDrawer(),
-      //           );
-      //         },
-      //       ),
-      //       // title: Text(
-      //       //   username,
-      //       //   style: TextStyle(
-      //       //     color: Colors.white,
-      //       //     fontSize: 18,
-      //       //     fontWeight: FontWeight.bold,
-      //       //     // ),
-      //       //   ),
-      //     ],
-      //   ),
-      // ),
       appBar: const CommonAppBar(),
       drawer: CommonDrawer(
         username: username,

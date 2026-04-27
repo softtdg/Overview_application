@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:overview_app/Screen/InventoryPickedLog/InventoryPickedLog.dart';
+import 'package:overview_app/Screen/OpenItems/SearchOpenItems.dart';
 import 'package:overview_app/Screen/PickedHistory/PickedHistory.dart';
 import 'package:overview_app/Screen/Public-Search/PublicSearch.dart';
 import 'package:overview_app/Screen/SOPSearch/sopSearch.dart';
@@ -13,22 +14,30 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       backgroundColor: const Color.fromARGB(255, 57, 73, 95),
       automaticallyImplyLeading: false,
+      centerTitle: false,
+      titleSpacing: 0,
       iconTheme: const IconThemeData(color: Colors.white),
 
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Image.asset('assets/images/tdg_logo.png', height: 35),
-
-          Builder(
-            builder: (context) {
-              return IconButton(
-                icon: const Icon(Icons.menu, color: Colors.white),
-                onPressed: () => Scaffold.of(context).openDrawer(),
-              );
-            },
-          ),
-        ],
+      title: LayoutBuilder(
+        builder: (context, constraints) {
+          return SizedBox(
+            width: constraints.maxWidth,
+            child: Row(
+              children: [
+                Image.asset('assets/images/tdg_logo.png', height: 35),
+                const Spacer(),
+                Builder(
+                  builder: (context) {
+                    return IconButton(
+                      icon: const Icon(Icons.menu, color: Colors.white),
+                      onPressed: () => Scaffold.of(context).openDrawer(),
+                    );
+                  },
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -49,6 +58,7 @@ class CommonDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const dropdownBg = Color.fromARGB(255, 57, 73, 95);
     return Drawer(
       backgroundColor: Colors.white,
       child: SafeArea(
@@ -109,9 +119,7 @@ class CommonDrawer extends StatelessWidget {
                     onTap: () {
                       final nav = Navigator.of(context);
                       nav.pop();
-                      nav.push(
-                        MaterialPageRoute(builder: (_) => SOPSearch()),
-                      );
+                      nav.push(MaterialPageRoute(builder: (_) => SOPSearch()));
                     },
                   ),
                   ListTile(
@@ -140,15 +148,82 @@ class CommonDrawer extends StatelessWidget {
                       final nav = Navigator.of(context);
                       nav.pop();
                       nav.push(
-                          MaterialPageRoute(builder: (_)=> InventoryPickedLog())
+                        MaterialPageRoute(builder: (_) => InventoryPickedLog()),
                       );
                     },
-                  )
-              ],
+                  ),
+                  Theme(
+                    data: Theme.of(context).copyWith(
+                      dividerColor: Colors.transparent,
+                    ),
+                    child: ExpansionTile(
+                      title: const Text('Open Items'),
+                      childrenPadding: const EdgeInsets.only(bottom: 6),
+                      children: [
+                        Container(
+                          color: dropdownBg,
+                          child: ListTile(
+                            title: const Text(
+                              'Search',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            onTap: () {
+                              final nav = Navigator.of(context);
+                              nav.pop();
+                              nav.push(
+                                MaterialPageRoute(
+                                  builder: (_) => SearchOpenItems(),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        Container(
+                          color: dropdownBg,
+                          child: ListTile(
+                            title: const Text(
+                              'Critical Items',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            onTap: () {
+                              Navigator.of(context).pop();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Critical Items screen not added yet.',
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        Container(
+                          color: dropdownBg,
+                          child: ListTile(
+                            title: const Text(
+                              'Open Items',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            onTap: () {
+                              final nav = Navigator.of(context);
+                              nav.pop();
+                              nav.push(
+                                MaterialPageRoute(
+                                  builder: (_) => SearchOpenItems(),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ));
+    );
   }
 }
