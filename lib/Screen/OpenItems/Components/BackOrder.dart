@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'package:overview_app/Screen/OpenItems/Services/OpenItemsServices.dart';
 import 'package:overview_app/Screen/Public-Search/PublicSearch.dart';
 
@@ -71,6 +72,7 @@ class _BackOrderState extends State<BackOrder> {
   bool? _notifyPurchasingOverride;
   bool? _pickedOverride;
   bool? _notifyProductionOverride;
+  final List<Map<String, dynamic>> _editableBackorders = [];
   final List<_DraftBackorderRow> _draftBackorders = [];
 
   static InputDecoration _fieldDecoration({
@@ -134,16 +136,30 @@ class _BackOrderState extends State<BackOrder> {
       if (!mounted || parsed == null) return;
       setState(() {
         _apiItem = parsed;
+        _editableBackorders
+          ..clear()
+          ..addAll(_extractBackorders(parsed));
         _notifyPurchasingOverride = null;
         _pickedOverride = null;
         _notifyProductionOverride = null;
       });
       final notice = _valueFromItem(_apiItem, [
-        'PurchasingNotice',
-        'purchasingNotice',
+        'LeadHandCommentsForPurchasing',
       ]);
       if (notice.isNotEmpty) {
         _purchasingNoticeCtrl.text = notice;
+      }
+      final productionNotice = _valueFromItem(_apiItem, [
+        'InventoryCommentsForProduction',
+      ]);
+      if (productionNotice.isNotEmpty) {
+        _productionNoticeCtrl.text = productionNotice;
+      }
+      final productionResponse = _valueFromItem(_apiItem, [
+        'ProductionComments',
+      ]);
+      if (productionResponse.isNotEmpty) {
+        _productionResponseCtrl.text = productionResponse;
       }
     } catch (_) {}
   }
@@ -209,9 +225,10 @@ class _BackOrderState extends State<BackOrder> {
       'LeadHand': leadHandName,
       'Assembler': assemblerName,
       'Description': entry['FixtureDescription'],
-      'Components':
-          dataMap['fixturesComponents'] is Map
-          ? (Map<String, dynamic>.from(dataMap['fixturesComponents']))['Components']
+      'Components': dataMap['fixturesComponents'] is Map
+          ? (Map<String, dynamic>.from(
+              dataMap['fixturesComponents'],
+            ))['Components']
           : null,
     };
   }
@@ -239,10 +256,43 @@ class _BackOrderState extends State<BackOrder> {
     for (final key in keys) {
       final value = item[key];
       if (value == null) continue;
+      if (value is List) {
+        for (final e in value) {
+          if (e == null) continue;
+          final text = e.toString().trim();
+          if (text.isNotEmpty && text.toLowerCase() != 'null') return text;
+        }
+        continue;
+      }
       final text = value.toString().trim();
-      if (text.isNotEmpty) return text;
+      if (text.isNotEmpty && text.toLowerCase() != 'null') return text;
     }
     return '';
+  }
+
+  List<Map<String, dynamic>> _extractBackorders(Map<String, dynamic>? item) {
+    final raw = item?['Backorders'];
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  void _syncClosedDateForBackorder(Map<String, dynamic> row) {
+    final quantity = int.tryParse((row['Quantity'] ?? '').toString()) ?? 0;
+    final received = int.tryParse((row['Received'] ?? '').toString()) ?? 0;
+
+    if (quantity > 0 && quantity == received) {
+      // Always stamp latest edited matching row with current UTC date-time.
+      row['ClosedDate'] = DateTime.now().toUtc().toIso8601String();
+      setState(() {});
+      return;
+    }
+
+    // When values don't match, keep it as min date so UI shows '*'.
+    row['ClosedDate'] = '0001-01-01T00:00:00.000Z';
+    setState(() {});
   }
 
   String _formatOddDate(String raw) {
@@ -262,15 +312,19 @@ class _BackOrderState extends State<BackOrder> {
   String _formatDateTime(String raw) {
     final value = raw.trim();
     if (value.isEmpty) return value;
+    if (value.startsWith('0001-01-01')) return '*';
     try {
       final parsed = DateTime.parse(value);
-      final dd = parsed.day.toString().padLeft(2, '0');
-      final mm = parsed.month.toString().padLeft(2, '0');
-      final yyyy = parsed.year.toString();
-      final hh = parsed.hour.toString().padLeft(2, '0');
+      if (parsed.year <= 1) return '';
+      final month = parsed.month.toString();
+      final day = parsed.day.toString();
+      final year = parsed.year.toString();
+      final hour24 = parsed.hour;
+      final period = hour24 >= 12 ? 'PM' : 'AM';
+      final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
       final min = parsed.minute.toString().padLeft(2, '0');
       final ss = parsed.second.toString().padLeft(2, '0');
-      return '$dd/$mm/$yyyy $hh:$min:$ss';
+      return '$month/$day/$year,\n$hour12:$min:$ss $period';
     } catch (_) {
       return value;
     }
@@ -286,47 +340,58 @@ class _BackOrderState extends State<BackOrder> {
     return name;
   }
 
-  String _pick(List<String> keys, String fallback) {
-    final value = _valueFromItem(_apiItem, keys);
-    return value.isEmpty ? fallback : value;
+  String get _sop {
+    final value = _valueFromItem(_apiItem, ['SOPNum']);
+    return value.isEmpty ? widget.sop : value;
   }
-
-  String get _sop => _pick(['SOPNum'], widget.sop);
 
   String get _leadHand => _leadHandNameFromNested(_apiItem).isNotEmpty
       ? _leadHandNameFromNested(_apiItem)
-      : _pick(['LeadHand'], widget.leadHand);
+      : (() {
+          final value = _valueFromItem(_apiItem, ['LeadHand']);
+          return value.isEmpty ? widget.leadHand : value;
+        })();
 
-  String get _assembler => _pick(['Assembler'], widget.assembler);
+  String get _assembler {
+    final value = _valueFromItem(_apiItem, ['Assembler']);
+    return value.isEmpty ? widget.assembler : value;
+  }
 
   String get _odd {
-    final raw = _pick(['ODD'], widget.odd);
+    final value = _valueFromItem(_apiItem, ['ODD']);
+    final raw = value.isEmpty ? widget.odd : value;
     return _formatOddDate(raw);
   }
 
-  String get _fixtureId => _pick(['FixtureNumber'], widget.fixtureId);
+  String get _fixtureId {
+    final value = _valueFromItem(_apiItem, ['FixtureNumber']);
+    return value.isEmpty ? widget.fixtureId : value;
+  }
 
-  String get _description => _pick(['FixtureDescription'], widget.description);
+  String get _description {
+    final value = _valueFromItem(_apiItem, ['FixtureDescription']);
+    return value.isEmpty ? widget.description : value;
+  }
 
-  String get _qty => _pick(['Quantity'], widget.qty);
+  String get _qty {
+    final value = _valueFromItem(_apiItem, ['Quantity']);
+    return value.isEmpty ? widget.qty : value;
+  }
 
   List<Map<String, dynamic>> get _backorders {
-    final raw = _apiItem?['Backorders'];
-    if (raw is! List) return const [];
-    return raw
-        .whereType<Map>()
-        .map((e) => Map<String, dynamic>.from(e))
-        .toList();
+    return _editableBackorders;
   }
 
   List<String> get _componentPnOptions {
     final raw = _apiItem?['Components'];
-    if (raw is! List) return const [];
-    return raw
-        .whereType<Map>()
-        .map((e) => (e['TDGPN'] ?? '').toString().trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
+    if (raw is! List) return ['Other'];
+    return [
+      'Other',
+      ...raw
+          .whereType<Map>()
+          .map((e) => (e['TDGPN'] ?? '').toString().trim())
+          .where((e) => e.isNotEmpty),
+    ];
   }
 
   void _addDraftBackorderRow() {
@@ -395,7 +460,7 @@ class _BackOrderState extends State<BackOrder> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           ElevatedButton.icon(
-            onPressed: widget.onUpdateEntry ?? () {},
+            onPressed: _onUpdateEntry,
             icon: const Icon(Icons.save_outlined, size: 18),
             label: const Text('Update Entry'),
             style: ElevatedButton.styleFrom(
@@ -527,24 +592,6 @@ class _BackOrderState extends State<BackOrder> {
     );
   }
 
-  Widget _threeColHeader(String a, String b, String c) {
-    return Container(
-      color: _kTableHeaderBg,
-      child: Row(
-        children: [
-          _threeColHeaderCell(a, flex: 2),
-          _threeColHeaderCell(b, flex: 2, align: TextAlign.center),
-          _threeColHeaderCell(
-            c,
-            flex: 2,
-            align: TextAlign.end,
-            rightBorder: false,
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _threeColHeaderCell(
     String text, {
     required int flex,
@@ -576,116 +623,178 @@ class _BackOrderState extends State<BackOrder> {
   }
 
   Widget _purchasingBlock() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _threeColHeader(
-          'Notify Purchasing',
-          'Purchasing Notice',
-          'Purchasing Response',
-        ),
-        Container(
-          color: Colors.white,
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _innerBodyCell(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () {
-                          setState(() {
-                            _notifyPurchasingOverride = !_isNotifyPurchasingTrue;
-                          });
-                          (widget.onPurchasingClosed ?? () {})();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _isNotifyPurchasingTrue
-                              ? _yellow
-                              : _kPrimaryBlue,
-                          foregroundColor: _isNotifyPurchasingTrue
-                              ? Colors.black
-                              : Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        child: Text(
-                          _isNotifyPurchasingTrue
-                              ? 'Purchasing Issue is Open'
-                              : 'Purchasing Issue is Closed',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ElevatedButton(
-                        onPressed: () {
-                          setState(() {
-                            _pickedOverride = !_isPickedTrue;
-                          });
-                          (widget.onPicked ?? () {})();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _isPickedTrue ? _yellow : _kPrimaryBlue,
-                          foregroundColor: _isPickedTrue
-                              ? Colors.black
-                              : Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        child: Text(
-                          _isPickedTrue ? 'Picked' : 'Not Picked',
-                          style: TextStyle(
-                            color: _isPickedTrue ? Colors.black : Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                _innerBodyCell(
-                  child: TextField(
-                    controller: _purchasingNoticeCtrl,
-                    maxLines: 4,
-                    decoration: _fieldDecoration(),
-                  ),
-                ),
-                _innerBodyCell(
-                  rightBorder: false,
-                  child: TextField(
-                    controller: _purchasingResponseCtrl,
-                    maxLines: 4,
-                    decoration: _fieldDecoration(),
-                  ),
-                ),
-              ],
+    const minPurchasingWidth = 760.0;
+    Widget purchasingBodyCell({
+      required Widget child,
+      required int flex,
+      bool rightBorder = true,
+    }) {
+      return Expanded(
+        flex: flex,
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            border: Border(
+              top: const BorderSide(color: Color(0xFF374151), width: 1),
+              right: rightBorder
+                  ? const BorderSide(color: Color(0xFF374151), width: 1)
+                  : BorderSide.none,
             ),
           ),
+          child: child,
         ),
-      ],
-    );
-  }
+      );
+    }
 
-  Widget _innerBodyCell({required Widget child, bool rightBorder = true}) {
-    return Expanded(
-      flex: 2,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          border: Border(
-            top: const BorderSide(color: Color(0xFF374151), width: 1),
-            right: rightBorder
-                ? const BorderSide(color: Color(0xFF374151), width: 1)
-                : BorderSide.none,
-          ),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: minPurchasingWidth,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              color: _kTableHeaderBg,
+              child: Row(
+                children: [
+                  _threeColHeaderCell('Notify Purchasing', flex: 1),
+                  _threeColHeaderCell(
+                    'Purchasing Notice',
+                    flex: 2,
+                    align: TextAlign.center,
+                  ),
+                  _threeColHeaderCell(
+                    'Purchasing Response',
+                    flex: 2,
+                    align: TextAlign.center,
+                    rightBorder: false,
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              color: Colors.white,
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    purchasingBodyCell(
+                      flex: 1,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 140,
+                            height: 44,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _notifyPurchasingOverride =
+                                      !_isNotifyPurchasingTrue;
+                                });
+                                (widget.onPurchasingClosed ?? () {})();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _isNotifyPurchasingTrue
+                                    ? _yellow
+                                    : _kPrimaryBlue,
+                                foregroundColor: _isNotifyPurchasingTrue
+                                    ? Colors.black
+                                    : Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 6,
+                                ),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: const VisualDensity(
+                                  horizontal: -2,
+                                  vertical: -2,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                              child: Text(
+                                _isNotifyPurchasingTrue
+                                    ? 'Purchasing Issue is Open'
+                                    : 'Purchasing Issue is Closed',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: 140,
+                            height: 40,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _pickedOverride = !_isPickedTrue;
+                                });
+                                (widget.onPicked ?? () {})();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _isPickedTrue
+                                    ? _yellow
+                                    : _kPrimaryBlue,
+                                foregroundColor: _isPickedTrue
+                                    ? Colors.black
+                                    : Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 6,
+                                ),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: const VisualDensity(
+                                  horizontal: -2,
+                                  vertical: -2,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                              child: Text(
+                                _isPickedTrue ? 'Picked' : 'Not Picked',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: _isPickedTrue
+                                      ? Colors.black
+                                      : Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    purchasingBodyCell(
+                      flex: 2,
+                      child: TextField(
+                        controller: _purchasingNoticeCtrl,
+                        maxLines: 4,
+                        decoration: _fieldDecoration(),
+                      ),
+                    ),
+                    purchasingBodyCell(
+                      flex: 2,
+                      rightBorder: false,
+                      child: TextField(
+                        controller: _purchasingResponseCtrl,
+                        maxLines: 4,
+                        decoration: _fieldDecoration(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
-        child: child,
       ),
     );
   }
@@ -739,6 +848,18 @@ class _BackOrderState extends State<BackOrder> {
   Widget _backorderBlock() {
     const flexes = [2, 1, 1, 1, 2, 2, 1];
     const tableWidth = 760.0;
+    final rawComponents = _apiItem?['Components'];
+    final uomByPn = <String, String>{};
+    if (rawComponents is List) {
+      for (final item in rawComponents.whereType<Map>()) {
+        final pn = (item['TDGPN'] ?? '').toString().trim();
+        final uom = (item['UOM'] ?? '').toString().trim();
+        if (pn.isEmpty || uom.isEmpty) continue;
+        uomByPn[pn] = uom;
+      }
+    }
+    final uomOptions = uomByPn.values.toSet().toList()..sort();
+    if (uomOptions.isEmpty) uomOptions.addAll(['PCS', 'mm', 'SQ. cm', 'ml']);
     final tableContent = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -781,21 +902,19 @@ class _BackOrderState extends State<BackOrder> {
                             ),
                           ),
                           child: (i == 2 || i == 3)
-                              ? Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
+                              ? TextFormField(
+                                  initialValue: values[i],
+                                  keyboardType: TextInputType.number,
+                                  decoration: _fieldDecoration(
+                                    contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 10,
-                                      vertical: 6,
+                                      vertical: 8,
                                     ),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: Colors.grey[400]!,
-                                      ),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(values[i]),
                                   ),
+                                  onChanged: (value) {
+                                    row[i == 2 ? 'Quantity' : 'Received'] = value;
+                                    _syncClosedDateForBackorder(row);
+                                  },
                                 )
                               : Text(
                                   values[i],
@@ -818,10 +937,54 @@ class _BackOrderState extends State<BackOrder> {
                             top: BorderSide(color: Color(0xFF374151), width: 1),
                           ),
                         ),
-                        child: const Icon(
-                          Icons.delete,
-                          color: Colors.red,
-                          size: 18,
+                        child: GestureDetector(
+                          onTap: () async {
+                            final confirmed = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                backgroundColor: Colors.white,
+                                title: const Text(
+                                  'Delete Backorder',
+                                  style: TextStyle(color: Colors.black),
+                                ),
+                                content: const Text(
+                                  'Are you sure you want to delete this backorder?',
+                                  style: TextStyle(color: Colors.black87),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.grey,
+                                    ),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: const Color.fromARGB(
+                                        255,
+                                        201,
+                                        46,
+                                        44,
+                                      ),
+                                    ),
+                                    child: const Text('Delete'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirmed == true) {
+                              print("Backorder deleted");
+                            }
+                          },
+                          child: const Icon(
+                            Icons.delete,
+                            color: Color.fromARGB(255, 201, 46, 44),
+                            size: 18,
+                          ),
                         ),
                       ),
                     ),
@@ -832,6 +995,7 @@ class _BackOrderState extends State<BackOrder> {
           }),
         ...List.generate(_draftBackorders.length, (index) {
           final row = _draftBackorders[index];
+          final isOtherPn = row.selectedPn == 'Other';
           return Container(
             color: Colors.white,
             child: IntrinsicHeight(
@@ -841,59 +1005,104 @@ class _BackOrderState extends State<BackOrder> {
                   Expanded(
                     flex: flexes[0],
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
                       decoration: const BoxDecoration(
                         border: Border(
                           top: BorderSide(color: Color(0xFF374151), width: 1),
                           right: BorderSide(color: Color(0xFF374151), width: 1),
                         ),
                       ),
-                      child: DropdownButtonFormField<String>(
-                        value: row.selectedPn,
-                        isExpanded: true,
-                        decoration: _fieldDecoration(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                        ),
-                        hint: const Text('Pick One'),
-                        items: _componentPnOptions
-                            .map(
-                              (pn) => DropdownMenuItem<String>(
-                                value: pn,
-                                child: Text(pn),
-                              ),
+                      child: isOtherPn
+                          ? TextField(
+                              controller: row.customPnCtrl,
+                              decoration: _fieldDecoration(hint: 'Enter PN'),
                             )
-                            .toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            row.selectedPn = value;
-                          });
-                        },
-                      ),
+                          : DropdownButtonFormField<String>(
+                              value: row.selectedPn,
+                              isExpanded: true,
+                              decoration: _fieldDecoration(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 6,
+                                ),
+                              ),
+                              hint: const Text('Pick One'),
+                              items: _componentPnOptions
+                                  .map(
+                                    (pn) => DropdownMenuItem<String>(
+                                      value: pn,
+                                      child: Text(pn),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  row.selectedPn = value;
+                                  if (value != 'Other') {
+                                    row.customPnCtrl.clear();
+                                    row.selectedUom = null;
+                                  }
+                                });
+                              },
+                            ),
                     ),
                   ),
                   Expanded(
                     flex: flexes[1],
                     child: Container(
                       alignment: Alignment.centerLeft,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
                       decoration: const BoxDecoration(
                         border: Border(
                           top: BorderSide(color: Color(0xFF374151), width: 1),
                           right: BorderSide(color: Color(0xFF374151), width: 1),
                         ),
                       ),
-                      child: Text(
-                        row.selectedPn == null ? 'Select PN first' : 'PCS',
-                      ),
+                      child: row.selectedPn == null
+                          ? const Text('Select PN first')
+                          : isOtherPn
+                          ? DropdownButtonFormField<String>(
+                              value: uomOptions.contains(row.selectedUom)
+                                  ? row.selectedUom
+                                  : null,
+                              isExpanded: true,
+                              decoration: _fieldDecoration(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 6,
+                                ),
+                              ),
+                              hint: const Text('Select UOM'),
+                              items: uomOptions
+                                  .map(
+                                    (uom) => DropdownMenuItem<String>(
+                                      value: uom,
+                                      child: Text(uom),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  row.selectedUom = value;
+                                });
+                              },
+                            )
+                          : Text(uomByPn[row.selectedPn] ?? 'PCS'),
                     ),
                   ),
                   Expanded(
                     flex: flexes[2],
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
                       decoration: const BoxDecoration(
                         border: Border(
                           top: BorderSide(color: Color(0xFF374151), width: 1),
@@ -910,7 +1119,10 @@ class _BackOrderState extends State<BackOrder> {
                   Expanded(
                     flex: flexes[3],
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
                       decoration: const BoxDecoration(
                         border: Border(
                           top: BorderSide(color: Color(0xFF374151), width: 1),
@@ -928,7 +1140,10 @@ class _BackOrderState extends State<BackOrder> {
                     flex: flexes[4],
                     child: Container(
                       alignment: Alignment.centerLeft,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
                       decoration: const BoxDecoration(
                         border: Border(
                           top: BorderSide(color: Color(0xFF374151), width: 1),
@@ -942,7 +1157,10 @@ class _BackOrderState extends State<BackOrder> {
                     flex: flexes[5],
                     child: Container(
                       alignment: Alignment.centerLeft,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
                       decoration: const BoxDecoration(
                         border: Border(
                           top: BorderSide(color: Color(0xFF374151), width: 1),
@@ -962,7 +1180,11 @@ class _BackOrderState extends State<BackOrder> {
                         ),
                       ),
                       child: IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red, size: 18),
+                        icon: const Icon(
+                          Icons.delete,
+                          color: Colors.red,
+                          size: 18,
+                        ),
                         onPressed: () => _removeDraftBackorderRow(index),
                       ),
                     ),
@@ -1014,69 +1236,148 @@ class _BackOrderState extends State<BackOrder> {
   }
 
   Widget _productionBlock() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _threeColHeader(
-          'Notify Production',
-          'Production Notice',
-          'Production Response',
-        ),
-        Container(
-          color: Colors.white,
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _innerBodyCell(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        _notifyProductionOverride = !_isNotifyProductionTrue;
-                      });
-                      (widget.onProductionClosed ?? () {})();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _isNotifyProductionTrue
-                          ? _yellow
-                          : _kPrimaryBlue,
-                      foregroundColor: _isNotifyProductionTrue
-                          ? Colors.black
-                          : Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    child: Text(
-                      _isNotifyProductionTrue
-                          ? 'Production Issue is Open'
-                          : 'Production Issue is Closed',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ),
-                ),
-                _innerBodyCell(
-                  child: TextField(
-                    controller: _productionNoticeCtrl,
-                    maxLines: 4,
-                    decoration: _fieldDecoration(),
-                  ),
-                ),
-                _innerBodyCell(
-                  rightBorder: false,
-                  child: TextField(
-                    controller: _productionResponseCtrl,
-                    maxLines: 4,
-                    decoration: _fieldDecoration(),
-                  ),
-                ),
-              ],
+    const minProductionWidth = 760.0;
+    Widget productionBodyCell({
+      required Widget child,
+      required int flex,
+      bool rightBorder = true,
+    }) {
+      return Expanded(
+        flex: flex,
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            border: Border(
+              top: const BorderSide(color: Color(0xFF374151), width: 1),
+              right: rightBorder
+                  ? const BorderSide(color: Color(0xFF374151), width: 1)
+                  : BorderSide.none,
             ),
           ),
+          child: child,
         ),
-      ],
+      );
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: minProductionWidth,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              color: _kTableHeaderBg,
+              child: Row(
+                children: [
+                  _threeColHeaderCell('Notify Production', flex: 1),
+                  _threeColHeaderCell(
+                    'Production Notice',
+                    flex: 2,
+                    align: TextAlign.center,
+                  ),
+                  _threeColHeaderCell(
+                    'Production Response',
+                    flex: 2,
+                    align: TextAlign.center,
+                    rightBorder: false,
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              color: Colors.white,
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    productionBodyCell(
+                      flex: 1,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: SizedBox(
+                          width: 140,
+                          height: 44,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              setState(() {
+                                _notifyProductionOverride =
+                                    !_isNotifyProductionTrue;
+                              });
+                              (widget.onProductionClosed ?? () {})();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _isNotifyProductionTrue
+                                  ? _yellow
+                                  : _kPrimaryBlue,
+                              foregroundColor: _isNotifyProductionTrue
+                                  ? Colors.black
+                                  : Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 6,
+                              ),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: const VisualDensity(
+                                horizontal: -2,
+                                vertical: -2,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                            child: Text(
+                              _isNotifyProductionTrue
+                                  ? 'Production Issue is Open'
+                                  : 'Production Issue is Closed',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    productionBodyCell(
+                      flex: 2,
+                      child: TextField(
+                        controller: _productionNoticeCtrl,
+                        maxLines: 4,
+                        decoration: _fieldDecoration(),
+                      ),
+                    ),
+                    productionBodyCell(
+                      flex: 2,
+                      rightBorder: false,
+                      child: ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _productionResponseCtrl,
+                        builder: (context, value, _) {
+                          final text = value.text.trim();
+                          return Container(
+                            width: double.infinity,
+                            constraints: const BoxConstraints(minHeight: 88),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey[400]!),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              text.isEmpty ? '-' : text,
+                              style: const TextStyle(fontSize: 13, height: 1.3),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1115,6 +1416,15 @@ class _BackOrderState extends State<BackOrder> {
   }
 
   Widget _noticesColumn() {
+    Widget withSectionBorder(Widget child) => Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        color: Colors.white,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
@@ -1125,27 +1435,16 @@ class _BackOrderState extends State<BackOrder> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _sectionBorder(_purchasingBlock()),
+            withSectionBorder(_purchasingBlock()),
             const SizedBox(height: 10),
-            _sectionBorder(_backorderBlock()),
+            withSectionBorder(_backorderBlock()),
             const SizedBox(height: 10),
-            _sectionBorder(_productionBlock()),
+            withSectionBorder(_productionBlock()),
             const SizedBox(height: 10),
-            _sectionBorder(_inventoryCommentBlock()),
+            withSectionBorder(_inventoryCommentBlock()),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _sectionBorder(Widget child) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        color: Colors.white,
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: child,
     );
   }
 
@@ -1258,19 +1557,100 @@ class _BackOrderState extends State<BackOrder> {
     );
   }
 
+  String? _textOrNull(TextEditingController controller) {
+    final value = controller.text.trim();
+    return value.isEmpty ? null : value;
+  }
+
+  Map<String, dynamic> _buildPayload() {
+    final allBackorders = <Map<String, dynamic>>[];
+
+    for (final row in _backorders) {
+      final mapped = <String, dynamic>{
+        'TDGPN': (row['TDGPN'] ?? '').toString(),
+        'UOM': (row['UOM'] ?? '').toString(),
+        'Quantity': int.tryParse((row['Quantity'] ?? '0').toString()) ?? 0,
+        'Received': int.tryParse((row['Received'] ?? '0').toString()) ?? 0,
+        'RootCause': (row['RootCause'] ?? '').toString(),
+        'Response': (row['Response'] ?? '').toString(),
+        'ClosedDate': (row['ClosedDate'] ?? '').toString(),
+      };
+      final id = row['SOPBackorderEntryId'];
+      if (id != null && id.toString().trim().isNotEmpty) {
+        mapped['SOPBackorderEntryId'] = int.tryParse(id.toString()) ?? id;
+      }
+      allBackorders.add(mapped);
+    }
+
+    for (final row in _draftBackorders) {
+      final pn = row.selectedPn == 'Other'
+          ? row.customPnCtrl.text.trim()
+          : (row.selectedPn ?? '').trim();
+      final uom = row.selectedPn == 'Other'
+          ? (row.selectedUom ?? '').trim()
+          : 'PCS';
+
+      if (pn.isEmpty || uom.isEmpty) continue;
+
+      allBackorders.add({
+        'TDGPN': pn,
+        'UOM': uom,
+        'Quantity': int.tryParse(row.boCtrl.text.trim()) ?? 0,
+        'Received': int.tryParse(row.rcvdCtrl.text.trim()) ?? 0,
+        'RootCause': '',
+        'Response': '',
+        'ClosedDate': '',
+      });
+    }
+
+    return {
+      'SOPLeadHandEntryId': int.tryParse(widget.sopLeadHandEntryId ?? '') ?? 0,
+      'backorders': allBackorders,
+      'inventoryComments': _textOrNull(_inventoryCommentCtrl),
+      'productionNotice': _textOrNull(_productionNoticeCtrl),
+      'productionStatus': _isNotifyProductionTrue ? 1 : 0,
+      'purchasingNotice': _textOrNull(_purchasingNoticeCtrl),
+      'purchasingStatus': _isNotifyPurchasingTrue ? 1 : 0,
+    };
+  }
+
+  Future<void> _onUpdateEntry() async {
+    final payload = _buildPayload();
+    debugPrint('Update payload: $payload');
+    try {
+      await OpenItemsServices().CriticalUpdate(payload: payload);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Updated successfully')));
+      (widget.onUpdateEntry ?? () {})();
+    } on DioException catch (e) {
+      final serverMessage = e.response?.data;
+      debugPrint('CriticalUpdate failed: ${e.message}');
+      debugPrint('CriticalUpdate response: $serverMessage');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Update failed: ${serverMessage ?? e.message}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Update failed: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         const minTableWidth = 960.0;
-        if (constraints.maxWidth < minTableWidth) {
-          return _mobileLayout(context);
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [_actionBar(context), _tableHeaderRow(), _dataRow()],
-        );
+        return constraints.maxWidth < minTableWidth
+            ? _mobileLayout(context)
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [_actionBar(context), _tableHeaderRow(), _dataRow()],
+              );
       },
     );
   }
@@ -1282,11 +1662,16 @@ class _DraftBackorderRow {
       rcvdCtrl = TextEditingController(text: '0');
 
   String? selectedPn;
+  String? selectedUom;
   final TextEditingController boCtrl;
   final TextEditingController rcvdCtrl;
+  TextEditingController? _customPnCtrl;
+  TextEditingController get customPnCtrl =>
+      _customPnCtrl ??= TextEditingController();
 
   void dispose() {
     boCtrl.dispose();
     rcvdCtrl.dispose();
+    _customPnCtrl?.dispose();
   }
 }

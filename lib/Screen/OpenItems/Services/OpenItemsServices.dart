@@ -31,7 +31,23 @@ class OpenItemsServices {
       );
       return response;
     } catch (e) {
-      throw Exception("Error in Search Open Items by SOP Lead Hand Entry Id $e");
+      throw Exception(
+        "Error in Search Open Items by SOP Lead Hand Entry Id $e",
+      );
+    }
+  }
+
+  Future<Response<dynamic>> CriticalUpdate({
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      final response = await Dioservices.dio.patch(
+        '/partInventory/criticalUpdate',
+        data: payload,
+      );
+      return response;
+    } catch (e) {
+      throw Exception("Error in Critical Update $e");
     }
   }
 }
