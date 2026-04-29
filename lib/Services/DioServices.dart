@@ -14,9 +14,15 @@ class Dioservices {
     final prefs = await SharedPreferences.getInstance();
     String? token = prefs.getString("token");
 
-    if (token != null) {
-      dio.options.headers["authentication"] = token;
+    if (token != null && token.isNotEmpty) {
+      final cleanToken = token.trim();
+      dio.options.headers["authentication"] = cleanToken;
+      dio.options.headers["Authorization"] = "Bearer $cleanToken";
+    } else {
+      dio.options.headers.remove("authentication");
+      dio.options.headers.remove("Authorization");
     }
-    print("TOKEN: ${Dioservices.dio.options.headers["authentication"]}");
+    print("TOKEN(auth): ${Dioservices.dio.options.headers["authentication"]}");
+    print("TOKEN(authorization): ${Dioservices.dio.options.headers["Authorization"]}");
   }
 }

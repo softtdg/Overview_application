@@ -50,4 +50,9 @@ class OpenItemsServices {
       throw Exception("Error in Critical Update $e");
     }
   }
+
+  Future<Response<dynamic>> CriticalItems() async {
+    final response = await Dioservices.dio.get('/partInventory/criticalList');
+    return response;
+  }
 }

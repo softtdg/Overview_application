@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:overview_app/Screen/InventoryPickedLog/InventoryPickedLog.dart';
+import 'package:overview_app/Screen/OpenItems/CriticalItems.dart';
 import 'package:overview_app/Screen/OpenItems/SearchOpenItems.dart';
 import 'package:overview_app/Screen/PickedHistory/PickedHistory.dart';
 import 'package:overview_app/Screen/Public-Search/PublicSearch.dart';
@@ -153,9 +154,9 @@ class CommonDrawer extends StatelessWidget {
                     },
                   ),
                   Theme(
-                    data: Theme.of(context).copyWith(
-                      dividerColor: Colors.transparent,
-                    ),
+                    data: Theme.of(
+                      context,
+                    ).copyWith(dividerColor: Colors.transparent),
                     child: ExpansionTile(
                       title: const Text('Open Items'),
                       childrenPadding: const EdgeInsets.only(bottom: 6),
@@ -186,12 +187,11 @@ class CommonDrawer extends StatelessWidget {
                               style: TextStyle(color: Colors.white),
                             ),
                             onTap: () {
-                              Navigator.of(context).pop();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Critical Items screen not added yet.',
-                                  ),
+                              final nav = Navigator.of(context);
+                              nav.pop();
+                              nav.push(
+                                MaterialPageRoute(
+                                  builder: (_) => CriticalItems(),
                                 ),
                               );
                             },
