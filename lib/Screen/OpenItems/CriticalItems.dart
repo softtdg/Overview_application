@@ -22,6 +22,7 @@ class CriticalItems extends StatefulWidget {
 }
 
 class _CriticalItemsState extends State<CriticalItems> {
+  static const double _noticeColumnWidth = 150;
   final String username = 'John Doe';
   final TextEditingController _searchController = TextEditingController();
   List<Map<String, dynamic>> _rows = [];
@@ -195,6 +196,129 @@ class _CriticalItemsState extends State<CriticalItems> {
     });
   }
 
+  List<String> _noticeValues(
+    List<Map<String, dynamic>> notices,
+    String key, {
+    bool hideDash = false,
+  }) {
+    if (notices.isEmpty) return const [];
+    final values = notices.map((entry) {
+      final value = _valueText(entry[key]);
+      if (hideDash && value == '-') {
+        return ' ';
+      }
+      return value.trim().isEmpty ? ' ' : value;
+    }).toList();
+    return values;
+  }
+
+  List<double> _noticeRowHeights({
+    required List<String> noticeValues,
+    required double noticeWidth,
+    required TextScaler textScaler,
+  }) {
+    const textStyle = TextStyle(fontSize: 13, fontWeight: FontWeight.w500);
+    const minHeight = 52.0;
+    const horizontalPadding = 8.0;
+    const verticalPadding = 14.0;
+    final maxTextWidth = (noticeWidth - horizontalPadding).clamp(0.0, double.infinity);
+
+    return noticeValues.map((value) {
+      final painter = TextPainter(
+        text: TextSpan(text: value, style: textStyle),
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.ltr,
+        textScaler: textScaler,
+      )..layout(maxWidth: maxTextWidth);
+
+      return (painter.height + verticalPadding) < minHeight
+          ? minHeight
+          : painter.height + verticalPadding;
+    }).toList();
+  }
+
+  Widget _stackedNoticeCell({
+    required double width,
+    required List<String> values,
+    required Color backgroundColor,
+    List<double>? rowHeights,
+    TextAlign textAlign = TextAlign.center,
+  }) {
+    return SizedBox(
+      width: width,
+      child: Stack(
+        clipBehavior: Clip.none,
+        fit: StackFit.expand,
+        children: [
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: ColoredBox(color: backgroundColor),
+          ),
+          SizedBox.expand(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: values.asMap().entries.map((entry) {
+                final index = entry.key;
+                final value = entry.value;
+                final isLast = index == values.length - 1;
+                final rowHeight = rowHeights != null && index < rowHeights.length
+                    ? rowHeights[index]
+                    : null;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      height: rowHeight,
+                      constraints: rowHeight == null
+                          ? const BoxConstraints(minHeight: 52)
+                          : null,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 4,
+                      ),
+                      child: Text(
+                        value,
+                        textAlign: textAlign,
+                        softWrap: true,
+                        maxLines: null,
+                        overflow: TextOverflow.visible,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    if (!isLast)
+                      const Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: SizedBox(
+                          height: 0.6,
+                          child: ColoredBox(color: Colors.white),
+                        ),
+                      ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _noticeBlockBackground(List<Map<String, dynamic>> notices) {
+    if (notices.isEmpty) return Colors.transparent;
+    final bg = notices.first['bgColor'];
+    return bg is Color ? bg : Colors.transparent;
+  }
+
   Color _responseCellBackground(
     Map<String, dynamic> row,
     Map<String, dynamic> notice,
@@ -304,6 +428,13 @@ class _CriticalItemsState extends State<CriticalItems> {
           fontSize: 12,
         ),
       ),
+    );
+  }
+
+  DataColumn _column(String text) {
+    return DataColumn(
+      headingRowAlignment: MainAxisAlignment.center,
+      label: _heading(text),
     );
   }
 
@@ -548,6 +679,26 @@ class _CriticalItemsState extends State<CriticalItems> {
 
   @override
   Widget build(BuildContext context) {
+    final groupedRows = _groupRowsForDisplay(_pagedRows);
+    final tableDataRowHeight = groupedRows.isEmpty
+        ? 48.0
+        : groupedRows.map((group) {
+            final notices = group['notices'] as List<Map<String, dynamic>>;
+            final noticeValues = _noticeValues(
+              notices,
+              'notice',
+              hideDash: true,
+            );
+            if (noticeValues.isEmpty) return 52.0;
+            final noticeRowHeights = _noticeRowHeights(
+              noticeValues: noticeValues,
+              noticeWidth: _noticeColumnWidth,
+              textScaler: MediaQuery.textScalerOf(context),
+            );
+            final totalHeight = noticeRowHeights.fold<double>(0, (a, b) => a + b);
+            return max(52.0, totalHeight + 8);
+          }).fold<double>(52.0, max);
+
     return Scaffold(
       appBar: CommonAppBar(),
       drawer: CommonDrawer(
@@ -630,14 +781,8 @@ class _CriticalItemsState extends State<CriticalItems> {
                               border: Border.all(
                                 color: const Color(0xFF9AA8B8),
                               ),
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(10),
-                              ),
                             ),
                             child: ClipRRect(
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(10),
-                              ),
                               child: SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
                                 child: SingleChildScrollView(
@@ -649,10 +794,10 @@ class _CriticalItemsState extends State<CriticalItems> {
                                       const Color(0xFFF0F1F3),
                                     ),
                                     headingRowHeight: 52,
-                                    dataRowMinHeight: 72,
-                                    dataRowMaxHeight: 120,
-                                    columnSpacing: 14,
-                                    horizontalMargin: 12,
+                                    dataRowMinHeight: tableDataRowHeight,
+                                    dataRowMaxHeight: tableDataRowHeight,
+                                    columnSpacing: 0,
+                                    horizontalMargin: 0,
                                     dividerThickness: 1,
                                     border: TableBorder(
                                       top: BorderSide(
@@ -681,40 +826,30 @@ class _CriticalItemsState extends State<CriticalItems> {
                                       ),
                                     ),
                                     columns: [
-                                      DataColumn(label: _heading('SOP')),
-                                      DataColumn(label: _heading('ODD')),
-                                      DataColumn(label: _heading('Lead\nHand')),
-                                      DataColumn(label: _heading('Assembler')),
-                                      DataColumn(label: _heading('Fixture')),
-                                      DataColumn(label: _heading('Desc')),
-                                      DataColumn(label: _heading('Qty')),
-                                      DataColumn(
-                                        label: _heading(
-                                          'Time To\nBuild/Per\nUnit',
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: _heading(
-                                          'Total\nTime To\nBuild',
-                                        ),
-                                      ),
-                                      DataColumn(label: _heading('Amount')),
-                                      DataColumn(
-                                        label: _heading('Inventory\nComment'),
-                                      ),
-                                      DataColumn(label: _heading('Picked')),
-                                      DataColumn(label: _heading('Date Sent')),
-                                      DataColumn(label: _heading('Dept')),
-                                      DataColumn(label: _heading('Notice')),
-                                      DataColumn(label: _heading('Response')),
-                                      DataColumn(label: _heading('Action')),
+                                      _column('SOP'),
+                                      _column('ODD'),
+                                      _column('Lead\nHand'),
+                                      _column('Assembler'),
+                                      _column('Fixture'),
+                                      _column('Desc'),
+                                      _column('Qty'),
+                                      _column('Time To\nBuild/Per\nUnit'),
+                                      _column('Total\nTime To\nBuild'),
+                                      _column('Amount'),
+                                      _column('Inventory\nComment'),
+                                      _column('Picked'),
+                                      _column('Date Sent'),
+                                      _column('Dept'),
+                                      _column('Notice'),
+                                      _column('Response'),
+                                      _column('Action'),
                                     ],
-                                    rows: _groupRowsForDisplay(_pagedRows).expand((
+                                    rows: groupedRows.map((
                                       group,
                                     ) {
                                       final row =
                                           group['row'] as Map<String, dynamic>;
-                                      final displayNotices =
+                                      final notices =
                                           group['notices']
                                               as List<Map<String, dynamic>>;
                                       final qtyText = _pick(row, [
@@ -731,453 +866,324 @@ class _CriticalItemsState extends State<CriticalItems> {
                                           double.tryParse(hoursText) ?? 0;
                                       final isDisabled =
                                           row['Disabled'] == true;
+                                      final noticeBg = _noticeBlockBackground(
+                                        notices,
+                                      );
+                                      final responseBg = notices.isEmpty
+                                          ? Colors.transparent
+                                          : _responseCellBackground(
+                                              row,
+                                              notices.first,
+                                            );
+                                      final dateValues = _noticeValues(
+                                        notices,
+                                        'date',
+                                        hideDash: true,
+                                      );
+                                      final deptValues = _noticeValues(
+                                        notices,
+                                        'dept',
+                                        hideDash: true,
+                                      );
+                                      final noticeValues = _noticeValues(
+                                        notices,
+                                        'notice',
+                                        hideDash: true,
+                                      );
+                                      final responseValues = _noticeValues(
+                                        notices,
+                                        'response',
+                                        hideDash: true,
+                                      );
+                                      final noticeRowHeights =
+                                          _noticeRowHeights(
+                                            noticeValues: noticeValues,
+                                            noticeWidth: _noticeColumnWidth,
+                                            textScaler:
+                                                MediaQuery.textScalerOf(
+                                                  context,
+                                                ),
+                                          );
 
-                                      return List<
-                                        DataRow
-                                      >.generate(displayNotices.length, (
-                                        noticeIndex,
-                                      ) {
-                                        final notice =
-                                            displayNotices[noticeIndex];
-                                        final isFirstNotice = noticeIndex == 0;
-                                        final noticeBg =
-                                            notice['bgColor'] is Color
-                                            ? notice['bgColor'] as Color
-                                            : Colors.transparent;
-
-                                        return DataRow(
-                                          color: WidgetStateProperty.all(
-                                            isDisabled
-                                                ? const Color(0xFFB5B5B5)
-                                                : const Color(0xFFF0F1F3),
+                                      return DataRow(
+                                        color: WidgetStateProperty.all(
+                                          isDisabled
+                                              ? const Color(0xFFB5B5B5)
+                                              : const Color(0xFFF0F1F3),
+                                        ),
+                                        cells: [
+                                          DataCell(
+                                            _tableTextCell(
+                                              _pickSopNum(row),
+                                              width: 56,
+                                            ),
                                           ),
-                                          cells: [
-                                            DataCell(
-                                              _tableTextCell(
-                                                isFirstNotice
-                                                    ? _pickSopNum(row)
-                                                    : '',
-                                                width: 56,
+                                          DataCell(
+                                            _tableTextCell(
+                                              _formatDate(
+                                                _pickPath(row, ['SOP', 'ODD']),
+                                              ),
+                                              width: 90,
+                                            ),
+                                          ),
+                                          DataCell(
+                                            _tableTextCell(
+                                              _pickPath(row, [
+                                                'SOP',
+                                                'ProductionLogEntry',
+                                                'LeadHand',
+                                                'LeadHandName',
+                                              ]),
+                                              width: 82,
+                                            ),
+                                          ),
+                                          DataCell(
+                                            _tableTextCell(
+                                              _pickPath(row, [
+                                                'Assembler',
+                                                'Name',
+                                              ]),
+                                              width: 90,
+                                            ),
+                                          ),
+                                          DataCell(
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                  ),
+                                              child: Container(
+                                                width: 76,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 8,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  border: Border.all(
+                                                    color: const Color(
+                                                      0xFF39495F,
+                                                    ),
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                child: Text(
+                                                  _pick(row, ['FixtureNumber']),
+                                                  textAlign: TextAlign.center,
+                                                  softWrap: true,
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: Color.fromARGB(
+                                                      255,
+                                                      90,
+                                                      106,
+                                                      131,
+                                                    ),
+                                                  ),
+                                                ),
                                               ),
                                             ),
-                                            DataCell(
-                                              _tableTextCell(
-                                                isFirstNotice
-                                                    ? _formatDate(
-                                                        _pickPath(row, [
-                                                          'SOP',
-                                                          'ODD',
-                                                        ]),
-                                                      )
-                                                    : '',
-                                                width: 90,
-                                              ),
+                                          ),
+                                          DataCell(
+                                            _tableTextCell(
+                                              _pick(row, [
+                                                'FixtureDescription',
+                                                'Description',
+                                                'Desc',
+                                                'description',
+                                              ]),
+                                              width: 150,
+                                              maxLines: 4,
                                             ),
-                                            DataCell(
-                                              _tableTextCell(
-                                                isFirstNotice
-                                                    ? _pickPath(row, [
-                                                        'SOP',
-                                                        'ProductionLogEntry',
-                                                        'LeadHand',
-                                                        'LeadHandName',
-                                                      ])
-                                                    : '',
-                                                width: 82,
-                                              ),
+                                          ),
+                                          DataCell(
+                                            _tableTextCell(
+                                              _pick(row, [
+                                                'Qty',
+                                                'qty',
+                                                'Quantity',
+                                              ]),
+                                              width: 40,
+                                              align: TextAlign.center,
                                             ),
-                                            DataCell(
-                                              _tableTextCell(
-                                                isFirstNotice
-                                                    ? _pickPath(row, [
-                                                        'Assembler',
-                                                        'Name',
-                                                      ])
-                                                    : '',
-                                                width: 90,
-                                              ),
+                                          ),
+                                          DataCell(
+                                            _tableTextCell(
+                                              hoursText,
+                                              width: 88,
+                                              align: TextAlign.center,
                                             ),
-                                            DataCell(
-                                              isFirstNotice
-                                                  ? Container(
-                                                      width: 76,
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 10,
-                                                            vertical: 8,
+                                          ),
+                                          DataCell(
+                                            _tableTextCell(
+                                              (qty * hours).toStringAsFixed(2),
+                                              width: 92,
+                                              align: TextAlign.center,
+                                            ),
+                                          ),
+                                          DataCell(
+                                            _tableTextCell(
+                                              _pick(row, ['Amount']),
+                                              width: 70,
+                                            ),
+                                          ),
+                                          DataCell(
+                                            _tableTextCell(
+                                              _pick(row, [
+                                                'InventoryCommentsForProduction',
+                                              ]),
+                                              width: 130,
+                                            ),
+                                          ),
+                                          DataCell(
+                                            SizedBox(
+                                              width: 58,
+                                              child: Stack(
+                                                clipBehavior: Clip.hardEdge,
+                                                fit: StackFit.expand,
+                                                children: [
+                                                  Positioned(
+                                                    left: 0,
+                                                    right: 0,
+                                                    top: 0,
+                                                    bottom: 0,
+                                                    child: ColoredBox(
+                                                      color:
+                                                          _pickedCellBackground(
+                                                            row,
                                                           ),
-                                                      decoration: BoxDecoration(
-                                                        border: Border.all(
-                                                          color: const Color(
-                                                            0xFF39495F,
-                                                          ),
-                                                        ),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              8,
-                                                            ),
-                                                      ),
-                                                      child: Text(
-                                                        _pick(row, [
-                                                          'FixtureNumber',
-                                                        ]),
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        softWrap: true,
-                                                        style: const TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                          color: Color.fromARGB(
-                                                            255,
-                                                            90,
-                                                            106,
-                                                            131,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    )
-                                                  : _tableTextCell(
-                                                      '',
-                                                      width: 76,
                                                     ),
-                                            ),
-                                            DataCell(
-                                              _tableTextCell(
-                                                isFirstNotice
-                                                    ? _pick(row, [
-                                                        'FixtureDescription',
-                                                        'Description',
-                                                        'Desc',
-                                                        'description',
-                                                      ])
-                                                    : '',
-                                                width: 150,
-                                                maxLines: 4,
-                                              ),
-                                            ),
-                                            DataCell(
-                                              _tableTextCell(
-                                                isFirstNotice
-                                                    ? _pick(row, [
-                                                        'Qty',
-                                                        'qty',
-                                                        'Quantity',
-                                                      ])
-                                                    : '',
-                                                width: 40,
-                                                align: TextAlign.center,
-                                              ),
-                                            ),
-                                            DataCell(
-                                              _tableTextCell(
-                                                isFirstNotice ? hoursText : '',
-                                                width: 88,
-                                                align: TextAlign.center,
-                                              ),
-                                            ),
-                                            DataCell(
-                                              _tableTextCell(
-                                                isFirstNotice
-                                                    ? (qty * hours)
-                                                          .toStringAsFixed(2)
-                                                    : '',
-                                                width: 92,
-                                                align: TextAlign.center,
-                                              ),
-                                            ),
-                                            DataCell(
-                                              _tableTextCell(
-                                                isFirstNotice
-                                                    ? _pick(row, ['Amount'])
-                                                    : '',
-                                                width: 70,
-                                              ),
-                                            ),
-                                            DataCell(
-                                              _tableTextCell(
-                                                isFirstNotice
-                                                    ? _pick(row, [
-                                                        'InventoryCommentsForProduction',
-                                                      ])
-                                                    : '',
-                                                width: 130,
-                                              ),
-                                            ),
-                                            DataCell(
-                                              SizedBox(
-                                                width: 58,
-                                                child: Stack(
-                                                  clipBehavior: Clip.none,
-                                                  fit: StackFit.expand,
-                                                  children: [
-                                                    Positioned(
-                                                      left: -7,
-                                                      right: -7,
-                                                      top: 0,
-                                                      bottom: 0,
-                                                      child: ColoredBox(
-                                                        color:
-                                                            _pickedCellBackground(
-                                                              row,
-                                                            ),
+                                                  ),
+                                                  Center(
+                                                    child: Text(
+                                                      row['Picked'] == true
+                                                          ? 'Yes'
+                                                          : 'No',
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      style: const TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight:
+                                                            FontWeight.w600,
                                                       ),
                                                     ),
-                                                    Center(
-                                                      child: Text(
-                                                        isFirstNotice
-                                                            ? (row['Picked'] ==
-                                                                      true
-                                                                  ? 'Yes'
-                                                                  : 'No')
-                                                            : '',
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        style: const TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w600,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            _stackedNoticeCell(
+                                              width: 90,
+                                              values: dateValues,
+                                              backgroundColor: noticeBg,
+                                              rowHeights: noticeRowHeights,
+                                            ),
+                                          ),
+                                          DataCell(
+                                            _stackedNoticeCell(
+                                              width: 88,
+                                              values: deptValues,
+                                              backgroundColor: noticeBg,
+                                              rowHeights: noticeRowHeights,
+                                            ),
+                                          ),
+                                          DataCell(
+                                            _stackedNoticeCell(
+                                              width: _noticeColumnWidth,
+                                              values: noticeValues,
+                                              backgroundColor: noticeBg,
+                                              rowHeights: noticeRowHeights,
+                                            ),
+                                          ),
+                                          DataCell(
+                                            _stackedNoticeCell(
+                                              width: 180,
+                                              values: responseValues,
+                                              backgroundColor: responseBg,
+                                              rowHeights: noticeRowHeights,
+                                            ),
+                                          ),
+                                          DataCell(
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                  ),
+                                              child: OutlinedButton.icon(
+                                                onPressed: () {
+                                                  final sopLeadHandEntryId =
+                                                      _pick(row, [
+                                                        'SOPLeadHandEntryId',
+                                                      ]);
+                                                  if (sopLeadHandEntryId
+                                                      .isEmpty) {
+                                                    ScaffoldMessenger.of(
+                                                      context,
+                                                    ).showSnackBar(
+                                                      const SnackBar(
+                                                        content: Text(
+                                                          'SOP Lead Hand Entry Id not found for this row.',
                                                         ),
                                                       ),
+                                                    );
+                                                    return;
+                                                  }
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) => Query(
+                                                        sopLeadHandEntryId:
+                                                            sopLeadHandEntryId,
+                                                        showRemovedFromSop:
+                                                            isDisabled,
+                                                      ),
                                                     ),
-                                                  ],
+                                                  );
+                                                },
+                                                style: OutlinedButton.styleFrom(
+                                                  minimumSize: const Size(
+                                                    86,
+                                                    45,
+                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 6,
+                                                      ),
+                                                  side: const BorderSide(
+                                                    color: Colors.black,
+                                                    width: 1,
+                                                  ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(4),
+                                                  ),
+                                                  foregroundColor: Colors.black,
+                                                  tapTargetSize:
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                  visualDensity:
+                                                      VisualDensity.compact,
+                                                ),
+                                                icon: const Icon(
+                                                  Icons.edit,
+                                                  size: 13,
+                                                ),
+                                                label: const Text(
+                                                  'Edit',
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
                                                 ),
                                               ),
                                             ),
-                                            DataCell(
-                                              SizedBox(
-                                                width: 90,
-                                                child: Stack(
-                                                  clipBehavior: Clip.none,
-                                                  fit: StackFit.expand,
-                                                  children: [
-                                                    Positioned(
-                                                      left: -7,
-                                                      right: -7,
-                                                      top: 0,
-                                                      bottom: 0,
-                                                      child: ColoredBox(
-                                                        color: noticeBg,
-                                                      ),
-                                                    ),
-                                                    Center(
-                                                      child: Text(
-                                                        _valueText(
-                                                          notice['date'],
-                                                        ),
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        style: const TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            DataCell(
-                                              SizedBox(
-                                                width: 88,
-                                                child: Stack(
-                                                  clipBehavior: Clip.none,
-                                                  fit: StackFit.expand,
-                                                  children: [
-                                                    Positioned(
-                                                      left: -7,
-                                                      right: -7,
-                                                      top: 0,
-                                                      bottom: 0,
-                                                      child: ColoredBox(
-                                                        color: noticeBg,
-                                                      ),
-                                                    ),
-                                                    Center(
-                                                      child: Text(
-                                                        _valueText(
-                                                          notice['dept'],
-                                                        ),
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        maxLines: 4,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: const TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            DataCell(
-                                              SizedBox(
-                                                width: 90,
-                                                child: Stack(
-                                                  clipBehavior: Clip.none,
-                                                  fit: StackFit.expand,
-                                                  children: [
-                                                    Positioned(
-                                                      left: -7,
-                                                      right: -7,
-                                                      top: 0,
-                                                      bottom: 0,
-                                                      child: ColoredBox(
-                                                        color: noticeBg,
-                                                      ),
-                                                    ),
-                                                    Center(
-                                                      child: Text(
-                                                        _valueText(
-                                                          notice['notice'],
-                                                        ),
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        maxLines: 6,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: const TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            DataCell(
-                                              SizedBox(
-                                                width: 180,
-                                                child: Stack(
-                                                  clipBehavior: Clip.none,
-                                                  fit: StackFit.expand,
-                                                  children: [
-                                                    Positioned(
-                                                      left: -7,
-                                                      right: -7,
-                                                      top: 0,
-                                                      bottom: 0,
-                                                      child: ColoredBox(
-                                                        color:
-                                                            _responseCellBackground(
-                                                              row,
-                                                              notice,
-                                                            ),
-                                                      ),
-                                                    ),
-                                                    Center(
-                                                      child: Text(
-                                                        _valueText(
-                                                                  notice['response'],
-                                                                ) ==
-                                                                ''
-                                                            ? ''
-                                                            : _valueText(
-                                                                notice['response'],
-                                                              ),
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        maxLines: 6,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: const TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            DataCell(
-                                              isFirstNotice
-                                                  ? OutlinedButton.icon(
-                                                      onPressed: () {
-                                                        final sopLeadHandEntryId =
-                                                            _pick(row, [
-                                                              'SOPLeadHandEntryId',
-                                                            ]);
-                                                        if (sopLeadHandEntryId
-                                                            .isEmpty) {
-                                                          ScaffoldMessenger.of(
-                                                            context,
-                                                          ).showSnackBar(
-                                                            const SnackBar(
-                                                              content: Text(
-                                                                'SOP Lead Hand Entry Id not found for this row.',
-                                                              ),
-                                                            ),
-                                                          );
-                                                          return;
-                                                        }
-                                                        Navigator.push(
-                                                          context,
-                                                          MaterialPageRoute(
-                                                            builder: (_) => Query(
-                                                              sopLeadHandEntryId:
-                                                                  sopLeadHandEntryId,
-                                                              showRemovedFromSop:
-                                                                  isDisabled,
-                                                            ),
-                                                          ),
-                                                        );
-                                                      },
-                                                      style: OutlinedButton.styleFrom(
-                                                        minimumSize: const Size(
-                                                          86,
-                                                          45,
-                                                        ),
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              horizontal: 10,
-                                                              vertical: 6,
-                                                            ),
-                                                        side: const BorderSide(
-                                                          color: Colors.black,
-                                                          width: 1,
-                                                        ),
-                                                        shape: RoundedRectangleBorder(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                4,
-                                                              ),
-                                                        ),
-                                                        foregroundColor:
-                                                            Colors.black,
-                                                        tapTargetSize:
-                                                            MaterialTapTargetSize
-                                                                .shrinkWrap,
-                                                        visualDensity:
-                                                            VisualDensity
-                                                                .compact,
-                                                      ),
-                                                      icon: const Icon(
-                                                        Icons.edit,
-                                                        size: 13,
-                                                      ),
-                                                      label: const Text(
-                                                        'Edit',
-                                                        style: TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                    )
-                                                  : const SizedBox.shrink(),
-                                            ),
-                                          ],
-                                        );
-                                      });
+                                          ),
+                                        ],
+                                      );
                                     }).toList(),
                                   ),
                                 ),
@@ -1186,9 +1192,6 @@ class _CriticalItemsState extends State<CriticalItems> {
                           ),
                         ),
                         ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                            bottom: Radius.circular(10),
-                          ),
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               border: Border(
@@ -1201,9 +1204,6 @@ class _CriticalItemsState extends State<CriticalItems> {
                                 bottom: BorderSide(
                                   color: const Color(0xFF9AA8B8),
                                 ),
-                              ),
-                              borderRadius: const BorderRadius.vertical(
-                                bottom: Radius.circular(10),
                               ),
                             ),
                             child: _paginationBar(),
