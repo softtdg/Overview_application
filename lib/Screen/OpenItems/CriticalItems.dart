@@ -8,6 +8,15 @@ import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class CriticalItems extends StatefulWidget {
+  const CriticalItems({
+    super.key,
+    this.useCriticalApi = true,
+    this.pageTitle = 'Critical Items',
+  });
+
+  final bool useCriticalApi;
+  final String pageTitle;
+
   @override
   _CriticalItemsState createState() => _CriticalItemsState();
 }
@@ -67,7 +76,7 @@ class _CriticalItemsState extends State<CriticalItems> {
   }
 
   String _valueText(dynamic value) {
-    if (value == null) return '*';
+    if (value == null) return '';
     if (value is List) {
       final parts = value
           .where((item) => _hasTextValue(item))
@@ -330,7 +339,9 @@ class _CriticalItemsState extends State<CriticalItems> {
     });
     try {
       await Dioservices.setToken();
-      final response = await OpenItemsServices().CriticalItems();
+      final response = widget.useCriticalApi
+          ? await OpenItemsServices().CriticalItems()
+          : await OpenItemsServices().OpenItems();
       // print('Critical Items API response: ${response.data}');
       if (response.statusCode == 200) {
         final payload = response.data;
@@ -549,9 +560,9 @@ class _CriticalItemsState extends State<CriticalItems> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Critical Items',
-              style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
+            Text(
+              widget.pageTitle,
+              style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 12),
             TextField(

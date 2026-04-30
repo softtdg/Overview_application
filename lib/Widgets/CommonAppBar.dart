@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:overview_app/Screen/InventoryPickedLog/InventoryPickedLog.dart';
 import 'package:overview_app/Screen/OpenItems/CriticalItems.dart';
+import 'package:overview_app/Screen/OpenItems/OpenItems.dart';
 import 'package:overview_app/Screen/OpenItems/SearchOpenItems.dart';
 import 'package:overview_app/Screen/PickedHistory/PickedHistory.dart';
 import 'package:overview_app/Screen/Public-Search/PublicSearch.dart';
@@ -209,7 +210,7 @@ class CommonDrawer extends StatelessWidget {
                               nav.pop();
                               nav.push(
                                 MaterialPageRoute(
-                                  builder: (_) => SearchOpenItems(),
+                                  builder: (_) => OpenItems(),
                                 ),
                               );
                             },

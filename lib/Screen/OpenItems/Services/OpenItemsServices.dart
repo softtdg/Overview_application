@@ -55,4 +55,11 @@ class OpenItemsServices {
     final response = await Dioservices.dio.get('/partInventory/criticalList');
     return response;
   }
+
+  Future<Response<dynamic>> OpenItems() async {
+    final response = await Dioservices.dio.get(
+      '/partInventory/criticalOpenItemsList',
+    );
+    return response;
+  }
 }
