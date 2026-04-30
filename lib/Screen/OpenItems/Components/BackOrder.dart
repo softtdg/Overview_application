@@ -23,14 +23,13 @@ const Color _yellow = Color(0xFFFFC107);
 class BackOrder extends StatefulWidget {
   const BackOrder({
     super.key,
-    this.sop = '70101',
+    this.sop = '',
     this.leadHand = '',
     this.assembler = '',
-    this.odd = '14/08/2025',
-    this.fixtureId = '190-100-2648RPR',
-    this.description =
-        'Multi-line fixture / item description appears here as returned by the API.',
-    this.qty = '8',
+    this.odd = '',
+    this.fixtureId = '',
+    this.description = '',
+    this.qty = '',
     this.purchasingNotice = '',
     this.onUpdateEntry,
     this.onNewSearch,
@@ -39,6 +38,7 @@ class BackOrder extends StatefulWidget {
     this.onProductionClosed,
     this.onAddBackorder,
     this.sopLeadHandEntryId,
+    this.showNewSearchButton = true,
   });
 
   final String sop;
@@ -50,6 +50,7 @@ class BackOrder extends StatefulWidget {
   final String qty;
   final String purchasingNotice;
   final String? sopLeadHandEntryId;
+  final bool showNewSearchButton;
 
   final VoidCallback? onUpdateEntry;
   final VoidCallback? onNewSearch;
@@ -472,27 +473,32 @@ class _BackOrderState extends State<BackOrder> {
               ),
             ),
           ),
-          const SizedBox(width: 10),
-          OutlinedButton.icon(
-            onPressed: widget.onNewSearch ?? () {},
-            icon: const Icon(Icons.search, size: 18, color: _kPrimaryBlue),
-            label: const Text(
-              'New Search',
-              style: TextStyle(
-                color: _kPrimaryBlue,
-                fontWeight: FontWeight.w500,
+          if (widget.showNewSearchButton) ...[
+            const SizedBox(width: 10),
+            OutlinedButton.icon(
+              onPressed: widget.onNewSearch ?? () {},
+              icon: const Icon(Icons.search, size: 18, color: _kPrimaryBlue),
+              label: const Text(
+                'New Search',
+                style: TextStyle(
+                  color: _kPrimaryBlue,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: const Color(0xFFEFF4FA),
+                foregroundColor: _kPrimaryBlue,
+                side: const BorderSide(color: Color(0xFF7BAFEA), width: 1),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
-            style: OutlinedButton.styleFrom(
-              backgroundColor: const Color(0xFFEFF4FA),
-              foregroundColor: _kPrimaryBlue,
-              side: const BorderSide(color: Color(0xFF7BAFEA), width: 1),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
+          ],
         ],
       ),
     );

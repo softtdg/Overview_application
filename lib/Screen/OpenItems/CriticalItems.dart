@@ -1,8 +1,8 @@
 import 'dart:math' show max, min;
-
 import 'package:flutter/material.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Screen/Login/login.dart';
+import 'package:overview_app/Screen/OpenItems/Components/Query.dart';
 import 'package:overview_app/Screen/OpenItems/Services/OpenItemsServices.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -67,7 +67,7 @@ class _CriticalItemsState extends State<CriticalItems> {
   }
 
   String _valueText(dynamic value) {
-    if (value == null) return '-';
+    if (value == null) return '*';
     if (value is List) {
       final parts = value
           .where((item) => _hasTextValue(item))
@@ -275,9 +275,9 @@ class _CriticalItemsState extends State<CriticalItems> {
 
   String _formatDate(String value) {
     final raw = value.trim();
-    if (raw.isEmpty || raw == '-') return '-';
+    if (raw.isEmpty || raw == '-') return '*';
     final parsed = DateTime.tryParse(raw);
-    if (parsed == null || parsed.year <= 1) return '-';
+    if (parsed == null || parsed.year <= 1) return '*';
     final dd = parsed.day.toString().padLeft(2, '0');
     final mm = parsed.month.toString().padLeft(2, '0');
     final yyyy = parsed.year.toString();
@@ -1090,7 +1090,36 @@ class _CriticalItemsState extends State<CriticalItems> {
                                             DataCell(
                                               isFirstNotice
                                                   ? OutlinedButton.icon(
-                                                      onPressed: () {},
+                                                      onPressed: () {
+                                                        final sopLeadHandEntryId =
+                                                            _pick(row, [
+                                                              'SOPLeadHandEntryId',
+                                                            ]);
+                                                        if (sopLeadHandEntryId
+                                                            .isEmpty) {
+                                                          ScaffoldMessenger.of(
+                                                            context,
+                                                          ).showSnackBar(
+                                                            const SnackBar(
+                                                              content: Text(
+                                                                'SOP Lead Hand Entry Id not found for this row.',
+                                                              ),
+                                                            ),
+                                                          );
+                                                          return;
+                                                        }
+                                                        Navigator.push(
+                                                          context,
+                                                          MaterialPageRoute(
+                                                            builder: (_) => Query(
+                                                              sopLeadHandEntryId:
+                                                                  sopLeadHandEntryId,
+                                                              showRemovedFromSop:
+                                                                  isDisabled,
+                                                            ),
+                                                          ),
+                                                        );
+                                                      },
                                                       style: OutlinedButton.styleFrom(
                                                         minimumSize: const Size(
                                                           86,
@@ -1117,7 +1146,8 @@ class _CriticalItemsState extends State<CriticalItems> {
                                                             MaterialTapTargetSize
                                                                 .shrinkWrap,
                                                         visualDensity:
-                                                            VisualDensity.compact,
+                                                            VisualDensity
+                                                                .compact,
                                                       ),
                                                       icon: const Icon(
                                                         Icons.edit,
