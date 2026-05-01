@@ -97,7 +97,7 @@ class _SOPSearchState extends State<SOPSearch> {
       }
       DateTime parsedDate = DateTime.parse(dateStr);
 
-      return DateFormat('MM/dd/yyyy').format(parsedDate);
+      return DateFormat('dd/MM/yyyy').format(parsedDate);
     } catch (e) {
       print("Date parse error: $e");
       return "";

@@ -1,4 +1,5 @@
 import 'dart:math' show max, min;
+import 'package:data_table_2/data_table_2.dart';
 import 'package:flutter/material.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Screen/Login/login.dart';
@@ -89,6 +90,11 @@ class _CriticalItemsState extends State<CriticalItems> {
     return text.isEmpty ? '-' : text;
   }
 
+  bool _responseIsEmpty(dynamic responseField) {
+    final t = _valueText(responseField).trim();
+    return t.isEmpty || t == '-';
+  }
+
   List<Map<String, dynamic>> _buildNotices(Map<String, dynamic> row) {
     final notices = <Map<String, dynamic>>[];
     final notProduced = !_isProduced(row);
@@ -98,7 +104,13 @@ class _CriticalItemsState extends State<CriticalItems> {
         'date': _formatDate(_valueText(row['NotifiedPurchasingDate'])),
         'dept': 'Purchasing',
         'notice': _valueText(row['LeadHandCommentsForPurchasing']),
-        'response': '',
+        'response': _valueText(
+          _pick(row, [
+            'PurchasingComments',
+            'PurchasingResponse',
+            'LeadHandPurchasingResponse',
+          ]),
+        ),
         'type': 'purchasing',
         'bgColor': row['NotifyPurchasing'] == true && notProduced
             ? const Color(0xFF99CCFF)
@@ -221,7 +233,10 @@ class _CriticalItemsState extends State<CriticalItems> {
     const minHeight = 52.0;
     const horizontalPadding = 8.0;
     const verticalPadding = 14.0;
-    final maxTextWidth = (noticeWidth - horizontalPadding).clamp(0.0, double.infinity);
+    final maxTextWidth = (noticeWidth - horizontalPadding).clamp(
+      0.0,
+      double.infinity,
+    );
 
     return noticeValues.map((value) {
       final painter = TextPainter(
@@ -241,39 +256,59 @@ class _CriticalItemsState extends State<CriticalItems> {
     required double width,
     required List<String> values,
     required Color backgroundColor,
+    List<Color>? rowBackgrounds,
     List<double>? rowHeights,
     TextAlign textAlign = TextAlign.center,
   }) {
-    return SizedBox(
-      width: width,
-      child: Stack(
-        clipBehavior: Clip.none,
-        fit: StackFit.expand,
-        children: [
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: 0,
-            child: ColoredBox(color: backgroundColor),
-          ),
-          SizedBox.expand(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: values.asMap().entries.map((entry) {
+    final perRowBg =
+        rowBackgrounds != null && rowBackgrounds.length == values.length;
+
+    final Color cellFillColor;
+    if (perRowBg && rowBackgrounds.isNotEmpty) {
+      final last = rowBackgrounds.last;
+      cellFillColor =
+          last == Colors.transparent ? backgroundColor : last;
+    } else {
+      cellFillColor = backgroundColor;
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.hasBoundedWidth && constraints.maxWidth > 0
+            ? constraints.maxWidth
+            : width;
+        return SizedBox(
+          width: w,
+          child: Stack(
+            clipBehavior: Clip.none,
+            fit: StackFit.expand,
+            children: [
+              Positioned.fill(
+                child: ColoredBox(color: cellFillColor),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: values.asMap().entries.map((entry) {
                 final index = entry.key;
                 final value = entry.value;
                 final isLast = index == values.length - 1;
-                final rowHeight = rowHeights != null && index < rowHeights.length
+                final rowHeight =
+                    rowHeights != null && index < rowHeights.length
                     ? rowHeights[index]
                     : null;
+                final rowBg = perRowBg ? rowBackgrounds[index] : null;
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
                     Container(
                       width: double.infinity,
                       height: rowHeight,
+                      color: rowBg,
                       constraints: rowHeight == null
                           ? const BoxConstraints(minHeight: 52)
                           : null,
@@ -305,11 +340,13 @@ class _CriticalItemsState extends State<CriticalItems> {
                       ),
                   ],
                 );
-              }).toList(),
-            ),
+                  }).toList(),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -319,29 +356,31 @@ class _CriticalItemsState extends State<CriticalItems> {
     return bg is Color ? bg : Colors.transparent;
   }
 
-  Color _responseCellBackground(
+  /// Per Response sub-row: stripe when there is text; when empty, light red vs
+  /// dark red (same rules as before). Production stripes stay pink if empty.
+  Color _responseRowBackground(
     Map<String, dynamic> row,
     Map<String, dynamic> notice,
   ) {
-    const alertColor = Color(0xFFD9534F);
-    const darkAlertColor = Color(0xFF913734);
+    const lightRed = Color(0xFFD9534F);
+    const darkRed = Color(0xFF913734);
     const productionBaseColor = Color(0xFFC9A1A1);
     const productionPendingColor = Color(0xFFFFCCCC);
     const purchasingPendingColor = Color(0xFF99CCFF);
 
-    final responseText = _valueText(notice['response']);
-    final noticeBgColor = notice['bgColor'] is Color
+    final stripe = notice['bgColor'] is Color
         ? notice['bgColor'] as Color
         : Colors.transparent;
 
-    if (responseText != '-') {
-      return noticeBgColor;
+    if (stripe == Colors.transparent) {
+      return Colors.transparent;
+    }
+    if (!_responseIsEmpty(notice['response'])) {
+      return stripe;
     }
 
-    // Keep production base shades as-is when response is empty.
-    if (noticeBgColor == productionBaseColor ||
-        noticeBgColor == productionPendingColor) {
-      return noticeBgColor;
+    if (stripe == productionBaseColor || stripe == productionPendingColor) {
+      return stripe;
     }
 
     final notProduced = !_isProduced(row);
@@ -349,27 +388,23 @@ class _CriticalItemsState extends State<CriticalItems> {
 
     if (type == 'purchasing') {
       return row['NotifyPurchasing'] == true && notProduced
-          ? alertColor
-          : darkAlertColor;
+          ? lightRed
+          : darkRed;
     }
-
     if (type == 'backorder') {
       final hasMismatch = notice['hasMismatch'] == true;
-      return hasMismatch && notProduced ? alertColor : darkAlertColor;
+      return hasMismatch && notProduced ? lightRed : darkRed;
     }
-
     if (type == 'production') {
       return row['NotifyProduction'] == true && notProduced
-          ? alertColor
-          : darkAlertColor;
+          ? lightRed
+          : darkRed;
     }
 
-    // Final fallback.
-    if (noticeBgColor == purchasingPendingColor ||
-        noticeBgColor == productionPendingColor) {
-      return alertColor;
+    if (stripe == purchasingPendingColor || stripe == productionPendingColor) {
+      return lightRed;
     }
-    return darkAlertColor;
+    return darkRed;
   }
 
   bool _isProduced(Map<String, dynamic> row) {
@@ -431,11 +466,60 @@ class _CriticalItemsState extends State<CriticalItems> {
     );
   }
 
-  DataColumn _column(String text) {
-    return DataColumn(
+  /// Use [minWidth] only, not [DataColumn2.fixedWidth]: fixed widths must sum to
+  /// less than the layout width (data_table_2 asserts); min widths scale safely.
+  DataColumn2 _column(String text, {required double minWidth}) {
+    return DataColumn2(
       headingRowAlignment: MainAxisAlignment.center,
-      label: _heading(text),
+      minWidth: minWidth,
+      label: SizedBox(width: minWidth, child: _heading(text)),
     );
+  }
+
+  List<DataColumn2> _criticalDataColumns() {
+    return [
+      _column('SOP', minWidth: 56),
+      _column('ODD', minWidth: 90),
+      _column('Lead\nHand', minWidth: 82),
+      _column('Assembler', minWidth: 90),
+      _column('Fixture', minWidth: 96),
+      _column('Desc', minWidth: 150),
+      _column('Qty', minWidth: 40),
+      _column('Time To\nBuild/Per\nUnit', minWidth: 88),
+      _column('Total\nTime To\nBuild', minWidth: 92),
+      _column('Amount', minWidth: 70),
+      _column('Inventory\nComment', minWidth: 130),
+      _column('Picked', minWidth: 58),
+      _column('Date Sent', minWidth: 90),
+      _column('Dept', minWidth: 88),
+      _column('Notice', minWidth: _noticeColumnWidth),
+      _column('Response', minWidth: 180),
+      _column('Action', minWidth: 120),
+    ];
+  }
+
+  /// Row height from this row's stacked Notice text only (not the max of the whole page).
+  double _dataRowHeightForGroup(
+    Map<String, dynamic> group,
+    BuildContext context,
+  ) {
+    final notices = group['notices'] as List<Map<String, dynamic>>;
+    final noticeValues = _noticeValues(
+      notices,
+      'notice',
+      hideDash: true,
+    );
+    if (noticeValues.isEmpty) return 52.0;
+    final noticeRowHeights = _noticeRowHeights(
+      noticeValues: noticeValues,
+      noticeWidth: _noticeColumnWidth,
+      textScaler: MediaQuery.textScalerOf(context),
+    );
+    final totalHeight = noticeRowHeights.fold<double>(
+      0,
+      (a, b) => a + b,
+    );
+    return max(52.0, totalHeight + 8);
   }
 
   Widget _tableTextCell(
@@ -680,24 +764,16 @@ class _CriticalItemsState extends State<CriticalItems> {
   @override
   Widget build(BuildContext context) {
     final groupedRows = _groupRowsForDisplay(_pagedRows);
-    final tableDataRowHeight = groupedRows.isEmpty
-        ? 48.0
-        : groupedRows.map((group) {
-            final notices = group['notices'] as List<Map<String, dynamic>>;
-            final noticeValues = _noticeValues(
-              notices,
-              'notice',
-              hideDash: true,
-            );
-            if (noticeValues.isEmpty) return 52.0;
-            final noticeRowHeights = _noticeRowHeights(
-              noticeValues: noticeValues,
-              noticeWidth: _noticeColumnWidth,
-              textScaler: MediaQuery.textScalerOf(context),
-            );
-            final totalHeight = noticeRowHeights.fold<double>(0, (a, b) => a + b);
-            return max(52.0, totalHeight + 8);
-          }).fold<double>(52.0, max);
+    final tableColumns = _criticalDataColumns();
+    const tableBorderColor = Color(0xFFD1D5DB);
+    final tableBorder = TableBorder(
+      top: const BorderSide(color: tableBorderColor, width: 1),
+      bottom: const BorderSide(color: tableBorderColor, width: 1),
+      left: const BorderSide(color: tableBorderColor, width: 1),
+      right: const BorderSide(color: tableBorderColor, width: 1),
+      horizontalInside: const BorderSide(color: tableBorderColor, width: 1),
+      verticalInside: const BorderSide(color: tableBorderColor, width: 1),
+    );
 
     return Scaffold(
       appBar: CommonAppBar(),
@@ -783,70 +859,24 @@ class _CriticalItemsState extends State<CriticalItems> {
                               ),
                             ),
                             child: ClipRRect(
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: SingleChildScrollView(
-                                  child: DataTable(
-                                    headingRowColor: MaterialStateProperty.all(
-                                      const Color(0xFF344963),
-                                    ),
-                                    dataRowColor: MaterialStateProperty.all(
-                                      const Color(0xFFF0F1F3),
-                                    ),
-                                    headingRowHeight: 52,
-                                    dataRowMinHeight: tableDataRowHeight,
-                                    dataRowMaxHeight: tableDataRowHeight,
-                                    columnSpacing: 0,
-                                    horizontalMargin: 0,
-                                    dividerThickness: 1,
-                                    border: TableBorder(
-                                      top: BorderSide(
-                                        color: Colors.black,
-                                        width: 1,
-                                      ),
-                                      bottom: BorderSide(
-                                        color: Colors.black,
-                                        width: 1,
-                                      ),
-                                      left: BorderSide(
-                                        color: Colors.black,
-                                        width: 1,
-                                      ),
-                                      right: BorderSide(
-                                        color: Colors.black,
-                                        width: 1,
-                                      ),
-                                      horizontalInside: BorderSide(
-                                        color: Colors.black,
-                                        width: 1,
-                                      ),
-                                      verticalInside: BorderSide(
-                                        color: Colors.black,
-                                        width: 1,
-                                      ),
-                                    ),
-                                    columns: [
-                                      _column('SOP'),
-                                      _column('ODD'),
-                                      _column('Lead\nHand'),
-                                      _column('Assembler'),
-                                      _column('Fixture'),
-                                      _column('Desc'),
-                                      _column('Qty'),
-                                      _column('Time To\nBuild/Per\nUnit'),
-                                      _column('Total\nTime To\nBuild'),
-                                      _column('Amount'),
-                                      _column('Inventory\nComment'),
-                                      _column('Picked'),
-                                      _column('Date Sent'),
-                                      _column('Dept'),
-                                      _column('Notice'),
-                                      _column('Response'),
-                                      _column('Action'),
-                                    ],
-                                    rows: groupedRows.map((
-                                      group,
-                                    ) {
+                              child: DataTable2(
+                                fixedTopRows: 1,
+                                showCheckboxColumn: false,
+                                headingRowColor: MaterialStateProperty.all(
+                                  const Color(0xFF344963),
+                                ),
+                                dataRowColor: MaterialStateProperty.all(
+                                  const Color(0xFFF0F1F3),
+                                ),
+                                headingRowHeight: 52,
+                                dataRowHeight: 52,
+                                columnSpacing: 0,
+                                horizontalMargin: 0,
+                                dividerThickness: 1,
+                                minWidth: 1670,
+                                border: tableBorder,
+                                columns: tableColumns,
+                                rows: groupedRows.map((group) {
                                       final row =
                                           group['row'] as Map<String, dynamic>;
                                       final notices =
@@ -869,12 +899,12 @@ class _CriticalItemsState extends State<CriticalItems> {
                                       final noticeBg = _noticeBlockBackground(
                                         notices,
                                       );
-                                      final responseBg = notices.isEmpty
-                                          ? Colors.transparent
-                                          : _responseCellBackground(
-                                              row,
-                                              notices.first,
-                                            );
+                                      final responseRowBackgrounds = notices
+                                          .map(
+                                            (n) =>
+                                                _responseRowBackground(row, n),
+                                          )
+                                          .toList();
                                       final dateValues = _noticeValues(
                                         notices,
                                         'date',
@@ -899,13 +929,17 @@ class _CriticalItemsState extends State<CriticalItems> {
                                           _noticeRowHeights(
                                             noticeValues: noticeValues,
                                             noticeWidth: _noticeColumnWidth,
-                                            textScaler:
-                                                MediaQuery.textScalerOf(
-                                                  context,
-                                                ),
+                                            textScaler: MediaQuery.textScalerOf(
+                                              context,
+                                            ),
                                           );
 
-                                      return DataRow(
+                                      return DataRow2(
+                                        specificRowHeight:
+                                            _dataRowHeightForGroup(
+                                              group,
+                                              context,
+                                            ),
                                         color: WidgetStateProperty.all(
                                           isDisabled
                                               ? const Color(0xFFB5B5B5)
@@ -1038,40 +1072,49 @@ class _CriticalItemsState extends State<CriticalItems> {
                                             ),
                                           ),
                                           DataCell(
-                                            SizedBox(
-                                              width: 58,
-                                              child: Stack(
-                                                clipBehavior: Clip.hardEdge,
-                                                fit: StackFit.expand,
-                                                children: [
-                                                  Positioned(
-                                                    left: 0,
-                                                    right: 0,
-                                                    top: 0,
-                                                    bottom: 0,
-                                                    child: ColoredBox(
-                                                      color:
-                                                          _pickedCellBackground(
-                                                            row,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                  Center(
-                                                    child: Text(
-                                                      row['Picked'] == true
-                                                          ? 'Yes'
-                                                          : 'No',
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                      style: const TextStyle(
-                                                        fontSize: 13,
-                                                        fontWeight:
-                                                            FontWeight.w600,
+                                            LayoutBuilder(
+                                              builder: (context, constraints) {
+                                                final w =
+                                                    constraints.hasBoundedWidth &&
+                                                        constraints.maxWidth > 0
+                                                    ? constraints.maxWidth
+                                                    : 58.0;
+                                                return SizedBox(
+                                                  width: w,
+                                                  child: Stack(
+                                                    clipBehavior: Clip.hardEdge,
+                                                    fit: StackFit.expand,
+                                                    children: [
+                                                      Positioned(
+                                                        left: 0,
+                                                        right: 0,
+                                                        top: 0,
+                                                        bottom: 0,
+                                                        child: ColoredBox(
+                                                          color:
+                                                              _pickedCellBackground(
+                                                                row,
+                                                              ),
+                                                        ),
                                                       ),
-                                                    ),
+                                                      Center(
+                                                        child: Text(
+                                                          row['Picked'] == true
+                                                              ? 'Yes'
+                                                              : 'No',
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                          style: const TextStyle(
+                                                            fontSize: 13,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
-                                                ],
-                                              ),
+                                                );
+                                              },
                                             ),
                                           ),
                                           DataCell(
@@ -1102,7 +1145,11 @@ class _CriticalItemsState extends State<CriticalItems> {
                                             _stackedNoticeCell(
                                               width: 180,
                                               values: responseValues,
-                                              backgroundColor: responseBg,
+                                              backgroundColor: notices.isEmpty
+                                                  ? Colors.transparent
+                                                  : noticeBg,
+                                              rowBackgrounds:
+                                                  responseRowBackgrounds,
                                               rowHeights: noticeRowHeights,
                                             ),
                                           ),
@@ -1159,7 +1206,9 @@ class _CriticalItemsState extends State<CriticalItems> {
                                                   ),
                                                   shape: RoundedRectangleBorder(
                                                     borderRadius:
-                                                        BorderRadius.circular(4),
+                                                        BorderRadius.circular(
+                                                          4,
+                                                        ),
                                                   ),
                                                   foregroundColor: Colors.black,
                                                   tapTargetSize:
@@ -1185,8 +1234,6 @@ class _CriticalItemsState extends State<CriticalItems> {
                                         ],
                                       );
                                     }).toList(),
-                                  ),
-                                ),
                               ),
                             ),
                           ),

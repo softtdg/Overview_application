@@ -46,10 +46,11 @@ class _PublicSearchState extends State<Publicsearch> {
   Map<String, dynamic> result = {};
   List<ItemModel> items = [];
   List<Map<String, dynamic>> sopList = [];
-  bool isLoading = true;
+  bool isSopLoading = false;
+  bool isTableLoading = false;
+  bool hasSearched = false;
   String username = "";
 
-  /// Same fixture string used for both APIs — from the text field (or prefilled from navigation).
   String get _fixtureNumberInput => PublicSearchController.text.trim();
 
   @override
@@ -59,16 +60,10 @@ class _PublicSearchState extends State<Publicsearch> {
     final passed = widget.fixtureNumber?.toString().trim();
     if (passed != null && passed.isNotEmpty) {
       PublicSearchController.text = passed;
-      fetchData();
-      fetchFixtureDetailsData();
-    } else {
-      setState(() {
-        isLoading = false;
-      });
+      performSearch();
     }
   }
 
-  /// Same as when you tap a fixture from SOP search: `PublicSearchService` + `FixtureDetailsService`.
   Future<void> performSearch() async {
     if (_fixtureNumberInput.isEmpty) {
       ScaffoldMessenger.of(
@@ -76,20 +71,35 @@ class _PublicSearchState extends State<Publicsearch> {
       ).showSnackBar(const SnackBar(content: Text('Enter fixture number')));
       return;
     }
-    await fetchData();
-    await fetchFixtureDetailsData();
+    setState(() {
+      hasSearched = true;
+      isSopLoading = true;
+      isTableLoading = true;
+    });
+    await Future.wait([fetchData(), fetchFixtureDetailsData()]);
+  }
+
+  void _handleNewSearch() {
+    setState(() {
+      PublicSearchController.clear();
+      hasSearched = false;
+      isSopLoading = false;
+      isTableLoading = false;
+      sopList = [];
+      items = [];
+      result = {};
+    });
   }
 
   Future<void> fetchFixtureDetailsData() async {
     if (_fixtureNumberInput.isEmpty) {
       setState(() {
-        isLoading = false;
+        sopList = [];
+        isSopLoading = false;
       });
+      return;
     }
 
-    setState(() {
-      isLoading = true;
-    });
     await Dioservices.setToken();
     // print("Calling Fetch Fixture Details Data..........");
     try {
@@ -102,13 +112,13 @@ class _PublicSearchState extends State<Publicsearch> {
 
       setState(() {
         sopList = data is List ? List<Map<String, dynamic>>.from(data) : [];
+        isSopLoading = false;
       });
-      isLoading = false;
       // print("SOP Data ------------------>: $sopList");
     } catch (e) {
       print("Error fetching SOP Data $e");
       setState(() {
-        isLoading = false;
+        isSopLoading = false;
       });
     }
   }
@@ -117,13 +127,12 @@ class _PublicSearchState extends State<Publicsearch> {
     final fixtureNumber = _fixtureNumberInput;
     if (fixtureNumber.isEmpty) {
       setState(() {
-        isLoading = false;
+        items = [];
+        result = {};
+        isTableLoading = false;
       });
       return;
     }
-    setState(() {
-      isLoading = true;
-    });
     try {
       await Dioservices.setToken();
       Response response = await _service.PublicSearchService(
@@ -152,7 +161,7 @@ class _PublicSearchState extends State<Publicsearch> {
                 );
               }).toList()
             : [];
-        isLoading = false;
+        isTableLoading = false;
       });
 
       // print(data["data"].runtimeType);
@@ -162,7 +171,7 @@ class _PublicSearchState extends State<Publicsearch> {
     } catch (e) {
       print("Error Public Search Fetch Data $e");
       setState(() {
-        isLoading = false;
+        isTableLoading = false;
       });
     }
   }
@@ -339,88 +348,122 @@ class _PublicSearchState extends State<Publicsearch> {
                 ),
               ),
 
-              Container(
-                // padding: const EdgeInsets.all(12.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: PublicSearchController,
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white,
-                          // prefixIcon: Icon(Icons.lock),
-                          hintText: 'Enter Fixture Number',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                              color: const Color.fromARGB(255, 22, 129, 218),
-                              width: 2,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                              color: Colors.blue,
-                              width: 1,
-                            ),
-                          ),
+              if (hasSearched) ...[
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: SizedBox(
+                    height: 40,
+                    child: ElevatedButton.icon(
+                      onPressed: _handleNewSearch,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB),
+                        foregroundColor: Colors.white,
+                        elevation: 1,
+                        shadowColor: Colors.black.withOpacity(0.05),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
                         ),
-                        textInputAction: TextInputAction.search,
-                        onSubmitted: (_) => performSearch(),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // search and fixture details button with flex
-              Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      height: 45,
-                      width: 200, // give fixed width (since no Expanded)
-                      child: ElevatedButton(
-                        onPressed: performSearch,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Color.fromARGB(255, 57, 73, 95),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Text(
-                          "Search",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      icon: const Icon(Icons.search, size: 18),
+                      label: const Text(
+                        "New Search",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
+
+              if (!hasSearched) ...[
+                Container(
+                  // padding: const EdgeInsets.all(12.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: PublicSearchController,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.white,
+                            // prefixIcon: Icon(Icons.lock),
+                            hintText: 'Enter Fixture Number',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: const Color.fromARGB(255, 22, 129, 218),
+                                width: 2,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.blue,
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                          textInputAction: TextInputAction.search,
+                          onSubmitted: (_) => performSearch(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        height: 45,
+                        width: 200,
+                        child: ElevatedButton(
+                          onPressed: (isSopLoading || isTableLoading)
+                              ? null
+                              : performSearch,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color.fromARGB(255, 57, 73, 95),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            "Search",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
               SizedBox(height: 16),
 
-              Text(
-                "Available SOPs",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-              ),
+              if (hasSearched)
+                Text(
+                  "Available SOPs",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                ),
 
               SizedBox(height: 16),
-              if (isLoading)
+              if (isSopLoading)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 32),
                   child: Center(
@@ -432,8 +475,10 @@ class _PublicSearchState extends State<Publicsearch> {
               else ...[
                 SizedBox(
                   height: 180,
-                  child: sopList.isEmpty
-                      ? Center(child: Text("No SOP Data Found"))
+                  child: !hasSearched
+                      ? const SizedBox.shrink()
+                      : sopList.isEmpty
+                      ? const Center(child: Text("No SOP Data Found"))
                       : Scrollbar(
                           controller: _scrollController,
                           thumbVisibility: true,
@@ -456,60 +501,75 @@ class _PublicSearchState extends State<Publicsearch> {
                         ),
                 ),
                 const SizedBox(height: 16),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
+                if (isTableLoading)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: Color.fromARGB(255, 57, 73, 95),
+                      ),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _bomHeaderCell("TDGPN", _bomColWidths[0]),
-                            _bomHeaderCell("Description", _bomColWidths[1]),
-                            _bomHeaderCell("Material", _bomColWidths[2]),
-                            _bomHeaderCell("Quantity", _bomColWidths[3]),
-                            _bomHeaderCell("State", _bomColWidths[4]),
-                            _bomHeaderCell("Vendor", _bomColWidths[5]),
-                            _bomHeaderCell("FileName", _bomColWidths[6]),
-                          ],
-                        ),
-                        for (final item in items)
-                          Container(
-                            color: (item.color.toLowerCase() == "white")
-                                ? Colors.white
-                                : Color(
-                                    int.parse(
-                                      "0xFF${item.color.replaceAll("#", "")}",
-                                    ),
-                                  ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _bomDataCell(item.tdgPn, _bomColWidths[0]),
-                                _bomDataCell(
-                                  item.description,
-                                  _bomColWidths[1],
-                                ),
-                                _bomDataCell(item.material, _bomColWidths[2]),
-                                _bomDataCell(
-                                  item.quantity.toString(),
-                                  _bomColWidths[3],
-                                ),
-                                _bomDataCell(item.state, _bomColWidths[4]),
-                                _bomDataCell(item.vendor, _bomColWidths[5]),
-                                _bomDataCell(item.PathName, _bomColWidths[6]),
-                              ],
-                            ),
+                  )
+                else if (hasSearched && items.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(child: Text("No table data found")),
+                  )
+                else if (hasSearched)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _bomHeaderCell("TDGPN", _bomColWidths[1]),
+                              _bomHeaderCell("Description", _bomColWidths[1]),
+                              _bomHeaderCell("Material", _bomColWidths[2]),
+                              _bomHeaderCell("Quantity", _bomColWidths[3]),
+                              _bomHeaderCell("State", _bomColWidths[4]),
+                              _bomHeaderCell("Vendor", _bomColWidths[5]),
+                              _bomHeaderCell("FileName", _bomColWidths[6]),
+                            ],
                           ),
-                      ],
+                          for (final item in items)
+                            Container(
+                              color: (item.color.toLowerCase() == "white")
+                                  ? Colors.white
+                                  : Color(
+                                      int.parse(
+                                        "0xFF${item.color.replaceAll("#", "")}",
+                                      ),
+                                    ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _bomDataCell(item.tdgPn, _bomColWidths[1]),
+                                  _bomDataCell(
+                                    item.description,
+                                    _bomColWidths[1],
+                                  ),
+                                  _bomDataCell(item.material, _bomColWidths[2]),
+                                  _bomDataCell(
+                                    item.quantity.toString(),
+                                    _bomColWidths[3],
+                                  ),
+                                  _bomDataCell(item.state, _bomColWidths[4]),
+                                  _bomDataCell(item.vendor, _bomColWidths[5]),
+                                  _bomDataCell(item.PathName, _bomColWidths[6]),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
               ],
             ],
           ),

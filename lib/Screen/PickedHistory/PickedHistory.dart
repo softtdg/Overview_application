@@ -304,63 +304,66 @@ class _PickedHistoryState extends State<PickedHistory> {
                 )
               else
                 Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: SizedBox(
-                        width: _tableWidth,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _bomHeaderCell("SOP Number", _bomColWidths[0]),
-                                _bomHeaderCell(
-                                  "Fixture Number",
-                                  _bomColWidths[1],
-                                ),
-                                _bomHeaderCell(
-                                  "Date Changed",
-                                  _bomColWidths[2],
-                                ),
-                                _bomHeaderCell("Status", _bomColWidths[3]),
-                              ],
-                            ),
-                            Expanded(
-                              child: ListView.builder(
-                                itemCount: items.length,
-                                itemBuilder: (context, index) {
-                                  final item = items[index];
-                                  return Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      _bomDataCell(
-                                        item.sopNumber,
-                                        _bomColWidths[0],
-                                      ),
-                                      _bomDataCell(
-                                        item.fixtureNumber,
-                                        _bomColWidths[1],
-                                      ),
-                                      _bomDataCell(
-                                        _formatDateValue(item.dateChanged),
-                                        _bomColWidths[2],
-                                      ),
-                                      _bomDataCell(
-                                        item.picked,
-                                        _bomColWidths[3],
-                                      ),
-                                    ],
-                                  );
-                                },
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: SizedBox(
+                          width: _tableWidth,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _bomHeaderCell("SOP Number", _bomColWidths[0]),
+                                  _bomHeaderCell(
+                                    "Fixture Number",
+                                    _bomColWidths[1],
+                                  ),
+                                  _bomHeaderCell(
+                                    "Date Changed",
+                                    _bomColWidths[2],
+                                  ),
+                                  _bomHeaderCell("Status", _bomColWidths[3]),
+                                ],
                               ),
-                            ),
-                          ],
+                              Expanded(
+                                child: ListView.builder(
+                                  itemCount: items.length,
+                                  itemBuilder: (context, index) {
+                                    final item = items[index];
+                                    return Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        _bomDataCell(
+                                          item.sopNumber,
+                                          _bomColWidths[0],
+                                        ),
+                                        _bomDataCell(
+                                          item.fixtureNumber,
+                                          _bomColWidths[1],
+                                        ),
+                                        _bomDataCell(
+                                          _formatDateValue(item.dateChanged),
+                                          _bomColWidths[2],
+                                        ),
+                                        _bomDataCell(
+                                          item.picked,
+                                          _bomColWidths[3],
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

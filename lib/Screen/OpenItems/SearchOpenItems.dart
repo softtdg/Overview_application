@@ -289,7 +289,10 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
             child: Align(
               alignment: Alignment.topCenter,
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding,
+                  vertical: 16,
+                ),
                 child: SizedBox(
                   width: contentMaxWidth,
                   child: selectedOpenItem != null
