@@ -17,9 +17,6 @@ const Color _kFixtureBorder = Color(0xFF1976D2);
 
 const Color _yellow = Color(0xFFFFC107);
 
-/// Open-item row with nested **Notices** column: purchasing, backorders, production, inventory.
-///
-/// Wire [onUpdateEntry], [onNewSearch], and backorder actions when integrating with APIs.
 class BackOrder extends StatefulWidget {
   const BackOrder({
     super.key,
@@ -737,10 +734,18 @@ class _BackOrderState extends State<BackOrder> {
                             width: 140,
                             height: 40,
                             child: ElevatedButton(
-                              onPressed: () {
+                              onPressed: () async {
+                                final newValue = !_isPickedTrue;
                                 setState(() {
-                                  _pickedOverride = !_isPickedTrue;
+                                  _pickedOverride = newValue;
                                 });
+                                // try {
+                                //   await _onUpdateEntry();
+                                // } catch (e) {
+                                //   setState(() {
+                                //     _pickedOverride = !_pickedOverride!;
+                                //   });
+                                // }
                                 (widget.onPicked ?? () {})();
                               },
                               style: ElevatedButton.styleFrom(
@@ -918,7 +923,8 @@ class _BackOrderState extends State<BackOrder> {
                                     ),
                                   ),
                                   onChanged: (value) {
-                                    row[i == 2 ? 'Quantity' : 'Received'] = value;
+                                    row[i == 2 ? 'Quantity' : 'Received'] =
+                                        value;
                                     _syncClosedDateForBackorder(row);
                                   },
                                 )
@@ -1594,7 +1600,7 @@ class _BackOrderState extends State<BackOrder> {
           : (row.selectedPn ?? '').trim();
       final uom = row.selectedPn == 'Other'
           ? (row.selectedUom ?? '').trim()
-          : 'PCS';
+          : '';
 
       if (pn.isEmpty || uom.isEmpty) continue;
 
@@ -1611,12 +1617,13 @@ class _BackOrderState extends State<BackOrder> {
 
     return {
       'SOPLeadHandEntryId': int.tryParse(widget.sopLeadHandEntryId ?? '') ?? 0,
-      'backorders': allBackorders,
+      'backorders': allBackorders.isNotEmpty ? allBackorders : [],
       'inventoryComments': _textOrNull(_inventoryCommentCtrl),
       'productionNotice': _textOrNull(_productionNoticeCtrl),
       'productionStatus': _isNotifyProductionTrue ? 1 : 0,
       'purchasingNotice': _textOrNull(_purchasingNoticeCtrl),
       'purchasingStatus': _isNotifyPurchasingTrue ? 1 : 0,
+      'pickedStatus': _isPickedTrue ? 1 : 0,
     };
   }
 

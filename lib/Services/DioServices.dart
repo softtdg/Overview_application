@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class Dioservices {
   static final Dio dio = Dio(
     BaseOptions(
-      baseUrl: "http://192.168.1.7:8080/api",
+      baseUrl: "http://192.168.1.9:8080/api",
       headers: {"Content-Type": "application/json"},
     ),
   );
@@ -22,7 +22,7 @@ class Dioservices {
       dio.options.headers.remove("authentication");
       dio.options.headers.remove("Authorization");
     }
-    print("TOKEN(auth): ${Dioservices.dio.options.headers["authentication"]}");
-    print("TOKEN(authorization): ${Dioservices.dio.options.headers["Authorization"]}");
+    // print("TOKEN(auth): ${Dioservices.dio.options.headers["authentication"]}");
+    // print("TOKEN(authorization): ${Dioservices.dio.options.headers["Authorization"]}");
   }
 }
