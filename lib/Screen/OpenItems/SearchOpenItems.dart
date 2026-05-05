@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:overview_app/Screen/Login/login.dart';
 import 'package:overview_app/Screen/OpenItems/Components/BackOrder.dart';
 import 'package:overview_app/Screen/OpenItems/Services/OpenItemsServices.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class SearchOpenItems extends StatefulWidget {
   final String username = "";
@@ -103,36 +101,6 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
         isLoading = false;
       });
     }
-  }
-
-  void _showLogoutConfirmDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(ctx).pop();
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.remove('token');
-              await prefs.remove('UserName');
-              if (!mounted) return;
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => LoginPage()),
-                (route) => false,
-              );
-            },
-            child: const Text('Yes'),
-          ),
-        ],
-      ),
-    );
   }
 
   String _itemValue(Map<String, dynamic> item, List<String> keys) {
@@ -278,10 +246,7 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: const CommonAppBar(),
-      drawer: CommonDrawer(
-        username: username,
-        onLogout: _showLogoutConfirmDialog,
-      ),
+      drawer: CommonDrawer(),
       body: LayoutBuilder(
         builder: (context, constraints) => SingleChildScrollView(
           child: ConstrainedBox(

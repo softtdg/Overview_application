@@ -6,6 +6,9 @@ import 'package:overview_app/Screen/OpenItems/SearchOpenItems.dart';
 import 'package:overview_app/Screen/PickedHistory/PickedHistory.dart';
 import 'package:overview_app/Screen/Public-Search/PublicSearch.dart';
 import 'package:overview_app/Screen/SOPSearch/sopSearch.dart';
+import 'package:overview_app/Screen/ShippingIn/ShippingIn.dart';
+import 'package:overview_app/Screen/Login/login.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Common AppBar
 class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -48,15 +51,58 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
 
-class CommonDrawer extends StatelessWidget {
-  final String username;
-  final VoidCallback onLogout;
+class CommonDrawer extends StatefulWidget {
+  const CommonDrawer({super.key});
 
-  const CommonDrawer({
-    super.key,
-    required this.username,
-    required this.onLogout,
-  });
+  static void showLogoutConfirmDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.remove('token');
+              await prefs.remove('UserName');
+              if (!context.mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => LoginPage()),
+                (route) => false,
+              );
+            },
+            child: const Text('Yes'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  State<CommonDrawer> createState() => _CommonDrawerState();
+}
+
+class _CommonDrawerState extends State<CommonDrawer> {
+  String _userName = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserName();
+  }
+
+  Future<void> _loadUserName() async {
+    final prefs = await SharedPreferences.getInstance();
+    final name = prefs.getString('UserName') ?? '';
+    if (!mounted) return;
+    setState(() => _userName = name);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -79,7 +125,7 @@ class CommonDrawer extends StatelessWidget {
 
                   //Username
                   Text(
-                    username.isEmpty ? 'User' : username,
+                    _userName.isEmpty ? 'User' : _userName,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 17,
@@ -103,7 +149,8 @@ class CommonDrawer extends StatelessWidget {
                       ),
                       IconButton(
                         icon: const Icon(Icons.logout_rounded),
-                        onPressed: onLogout,
+                        onPressed: () =>
+                            CommonDrawer.showLogoutConfirmDialog(context),
                       ),
                     ],
                   ),
@@ -209,15 +256,21 @@ class CommonDrawer extends StatelessWidget {
                               final nav = Navigator.of(context);
                               nav.pop();
                               nav.push(
-                                MaterialPageRoute(
-                                  builder: (_) => OpenItems(),
-                                ),
+                                MaterialPageRoute(builder: (_) => OpenItems()),
                               );
                             },
                           ),
                         ),
                       ],
                     ),
+                  ),
+                  ListTile(
+                    title: const Text("Shipping In"),
+                    onTap: () {
+                      final nav = Navigator.of(context);
+                      nav.pop();
+                      nav.push(MaterialPageRoute(builder: (_) => ShippingIn()));
+                    },
                   ),
                 ],
               ),

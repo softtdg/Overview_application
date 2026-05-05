@@ -1,11 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:overview_app/Screen/Login/login.dart';
 import 'package:overview_app/Screen/PickedHistory/Services/PickedHistoryService.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class ItemModel {
   final String sopNumber;
@@ -34,8 +32,7 @@ class _PickedHistoryState extends State<PickedHistory> {
 
   static const List<double> _bomColWidths = [150, 170, 170, 130];
 
-  double get _tableWidth =>
-      _bomColWidths.fold<double>(0, (sum, w) => sum + w);
+  double get _tableWidth => _bomColWidths.fold<double>(0, (sum, w) => sum + w);
 
   Future<void> fetchHistoryData() async {
     setState(() {
@@ -80,8 +77,7 @@ class _PickedHistoryState extends State<PickedHistory> {
     List<String> keys,
   ) {
     for (final key in keys) {
-      final current =
-          normalizedRow[_normalizeFieldKey(key)]?.toString().trim();
+      final current = normalizedRow[_normalizeFieldKey(key)]?.toString().trim();
       if (current != null && current.isNotEmpty) return current;
     }
     return "-";
@@ -119,7 +115,8 @@ class _PickedHistoryState extends State<PickedHistory> {
   List<ItemModel> _parseItems(dynamic payload) {
     dynamic data = payload;
     if (payload is Map<String, dynamic>) {
-      data = payload['data'] ?? payload['items'] ?? payload['result'] ?? payload;
+      data =
+          payload['data'] ?? payload['items'] ?? payload['result'] ?? payload;
       if (data is Map<String, dynamic>) {
         data =
             data['data'] ??
@@ -137,34 +134,39 @@ class _PickedHistoryState extends State<PickedHistory> {
       final normalizedRow = _normalizedFieldMap(row);
       parsed.add(
         ItemModel(
-          sopNumber: _firstMatchingValue(
-            normalizedRow,
-            const ["SOPNum", "SOPNumber", "sopNumber", "sopNo"],
-          ),
-          fixtureNumber: _firstMatchingValue(
-            normalizedRow,
-            const ["FixtureNumber"],
-          ),
-          dateChanged: _firstMatchingValue(
-            normalizedRow,
-            const [
-              "dateChanged",
-              "createdAt",
-              "updatedAt",
-            ],
-          ),
-          picked: _firstMatchingValue(
-            normalizedRow,
-            const ["Status", "PickStatus", "PickedStatus", "Picked", "isPicked"],
-          ),
+          sopNumber: _firstMatchingValue(normalizedRow, const [
+            "SOPNum",
+            "SOPNumber",
+            "sopNumber",
+            "sopNo",
+          ]),
+          fixtureNumber: _firstMatchingValue(normalizedRow, const [
+            "FixtureNumber",
+          ]),
+          dateChanged: _firstMatchingValue(normalizedRow, const [
+            "dateChanged",
+            "createdAt",
+            "updatedAt",
+          ]),
+          picked: _firstMatchingValue(normalizedRow, const [
+            "Status",
+            "PickStatus",
+            "PickedStatus",
+            "Picked",
+            "isPicked",
+          ]),
         ),
       );
     }
 
-    if (parsed.isNotEmpty && parsed.first.sopNumber == "-" && parsed.first.fixtureNumber == "-") {
+    if (parsed.isNotEmpty &&
+        parsed.first.sopNumber == "-" &&
+        parsed.first.fixtureNumber == "-") {
       final firstRaw = data.first;
       if (firstRaw is Map) {
-        debugPrint("PickedHistory: first row keys => ${firstRaw.keys.toList()}");
+        debugPrint(
+          "PickedHistory: first row keys => ${firstRaw.keys.toList()}",
+        );
       }
     }
     return parsed;
@@ -174,36 +176,6 @@ class _PickedHistoryState extends State<PickedHistory> {
   void initState() {
     super.initState();
     fetchHistoryData();
-  }
-
-  void _showLogoutConfirmDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(ctx).pop();
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.remove('token');
-              await prefs.remove('UserName');
-              if (!mounted) return;
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => LoginPage()),
-                (route) => false,
-              );
-            },
-            child: const Text('Yes'),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _bomHeaderCell(String label, double w) {
@@ -262,10 +234,7 @@ class _PickedHistoryState extends State<PickedHistory> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CommonAppBar(),
-      drawer: CommonDrawer(
-        username: username,
-        onLogout: _showLogoutConfirmDialog,
-      ),
+      drawer: CommonDrawer(),
       body: Container(
         color: Colors.white,
         child: Container(
@@ -320,7 +289,10 @@ class _PickedHistoryState extends State<PickedHistory> {
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _bomHeaderCell("SOP Number", _bomColWidths[0]),
+                                  _bomHeaderCell(
+                                    "SOP Number",
+                                    _bomColWidths[0],
+                                  ),
                                   _bomHeaderCell(
                                     "Fixture Number",
                                     _bomColWidths[1],

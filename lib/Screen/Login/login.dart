@@ -69,13 +69,12 @@ class _LoginPageState extends State<LoginPage> {
 
       // print("LOGIN TOKEN: $token"); // debug
 
-      // 🔹 4. Save token
+      // 4. Save token
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString("token", token);
       await prefs.setString("UserName", uname);
 
-      print("SAVED TOKEN: ${prefs.getString("token")}"); // verify
-
+      print("SAVED TOKEN: ${prefs.getString("token")}");
       // 3. Success message
       ScaffoldMessenger.of(
         context,

@@ -7,7 +7,6 @@ import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:overview_app/Widgets/card.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:overview_app/Screen/Login/login.dart';
 
 class SOPSearch extends StatefulWidget {
   @override
@@ -196,36 +195,6 @@ class _SOPSearchState extends State<SOPSearch> {
 
   // static const Color _drawerBrand = Color.fromARGB(255, 57, 73, 95);
 
-  void _showLogoutConfirmDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(ctx).pop();
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.remove('token');
-              await prefs.remove('UserName');
-              if (!mounted) return;
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => LoginPage()),
-                (route) => false,
-              );
-            },
-            child: const Text('Yes'),
-          ),
-        ],
-      ),
-    );
-  }
-
   // UI Design here
   @override
   Widget build(BuildContext context) {
@@ -239,10 +208,7 @@ class _SOPSearchState extends State<SOPSearch> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: const CommonAppBar(),
-      drawer: CommonDrawer(
-        username: username,
-        onLogout: _showLogoutConfirmDialog,
-      ),
+      drawer: CommonDrawer(),
 
       body: LayoutBuilder(
         builder: (context, constraints) => SingleChildScrollView(
