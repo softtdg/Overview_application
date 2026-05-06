@@ -1,47 +1,52 @@
 import 'package:flutter/material.dart';
-import 'package:overview_app/Screen/ShippingIn/Compomnents/EditShippingInEntry.dart';
+import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/ShippingIn/Services/ShippingInService.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
-import 'package:intl/intl.dart';
 
-class ShippingIn extends StatefulWidget {
+class EditShippingInEntry extends StatefulWidget {
+  final dynamic sopNumber;
+  final String? fromQADate;
+  const EditShippingInEntry({
+    Key? key,
+    required this.sopNumber,
+    this.fromQADate,
+  }) : super(key: key);
   @override
-  _ShippingInState createState() => _ShippingInState();
+  _EditShippingInEntryState createState() => _EditShippingInEntryState();
 }
 
-class _ShippingInState extends State<ShippingIn> {
-  final TextEditingController SOPController = TextEditingController();
+class _EditShippingInEntryState extends State<EditShippingInEntry> {
   final ShippingInService _service = ShippingInService();
-  List<Map<String, dynamic>> shippingInHistory = [];
-  String username = '';
+  List<Map<String, dynamic>> searchResults = [];
   bool isLoading = false;
 
-  Future<void> GetShippingInHistory() async {
+  Future<void> GetSOPSearchData() async {
     await Dioservices.setToken();
     setState(() {
       isLoading = true;
     });
     try {
-      final response = await _service.ShippingInHistory();
+      final response = await _service.SearchShippingIn(widget.sopNumber);
       final data = response.data["data"];
       setState(() {
-        shippingInHistory = List<Map<String, dynamic>>.from(data);
+        searchResults = List<Map<String, dynamic>>.from(data);
         isLoading = false;
       });
-      debugPrint("SHIPPING IN HISTORY DATA: $data");
+      debugPrint("SEARCH DATA FROM EDIT ENTRY SHIPPING IN $data");
     } catch (e) {
-      print("Error while fetch shipping in data $e");
+      debugPrint("Error occur while edit in Edit ShippingIn Entry $e");
       setState(() {
         isLoading = false;
       });
     }
+    debugPrint("SOP NUMBER IN EDIT SHIPPING IN ENTRY ${widget.sopNumber}");
   }
 
-  @override  
+  @override
   void initState() {
     super.initState();
-    GetShippingInHistory();
+    GetSOPSearchData();
   }
 
   String formatDate(dynamic date) {
@@ -61,43 +66,22 @@ class _ShippingInState extends State<ShippingIn> {
     }
   }
 
-  String formatDateTime(dynamic date) {
-    if (date == null) return "-";
-
-    try {
-      String dateStr = date.toString();
-
-      if (dateStr.startsWith("0001-01-01")) {
-        return "*";
-      }
-
-      DateTime parsedDate = DateTime.parse(dateStr);
-
-      return DateFormat('dd/MM/yyyy hh:mm a').format(parsedDate);
-    } catch (e) {
-      print("DateTime parse error: $e");
-      return "";
-    }
-  }
-
-  void handleEditShippingInDate() async {
+  void handleShippingInDate() async {
     try {
       setState(() {
         isLoading = true;
       });
-      await _service.EditShippingInDate(SOPController.text);
+      final fromQADate = searchResults.first['shippingDateIn']
+          .toString()
+          .split('T')
+          .first;
+      await _service.EditDate(widget.sopNumber.toString(), fromQADate);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Shipping in date updated successfully")),
+        SnackBar(content: Text("Update Successfully")),
       );
-      await GetShippingInHistory();
+      Navigator.pop(context, true);
     } catch (e) {
-      print("Error while editing shipping in date $e");
-      setState(() {
-        isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error while editing shipping in date $e")),
-      );
+      debugPrint("Error in Edit Shipping in date $e");
     }
   }
 
@@ -221,38 +205,8 @@ class _ShippingInState extends State<ShippingIn> {
                 ),
               ),
             ),
-            DataColumn(
-              label: SizedBox(
-                width: 170,
-                child: Center(
-                  child: Text(
-                    "Last Edited On",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 90,
-                child: Center(
-                  child: Text(
-                    "Action",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
           ],
-          rows: shippingInHistory.map((item) {
+          rows: searchResults.map((item) {
             return DataRow(
               cells: [
                 DataCell(
@@ -334,68 +288,105 @@ class _ShippingInState extends State<ShippingIn> {
                   SizedBox(
                     width: 140,
                     child: Center(
-                      child: Text(
-                        formatDate(item['shippingDateIn']?.toString()),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 170,
-                    child: Center(
-                      child: Text(
-                        formatDateTime(item['lastEditedOn']?.toString()),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 90,
-                    child: Center(
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          final sopNumber = item['sopNum']?.toString() ?? '';
-                          print("PASSING SOP: $sopNumber");
-                          final updated = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  EditShippingInEntry(sopNumber: sopNumber),
-                            ),
+                      child: InkWell(
+                        onTap: () async {
+                          const pickerAccent = Color.fromARGB(255, 57, 73, 95);
+                          DateTime? pickedDate = await showDatePicker(
+                            context: context,
+                            initialDate: item['shippingDateIn'] != null
+                                ? DateTime.tryParse(item['shippingDateIn'])
+                                : DateTime.now(),
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: Theme.of(context).colorScheme
+                                      .copyWith(
+                                        primary: pickerAccent,
+                                        onPrimary: Colors.white,
+                                        surface: Colors.white,
+                                        onSurface: Colors.black87,
+                                      ),
+                                  datePickerTheme: DatePickerThemeData(
+                                    backgroundColor: Colors.white,
+                                    surfaceTintColor: Colors.transparent,
+                                    headerForegroundColor: Colors.black87,
+                                    dayForegroundColor:
+                                        MaterialStateProperty.resolveWith((
+                                          states,
+                                        ) {
+                                          if (states.contains(
+                                            MaterialState.selected,
+                                          )) {
+                                            return Colors.white;
+                                          }
+                                          return null;
+                                        }),
+                                    dayBackgroundColor:
+                                        MaterialStateProperty.resolveWith((
+                                          states,
+                                        ) {
+                                          if (states.contains(
+                                            MaterialState.selected,
+                                          )) {
+                                            return pickerAccent;
+                                          }
+                                          return null;
+                                        }),
+                                    todayForegroundColor:
+                                        MaterialStateProperty.resolveWith((
+                                          states,
+                                        ) {
+                                          if (states.contains(
+                                            MaterialState.selected,
+                                          )) {
+                                            return Colors.white;
+                                          }
+                                          return pickerAccent;
+                                        }),
+                                    todayBorder: const BorderSide(
+                                      color: pickerAccent,
+                                    ),
+                                  ),
+                                ),
+                                child: child!,
+                              );
+                            },
                           );
-                          if (updated == true) {
-                            await GetShippingInHistory();
+
+                          if (pickedDate != null) {
+                            setState(() {
+                              item['shippingDateIn'] = pickedDate
+                                  .toIso8601String();
+                            });
                           }
                         },
-                        icon: Center(
-                          child: Icon(
-                            Icons.edit,
-                            size: 20,
-                            color: Colors.black,
-                          ),
-                        ),
-                        label: Text(
-                          // "Edit Entry",
-                          "",
-                          // style: TextStyle(fontSize: 12, color: Colors.black),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.black),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          padding: EdgeInsets.symmetric(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
                             horizontal: 8,
                             vertical: 6,
                           ),
-                          minimumSize: Size(0, 0),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.calendar_month,
+                                size: 16,
+                                color: Colors.grey,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                formatDate(item['shippingDateIn']?.toString()),
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -413,18 +404,17 @@ class _ShippingInState extends State<ShippingIn> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: CommonAppBar(),
-      drawer: CommonDrawer(),
+      appBar: const CommonAppBar(),
+      drawer: const CommonDrawer(),
       body: Container(
-        color: Colors.white,
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              Align(
+              const Align(
                 alignment: Alignment.center,
                 child: Text(
-                  "Update Shipping In Date",
+                  "Edit Shipping Entry",
                   style: TextStyle(
                     color: Colors.black,
                     fontSize: 20,
@@ -433,75 +423,61 @@ class _ShippingInState extends State<ShippingIn> {
                 ),
               ),
 
-              SizedBox(
-                // width: ,
-                child: TextField(
-                  controller: SOPController,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    hintText: 'Enter SOP Number',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey, width: 1),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: const Color.fromARGB(255, 22, 129, 218),
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                  textInputAction: TextInputAction.search,
-                  // onSubmitted: (_) => handleSOPSearch(),
-                ),
-              ),
+              SizedBox(height: 20),
 
-              SizedBox(height: 10),
+              buildTable(),
+
+              SizedBox(height: 20),
 
               SizedBox(
-                // width: searchButtonWidth,
-                child: SizedBox(
-                  height: 45,
-                  child: ElevatedButton(
-                    onPressed: () => handleEditShippingInDate(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color.fromARGB(255, 57, 73, 95),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                width: 200,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: isLoading ? null : handleShippingInDate,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1565C0),
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: const Color(0xFF1565C0),
+                    disabledForegroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
-                      "Update SOP Shipping In Date",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    elevation: 8,
+                    shadowColor: Colors.black.withOpacity(0.35),
+                    surfaceTintColor: Colors.transparent,
                   ),
-                ),
-              ),
-
-              SizedBox(height: 10),
-
-              isLoading
-                  ? SizedBox(
-                      height: 220,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: Color.fromARGB(255, 57, 73, 95),
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white),
+                        )
+                      : const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: Icon(
+                                Icons.save,
+                                size: 20,
+                                color: Colors.white,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Update Entry',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    )
-                  : buildTable(),
-
-              SizedBox(height: 10),
+                ),
+              ),
             ],
           ),
         ),
