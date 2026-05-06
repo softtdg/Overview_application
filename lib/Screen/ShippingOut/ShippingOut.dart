@@ -1,59 +1,73 @@
 import 'package:flutter/material.dart';
-import 'package:overview_app/Screen/ShippingIn/Compomnents/EditShippingInEntry.dart';
-import 'package:overview_app/Screen/ShippingIn/Services/ShippingInService.dart';
+import 'package:intl/intl.dart';
+import 'package:overview_app/Screen/ShippingOut/Services/ShippingOutServices.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
-import 'package:intl/intl.dart';
 
-class ShippingIn extends StatefulWidget {
+class ShippingOut extends StatefulWidget {
   @override
-  _ShippingInState createState() => _ShippingInState();
+  _ShippingOutState createState() => _ShippingOutState();
 }
 
-class _ShippingInState extends State<ShippingIn> {
+class _ShippingOutState extends State<ShippingOut> {
   final TextEditingController SOPController = TextEditingController();
-  final ShippingInService _service = ShippingInService();
-  List<Map<String, dynamic>> shippingInHistory = [];
-  String username = '';
+  final ShippingOutService _service = ShippingOutService();
+  List<Map<String,dynamic>> ShippingOutHistory = [];
   bool isLoading = false;
 
-  Future<void> GetShippingInHistory() async {
+  Future<void> GetShippingOutHistory() async{
     await Dioservices.setToken();
     setState(() {
       isLoading = true;
     });
-    try {
-      final response = await _service.ShippingInHistory();
+    try{
+      final response = await _service.ShippingOutHistory();
       final data = response.data["data"];
       setState(() {
-        shippingInHistory = List<Map<String, dynamic>>.from(data);
+        ShippingOutHistory = List<Map<String, dynamic>>.from(data);
         isLoading = false;
       });
-      debugPrint("SHIPPING IN HISTORY DATA: $data");
+      debugPrint("SHIPPING OUT DATA $data");
     } catch (e) {
-      print("Error while fetch shipping in data $e");
-      setState(() {
-        isLoading = false;
-      });
+      print("Error while feth data for shipping out $e");
     }
   }
 
-  @override  
+  void handleSOPs() async {
+    try{
+      setState(() {
+        isLoading = true;
+      });
+      await _service.EditSOPNums(SOPController.text);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("ShippingOut Date Updated Successfully"))
+      );
+      await GetShippingOutHistory();
+    } catch(e) {
+      print("Error in shipping out while update shipping out date");
+      setState(() {
+        isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Something went wrong")),
+      );
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
-    GetShippingInHistory();
+    GetShippingOutHistory();
   }
 
   String formatDate(dynamic date) {
     if (date == null) return "*";
-
     try {
       String dateStr = date.toString();
       if (dateStr.startsWith("0001-01-01")) {
         return "*";
       }
       DateTime parsedDate = DateTime.parse(dateStr);
-
       return DateFormat('dd/MM/yyyy').format(parsedDate);
     } catch (e) {
       print("Date parse error: $e");
@@ -63,41 +77,16 @@ class _ShippingInState extends State<ShippingIn> {
 
   String formatDateTime(dynamic date) {
     if (date == null) return "*";
-
     try {
       String dateStr = date.toString();
-
       if (dateStr.startsWith("0001-01-01")) {
         return "*";
       }
-
       DateTime parsedDate = DateTime.parse(dateStr);
-
       return DateFormat('dd/MM/yyyy hh:mm a').format(parsedDate);
     } catch (e) {
       print("DateTime parse error: $e");
       return "-";
-    }
-  }
-
-  void handleEditShippingInDate() async {
-    try {
-      setState(() {
-        isLoading = true;
-      });
-      await _service.EditShippingInDate(SOPController.text);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Shipping in date updated successfully")),
-      );
-      await GetShippingInHistory();
-    } catch (e) {
-      print("Error while editing shipping in date $e");
-      setState(() {
-        isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error while editing shipping in date $e")),
-      );
     }
   }
 
@@ -133,7 +122,7 @@ class _ShippingInState extends State<ShippingIn> {
             ),
             DataColumn(
               label: SizedBox(
-                width: 70,
+                width: 80,
                 child: Center(
                   child: Text(
                     "PO Num",
@@ -211,7 +200,7 @@ class _ShippingInState extends State<ShippingIn> {
                 width: 140,
                 child: Center(
                   child: Text(
-                    "Ship In",
+                    "SOP Entry",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
@@ -223,7 +212,67 @@ class _ShippingInState extends State<ShippingIn> {
             ),
             DataColumn(
               label: SizedBox(
-                width: 170,
+                width: 75,
+                child: Center(
+                  child: Text(
+                    "SOP Out",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            DataColumn(
+              label: SizedBox(
+                width: 60,
+                child: Center(
+                  child: Text(
+                    "PROD MGR",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            DataColumn(
+              label: SizedBox(
+                width: 100,
+                child: Center(
+                  child: Text(
+                    "Delivery Date",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            DataColumn(
+              label: SizedBox(
+                width: 110,
+                child: Center(
+                  child: Text(
+                    "New Comments",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            DataColumn(
+              label: SizedBox(
+                width: 60,
                 child: Center(
                   child: Text(
                     "Last Edited On",
@@ -252,7 +301,7 @@ class _ShippingInState extends State<ShippingIn> {
               ),
             ),
           ],
-          rows: shippingInHistory.map((item) {
+          rows: ShippingOutHistory.map((item) {
             return DataRow(
               cells: [
                 DataCell(
@@ -260,7 +309,7 @@ class _ShippingInState extends State<ShippingIn> {
                     width: 60,
                     child: Center(
                       child: Text(
-                        item['sopNum']?.toString() ?? '',
+                        item['SOPNum']?.toString() ?? '-',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12),
                       ),
@@ -269,10 +318,10 @@ class _ShippingInState extends State<ShippingIn> {
                 ),
                 DataCell(
                   SizedBox(
-                    width: 70,
+                    width: 80,
                     child: Center(
                       child: Text(
-                        item['poNum']?.toString() ?? '',
+                        item['PONum']?.toString() ?? '-',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12),
                       ),
@@ -284,7 +333,7 @@ class _ShippingInState extends State<ShippingIn> {
                     width: 90,
                     child: Center(
                       child: Text(
-                        formatDate(item['odd']?.toString()),
+                        formatDate(item['ODD']?.toString() ?? '-'),
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12),
                       ),
@@ -296,7 +345,7 @@ class _ShippingInState extends State<ShippingIn> {
                     width: 260,
                     child: Center(
                       child: Text(
-                        item['customer']?.toString() ?? '',
+                        item['customer']?.toString() ?? '-',
                         textAlign: TextAlign.center,
                         softWrap: true,
                         maxLines: null,
@@ -311,7 +360,7 @@ class _ShippingInState extends State<ShippingIn> {
                     width: 100,
                     child: Center(
                       child: Text(
-                        item['program']?.toString() ?? '',
+                        item['program']?.toString() ?? '-',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12),
                       ),
@@ -323,7 +372,7 @@ class _ShippingInState extends State<ShippingIn> {
                     width: 90,
                     child: Center(
                       child: Text(
-                        item['location']?.toString() ?? '',
+                        item['Location']?.toString() ?? '-',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12),
                       ),
@@ -335,7 +384,7 @@ class _ShippingInState extends State<ShippingIn> {
                     width: 140,
                     child: Center(
                       child: Text(
-                        formatDate(item['shippingDateIn']?.toString()),
+                        formatDate(item['SOPEntryDateIn']?.toString() ?? '-'),
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12),
                       ),
@@ -344,10 +393,59 @@ class _ShippingInState extends State<ShippingIn> {
                 ),
                 DataCell(
                   SizedBox(
-                    width: 170,
+                    width: 75,
                     child: Center(
                       child: Text(
-                        formatDateTime(item['lastEditedOn']?.toString()),
+                        formatDate(item['SOPOrderEntryOut']?.toString() ?? '-'),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ),
+                DataCell(
+                  SizedBox(
+                    width: 70,
+                    child: Center(
+                      child: Text(
+                        item['prodMgr']?.toString() ?? '-',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ),
+                DataCell(
+                  SizedBox(
+                    width: 100,
+                    child: Center(
+                      child: Text(
+                        formatDate(item['FinalDeliveryDate']?.toString() ?? '-'),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ),
+
+                DataCell(
+                  SizedBox(
+                    width: 110,
+                    child: Center(
+                      child: Text(
+                        item['OrderEntryComments']?.toString() ?? '-',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ),
+                DataCell(
+                  SizedBox(
+                    width: 100,
+                    child: Center(
+                      child: Text(
+                        formatDateTime(item['LastEdit']?.toString() ?? '-'),
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12),
                       ),
@@ -360,18 +458,18 @@ class _ShippingInState extends State<ShippingIn> {
                     child: Center(
                       child: OutlinedButton.icon(
                         onPressed: () async {
-                          final sopNumber = item['sopNum']?.toString() ?? '';
+                          final sopNumber = item['sopNum']?.toString() ?? '-';
                           print("PASSING SOP: $sopNumber");
-                          final updated = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  EditShippingInEntry(sopNumber: sopNumber),
-                            ),
-                          );
-                          if (updated == true) {
-                            await GetShippingInHistory();
-                          }
+                          // final updated = await Navigator.push(
+                          //   context,
+                          //   MaterialPageRoute(
+                          //     builder: (_) =>
+                          //         EditShippingInEntry(sopNumber: sopNumber),
+                          //   ),
+                          // );
+                          // if (updated == true) {
+                          //   await GetShippingInHistory();
+                          // }
                         },
                         icon: Center(
                           child: Icon(
@@ -413,18 +511,18 @@ class _ShippingInState extends State<ShippingIn> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: CommonAppBar(),
-      drawer: CommonDrawer(),
+      appBar: const CommonAppBar(),
+      drawer: const CommonDrawer(),
       body: Container(
-        color: Colors.white,
         child: SingleChildScrollView(
           padding: EdgeInsets.all(16),
           child: Column(
             children: [
+
               Align(
                 alignment: Alignment.center,
                 child: Text(
-                  "Update Shipping In Date",
+                  "Update SOP Shipping Out Date",
                   style: TextStyle(
                     color: Colors.black,
                     fontSize: 20,
@@ -468,7 +566,7 @@ class _ShippingInState extends State<ShippingIn> {
                 child: SizedBox(
                   height: 45,
                   child: ElevatedButton(
-                    onPressed: () => handleEditShippingInDate(),
+                    onPressed: () => handleSOPs(),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Color.fromARGB(255, 57, 73, 95),
                       foregroundColor: Colors.white,
@@ -477,7 +575,7 @@ class _ShippingInState extends State<ShippingIn> {
                       ),
                     ),
                     child: Text(
-                      "Update SOP Shipping In Date",
+                      "Update SOP Shipping Out Date",
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -491,13 +589,13 @@ class _ShippingInState extends State<ShippingIn> {
 
               isLoading
                   ? SizedBox(
-                      height: 220,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: Color.fromARGB(255, 57, 73, 95),
-                        ),
-                      ),
-                    )
+                height: 220,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: Color.fromARGB(255, 57, 73, 95),
+                  ),
+                ),
+              )
                   : buildTable(),
 
               SizedBox(height: 10),

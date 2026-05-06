@@ -8,6 +8,7 @@ import 'package:overview_app/Screen/Public-Search/PublicSearch.dart';
 import 'package:overview_app/Screen/SOPSearch/sopSearch.dart';
 import 'package:overview_app/Screen/ShippingIn/ShippingIn.dart';
 import 'package:overview_app/Screen/Login/login.dart';
+import 'package:overview_app/Screen/ShippingOut/ShippingOut.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Common AppBar
@@ -270,6 +271,14 @@ class _CommonDrawerState extends State<CommonDrawer> {
                       final nav = Navigator.of(context);
                       nav.pop();
                       nav.push(MaterialPageRoute(builder: (_) => ShippingIn()));
+                    },
+                  ),
+                  ListTile(
+                    title: const Text("Shipping Out"),
+                    onTap: () {
+                      final nav = Navigator.of(context);
+                      nav.pop();
+                      nav.push(MaterialPageRoute(builder: (_) => ShippingOut()));
                     },
                   ),
                 ],
