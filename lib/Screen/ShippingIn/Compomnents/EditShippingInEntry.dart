@@ -40,7 +40,7 @@ class _EditShippingInEntryState extends State<EditShippingInEntry> {
         isLoading = false;
       });
     }
-    debugPrint("SOP NUMBER IN EDIT SHIPPING IN ENTRY ${widget.sopNumber}");
+    // debugPrint("SOP NUMBER IN EDIT SHIPPING IN ENTRY ${widget.sopNumber}");
   }
 
   @override
@@ -51,14 +51,12 @@ class _EditShippingInEntryState extends State<EditShippingInEntry> {
 
   String formatDate(dynamic date) {
     if (date == null) return "-";
-
     try {
       String dateStr = date.toString();
       if (dateStr.startsWith("0001-01-01")) {
         return "*";
       }
       DateTime parsedDate = DateTime.parse(dateStr);
-
       return DateFormat('dd/MM/yyyy').format(parsedDate);
     } catch (e) {
       print("Date parse error: $e");
@@ -76,9 +74,9 @@ class _EditShippingInEntryState extends State<EditShippingInEntry> {
           .split('T')
           .first;
       await _service.EditDate(widget.sopNumber.toString(), fromQADate);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Update Successfully")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Update Successfully")));
       Navigator.pop(context, true);
     } catch (e) {
       debugPrint("Error in Edit Shipping in date $e");
@@ -440,7 +438,7 @@ class _EditShippingInEntryState extends State<EditShippingInEntry> {
                     disabledBackgroundColor: const Color(0xFF1565C0),
                     disabledForegroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     elevation: 8,
                     shadowColor: Colors.black.withOpacity(0.35),

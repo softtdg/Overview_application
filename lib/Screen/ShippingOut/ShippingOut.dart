@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:overview_app/Screen/ShippingOut/Components/EditShippingOutEntry.dart';
 import 'package:overview_app/Screen/ShippingOut/Services/ShippingOutServices.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
@@ -70,7 +71,6 @@ class _ShippingOutState extends State<ShippingOut> {
       DateTime parsedDate = DateTime.parse(dateStr);
       return DateFormat('dd/MM/yyyy').format(parsedDate);
     } catch (e) {
-      print("Date parse error: $e");
       return "-";
     }
   }
@@ -167,7 +167,7 @@ class _ShippingOutState extends State<ShippingOut> {
             ),
             DataColumn(
               label: SizedBox(
-                width: 100,
+                width: 60,
                 child: Center(
                   child: Text(
                     "Prgm",
@@ -232,6 +232,9 @@ class _ShippingOutState extends State<ShippingOut> {
                   child: Text(
                     "PROD MGR",
                     textAlign: TextAlign.center,
+                    softWrap: true,
+                    maxLines: 2,
+                    overflow: TextOverflow.visible,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -458,18 +461,18 @@ class _ShippingOutState extends State<ShippingOut> {
                     child: Center(
                       child: OutlinedButton.icon(
                         onPressed: () async {
-                          final sopNumber = item['sopNum']?.toString() ?? '-';
-                          print("PASSING SOP: $sopNumber");
-                          // final updated = await Navigator.push(
-                          //   context,
-                          //   MaterialPageRoute(
-                          //     builder: (_) =>
-                          //         EditShippingInEntry(sopNumber: sopNumber),
-                          //   ),
-                          // );
-                          // if (updated == true) {
-                          //   await GetShippingInHistory();
-                          // }
+                          final SOPId = item['SOPId']?.toString() ?? '-';
+                          print("PASSING SOPId: $SOPId");
+                          final updated = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  EditShippingOutEntry(SOPId: SOPId),
+                            ),
+                          );
+                          if (updated == true) {
+                            await GetShippingOutHistory();
+                          }
                         },
                         icon: Center(
                           child: Icon(
