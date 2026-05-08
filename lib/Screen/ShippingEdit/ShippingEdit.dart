@@ -1,64 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:overview_app/Screen/ShippingOut/Components/EditShippingOutEntry.dart';
-import 'package:overview_app/Screen/ShippingOut/Services/ShippingOutServices.dart';
+import 'package:overview_app/Screen/ShippingEdit/Components/ShippingEditEntry.dart';
+import 'package:overview_app/Screen/ShippingIn/Services/ShippingInService.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
-class ShippingOut extends StatefulWidget {
+class ShippingEdit extends StatefulWidget {
   @override
-  _ShippingOutState createState() => _ShippingOutState();
+  _ShippingEditState createState() => _ShippingEditState();
 }
 
-class _ShippingOutState extends State<ShippingOut> {
-  final TextEditingController SOPController = TextEditingController();
-  final ShippingOutService _service = ShippingOutService();
-  List<Map<String,dynamic>> ShippingOutHistory = [];
+class _ShippingEditState extends State<ShippingEdit> {
+  final ShippingInService _service = ShippingInService();
+  final SOPController = TextEditingController();
+  List<Map<String, dynamic>> shippingEditHistory = [];
   bool isLoading = false;
 
-  Future<void> GetShippingOutHistory() async{
+  Future<void> GetShippingEditHistory() async {
     await Dioservices.setToken();
     setState(() {
       isLoading = true;
     });
-    try{
-      final response = await _service.ShippingOutHistory();
+    try {
+      final response = await _service.ShippingInHistory();
       final data = response.data["data"];
       setState(() {
-        ShippingOutHistory = List<Map<String, dynamic>>.from(data);
+        shippingEditHistory = List<Map<String, dynamic>>.from(data);
         isLoading = false;
       });
-      // debugPrint("SHIPPING OUT DATA $data");
+      // debugPrint("SHIPPING EDIT HISTORY DATA: $data");
     } catch (e) {
-      print("Error while feth data for shipping out $e");
-    }
-  }
-
-  void handleSOPs() async {
-    try{
-      setState(() {
-        isLoading = true;
-      });
-      await _service.EditSOPNums(SOPController.text);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("ShippingOut Date Updated Successfully"))
-      );
-      await GetShippingOutHistory();
-    } catch(e) {
-      print("Error in shipping out while update shipping out date");
+      print("Error while fetch shipping edit data $e");
       setState(() {
         isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Something went wrong")),
-      );
     }
   }
 
   @override
   void initState() {
     super.initState();
-    GetShippingOutHistory();
+    GetShippingEditHistory();
   }
 
   String formatDate(dynamic date) {
@@ -71,6 +53,7 @@ class _ShippingOutState extends State<ShippingOut> {
       DateTime parsedDate = DateTime.parse(dateStr);
       return DateFormat('dd/MM/yyyy').format(parsedDate);
     } catch (e) {
+      // print("Date parse error: $e");
       return "-";
     }
   }
@@ -167,7 +150,7 @@ class _ShippingOutState extends State<ShippingOut> {
             ),
             DataColumn(
               label: SizedBox(
-                width: 60,
+                width: 100,
                 child: Center(
                   child: Text(
                     "Prgm",
@@ -200,7 +183,7 @@ class _ShippingOutState extends State<ShippingOut> {
                 width: 140,
                 child: Center(
                   child: Text(
-                    "SOP Entry",
+                    "Ship In",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
@@ -212,70 +195,7 @@ class _ShippingOutState extends State<ShippingOut> {
             ),
             DataColumn(
               label: SizedBox(
-                width: 75,
-                child: Center(
-                  child: Text(
-                    "SOP Out",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 60,
-                child: Center(
-                  child: Text(
-                    "PROD MGR",
-                    textAlign: TextAlign.center,
-                    softWrap: true,
-                    maxLines: 2,
-                    overflow: TextOverflow.visible,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 100,
-                child: Center(
-                  child: Text(
-                    "Delivery Date",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 110,
-                child: Center(
-                  child: Text(
-                    "New Comments",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 60,
+                width: 170,
                 child: Center(
                   child: Text(
                     "Last Edited On",
@@ -304,7 +224,7 @@ class _ShippingOutState extends State<ShippingOut> {
               ),
             ),
           ],
-          rows: ShippingOutHistory.map((item) {
+          rows: shippingEditHistory.map((item) {
             return DataRow(
               cells: [
                 DataCell(
@@ -312,7 +232,7 @@ class _ShippingOutState extends State<ShippingOut> {
                     width: 60,
                     child: Center(
                       child: Text(
-                        item['SOPNum']?.toString() ?? '-',
+                        item['sopNum']?.toString() ?? '',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12),
                       ),
@@ -324,7 +244,7 @@ class _ShippingOutState extends State<ShippingOut> {
                     width: 80,
                     child: Center(
                       child: Text(
-                        item['PONum']?.toString() ?? '-',
+                        item['poNum']?.toString() ?? '',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12),
                       ),
@@ -336,7 +256,7 @@ class _ShippingOutState extends State<ShippingOut> {
                     width: 90,
                     child: Center(
                       child: Text(
-                        formatDate(item['ODD']?.toString() ?? '-'),
+                        formatDate(item['odd']?.toString()),
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12),
                       ),
@@ -348,7 +268,7 @@ class _ShippingOutState extends State<ShippingOut> {
                     width: 260,
                     child: Center(
                       child: Text(
-                        item['customer']?.toString() ?? '-',
+                        item['customer']?.toString() ?? '',
                         textAlign: TextAlign.center,
                         softWrap: true,
                         maxLines: null,
@@ -363,7 +283,7 @@ class _ShippingOutState extends State<ShippingOut> {
                     width: 100,
                     child: Center(
                       child: Text(
-                        item['program']?.toString() ?? '-',
+                        item['program']?.toString() ?? '',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12),
                       ),
@@ -375,7 +295,7 @@ class _ShippingOutState extends State<ShippingOut> {
                     width: 90,
                     child: Center(
                       child: Text(
-                        item['Location']?.toString() ?? '-',
+                        item['location']?.toString() ?? '',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12),
                       ),
@@ -387,7 +307,7 @@ class _ShippingOutState extends State<ShippingOut> {
                     width: 140,
                     child: Center(
                       child: Text(
-                        formatDate(item['SOPEntryDateIn']?.toString() ?? '-'),
+                        formatDate(item['shippingDateIn']?.toString()),
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12),
                       ),
@@ -396,59 +316,10 @@ class _ShippingOutState extends State<ShippingOut> {
                 ),
                 DataCell(
                   SizedBox(
-                    width: 75,
+                    width: 170,
                     child: Center(
                       child: Text(
-                        formatDate(item['SOPOrderEntryOut']?.toString() ?? '-'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 70,
-                    child: Center(
-                      child: Text(
-                        item['prodMgr']?.toString() ?? '-',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 100,
-                    child: Center(
-                      child: Text(
-                        formatDate(item['FinalDeliveryDate']?.toString() ?? '-'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-
-                DataCell(
-                  SizedBox(
-                    width: 110,
-                    child: Center(
-                      child: Text(
-                        item['OrderEntryComments']?.toString() ?? '-',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 100,
-                    child: Center(
-                      child: Text(
-                        formatDateTime(item['LastEdit']?.toString() ?? '-'),
+                        formatDateTime(item['lastEditedOn']?.toString()),
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12),
                       ),
@@ -461,41 +332,41 @@ class _ShippingOutState extends State<ShippingOut> {
                     child: Center(
                       child: OutlinedButton.icon(
                         onPressed: () async {
-                          final SOPId = item['SOPId']?.toString() ?? '-';
-                          print("PASSING SOPId: $SOPId");
+                          final sopNumber = item['sopNum']?.toString() ?? '';
+                          print("PASSING SOP: $sopNumber");
                           final updated = await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) =>
-                                  EditShippingOutEntry(SOPId: SOPId),
+                                  ShippingEditEntry(sopNumber: sopNumber),
                             ),
                           );
                           if (updated == true) {
-                            await GetShippingOutHistory();
+                            await GetShippingEditHistory();
                           }
                         },
-                        icon: Center(
+                        icon: const Center(
                           child: Icon(
                             Icons.edit,
                             size: 20,
                             color: Colors.black,
                           ),
                         ),
-                        label: Text(
+                        label: const Text(
                           // "Edit Entry",
                           "",
                           // style: TextStyle(fontSize: 12, color: Colors.black),
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.black),
+                          side: const BorderSide(color: Colors.black),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(5),
                           ),
-                          padding: EdgeInsets.symmetric(
+                          padding: const EdgeInsets.symmetric(
                             horizontal: 8,
                             vertical: 6,
                           ),
-                          minimumSize: Size(0, 0),
+                          minimumSize: const Size(0, 0),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                       ),
@@ -510,7 +381,6 @@ class _ShippingOutState extends State<ShippingOut> {
     );
   }
 
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
@@ -518,14 +388,13 @@ class _ShippingOutState extends State<ShippingOut> {
       drawer: const CommonDrawer(),
       body: Container(
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-
-              Align(
+              const Align(
                 alignment: Alignment.center,
                 child: Text(
-                  "Update SOP Shipping Out Date",
+                  "Search SOP to Shipping Edit",
                   style: TextStyle(
                     color: Colors.black,
                     fontSize: 20,
@@ -548,12 +417,15 @@ class _ShippingOutState extends State<ShippingOut> {
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey, width: 1),
+                      borderSide: const BorderSide(
+                        color: Colors.grey,
+                        width: 1,
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: const Color.fromARGB(255, 22, 129, 218),
+                      borderSide: const BorderSide(
+                        color: Color.fromARGB(255, 22, 129, 218),
                         width: 2,
                       ),
                     ),
@@ -569,20 +441,55 @@ class _ShippingOutState extends State<ShippingOut> {
                 child: SizedBox(
                   height: 45,
                   child: ElevatedButton(
-                    onPressed: () => handleSOPs(),
+                    onPressed: () async {
+                      final sopNumber = SOPController.text.trim();
+                      if (sopNumber.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Please enter SOP number',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      print("Searching for SOP: $sopNumber");
+                      final updated = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              ShippingEditEntry(sopNumber: sopNumber),
+                        ),
+                      );
+                      if (updated == true) {
+                        await GetShippingEditHistory();
+                      }
+                    },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Color.fromARGB(255, 57, 73, 95),
+                      backgroundColor: const Color.fromARGB(255, 22, 129, 218),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: Text(
-                      "Update SOP Shipping Out Date",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.search, color: Colors.white),
+                        SizedBox(width: 10),
+                        Text(
+                          "Search for Entry",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -591,14 +498,14 @@ class _ShippingOutState extends State<ShippingOut> {
               SizedBox(height: 10),
 
               isLoading
-                  ? SizedBox(
-                height: 220,
-                child: Center(
-                  child: CircularProgressIndicator(
-                    color: Color.fromARGB(255, 57, 73, 95),
-                  ),
-                ),
-              )
+                  ? const SizedBox(
+                      height: 220,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Color.fromARGB(255, 57, 73, 95),
+                        ),
+                      ),
+                    )
                   : buildTable(),
 
               SizedBox(height: 10),

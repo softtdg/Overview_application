@@ -83,7 +83,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
           }
         }
       });
-      debugPrint("Locations data: ${response.data['data']}");
+      // debugPrint("Locations data: ${response.data['data']}");
     } catch (e) {
       debugPrint("Error fetching locations: $e");
     }
@@ -119,7 +119,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
           }
         }
       });
-      debugPrint("Prod Mgr data: $data");
+      // debugPrint("Prod Mgr data: $data");
     } catch (e) {
       debugPrint("Error fetching Prod Mgr: $e");
     }
@@ -183,8 +183,8 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
         "prodMgr": item['prodMgr'],
         "Program": item['program'],
       };
-      final resposne = await _service.UpdateShippingOut(widget.SOPId, payload);
-      debugPrint("Update shipping out response: ${resposne.data}");
+      await _service.UpdateShippingOut(widget.SOPId, payload);
+      // debugPrint("Update shipping out response: ${resposne.data}");
       setState(() {
         isLoading = false;
       });

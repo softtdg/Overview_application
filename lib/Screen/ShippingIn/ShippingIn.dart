@@ -46,36 +46,30 @@ class _ShippingInState extends State<ShippingIn> {
 
   String formatDate(dynamic date) {
     if (date == null) return "*";
-
     try {
       String dateStr = date.toString();
       if (dateStr.startsWith("0001-01-01")) {
         return "*";
       }
       DateTime parsedDate = DateTime.parse(dateStr);
-
       return DateFormat('dd/MM/yyyy').format(parsedDate);
     } catch (e) {
-      print("Date parse error: $e");
+      // print("Date parse error: $e");
       return "-";
     }
   }
 
   String formatDateTime(dynamic date) {
     if (date == null) return "*";
-
     try {
       String dateStr = date.toString();
-
       if (dateStr.startsWith("0001-01-01")) {
         return "*";
       }
-
       DateTime parsedDate = DateTime.parse(dateStr);
-
       return DateFormat('dd/MM/yyyy hh:mm a').format(parsedDate);
     } catch (e) {
-      print("DateTime parse error: $e");
+      // print("DateTime parse error: $e");
       return "-";
     }
   }
