@@ -22,7 +22,7 @@ class _EditShippingInEntryState extends State<EditShippingInEntry> {
   bool isLoading = false;
 
   Future<void> GetSOPSearchData() async {
-    await Dioservices.setToken();
+    await Dioservices.setToken(); 
     setState(() {
       isLoading = true;
     });
@@ -421,11 +421,11 @@ class _EditShippingInEntryState extends State<EditShippingInEntry> {
                 ),
               ),
 
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
 
               buildTable(),
 
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
 
               SizedBox(
                 width: 200,
