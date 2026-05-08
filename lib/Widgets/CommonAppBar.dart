@@ -61,10 +61,14 @@ class CommonDrawer extends StatefulWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Logout'),
         content: const Text('Are you sure you want to logout?'),
+        backgroundColor: Colors.white,
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('No'),
+            child: const Text(
+              'No',
+              style: TextStyle(color: Color.fromARGB(255, 57, 73, 95)),
+            ),
           ),
           TextButton(
             onPressed: () async {
@@ -78,7 +82,10 @@ class CommonDrawer extends StatefulWidget {
                 (route) => false,
               );
             },
-            child: const Text('Yes'),
+            child: const Text(
+              'Yes',
+              style: TextStyle(color: Color.fromARGB(255, 57, 73, 95)),
+            ),
           ),
         ],
       ),
@@ -278,7 +285,9 @@ class _CommonDrawerState extends State<CommonDrawer> {
                     onTap: () {
                       final nav = Navigator.of(context);
                       nav.pop();
-                      nav.push(MaterialPageRoute(builder: (_) => ShippingOut()));
+                      nav.push(
+                        MaterialPageRoute(builder: (_) => ShippingOut()),
+                      );
                     },
                   ),
                 ],

@@ -229,6 +229,72 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
     }
   }
 
+  Future<DateTime?> _pickDateWithStyledPicker(DateTime? initialDate) {
+    const pickerAccent = Color.fromARGB(255, 57, 73, 95);
+    return showDatePicker(
+      context: context,
+      initialDate: initialDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: pickerAccent,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black87,
+            ),
+            datePickerTheme: DatePickerThemeData(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              headerForegroundColor: Colors.black87,
+              dayForegroundColor: MaterialStateProperty.resolveWith((states) {
+                if (states.contains(MaterialState.selected)) {
+                  return Colors.white;
+                }
+                return null;
+              }),
+              dayBackgroundColor: MaterialStateProperty.resolveWith((states) {
+                if (states.contains(MaterialState.selected)) {
+                  return pickerAccent;
+                }
+                return null;
+              }),
+              todayForegroundColor: MaterialStateProperty.resolveWith((states) {
+                if (states.contains(MaterialState.selected)) {
+                  return Colors.white;
+                }
+                return pickerAccent;
+              }),
+              todayBorder: const BorderSide(color: pickerAccent),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+  }
+
+  Widget _buildDateDisplay(String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.calendar_month, size: 16, color: Colors.grey),
+          const SizedBox(width: 4),
+          Text(value, style: const TextStyle(fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
   Widget buildTable() {
     return SingleChildScrollView(
       scrollDirection: Axis.vertical,
@@ -485,44 +551,22 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                     width: 140,
                     child: Center(
                       child: InkWell(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.calendar_month, size: 16),
-                              const SizedBox(width: 4),
-                              Text(
-                                formatDate(item['ODD']?.toString()),
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
                         onTap: () async {
-                          DateTime? pickedDate = await showDatePicker(
-                            context: context,
-                            initialDate:
-                                DateTime.tryParse(item['ODD'] ?? '') ??
-                                DateTime.now(),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2100),
+                          final pickedDate = await _pickDateWithStyledPicker(
+                            item['ODD'] != null
+                                ? DateTime.tryParse(item['ODD'])
+                                : null,
                           );
+
                           if (pickedDate != null) {
                             setState(() {
-                              item['ODD'] = DateFormat(
-                                'yyyy-MM-dd',
-                              ).format(pickedDate);
+                              item['ODD'] = pickedDate.toIso8601String();
                             });
                           }
                         },
+                        child: _buildDateDisplay(
+                          formatDate(item['ODD']?.toString()),
+                        ),
                       ),
                     ),
                   ),
@@ -664,37 +708,9 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                     width: 140,
                     child: Center(
                       child: InkWell(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.calendar_month, size: 16),
-                              const SizedBox(width: 4),
-                              Text(
-                                formatDate(item['SOPEntryDateIn']?.toString()),
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
                         onTap: () async {
-                          DateTime? pickedDate = await showDatePicker(
-                            context: context,
-                            initialDate:
-                                DateTime.tryParse(
-                                  item['SOPEntryDateIn'] ?? '',
-                                ) ??
-                                DateTime.now(),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2100),
+                          final pickedDate = await _pickDateWithStyledPicker(
+                            DateTime.tryParse(item['SOPEntryDateIn'] ?? ''),
                           );
 
                           if (pickedDate != null) {
@@ -705,6 +721,9 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                             });
                           }
                         },
+                        child: _buildDateDisplay(
+                          formatDate(item['SOPEntryDateIn']?.toString()),
+                        ),
                       ),
                     ),
                   ),
@@ -714,39 +733,9 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                     width: 140,
                     child: Center(
                       child: InkWell(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.calendar_month, size: 16),
-                              const SizedBox(width: 4),
-                              Text(
-                                formatDate(
-                                  item['SOPOrderEntryOut']?.toString(),
-                                ),
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
                         onTap: () async {
-                          DateTime? pickedDate = await showDatePicker(
-                            context: context,
-                            initialDate:
-                                DateTime.tryParse(
-                                  item['SOPOrderEntryOut'] ?? '',
-                                ) ??
-                                DateTime.now(),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2100),
+                          final pickedDate = await _pickDateWithStyledPicker(
+                            DateTime.tryParse(item['SOPOrderEntryOut'] ?? ''),
                           );
 
                           if (pickedDate != null) {
@@ -757,6 +746,9 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                             });
                           }
                         },
+                        child: _buildDateDisplay(
+                          formatDate(item['SOPOrderEntryOut']?.toString()),
+                        ),
                       ),
                     ),
                   ),
@@ -821,39 +813,9 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                     width: 140,
                     child: Center(
                       child: InkWell(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.calendar_month, size: 16),
-                              const SizedBox(width: 4),
-                              Text(
-                                formatDate(
-                                  item['FinalDeliveryDate']?.toString(),
-                                ),
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
                         onTap: () async {
-                          DateTime? pickedDate = await showDatePicker(
-                            context: context,
-                            initialDate:
-                                DateTime.tryParse(
-                                  item['FinalDeliveryDate'] ?? '',
-                                ) ??
-                                DateTime.now(),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2100),
+                          final pickedDate = await _pickDateWithStyledPicker(
+                            DateTime.tryParse(item['FinalDeliveryDate'] ?? ''),
                           );
 
                           if (pickedDate != null) {
@@ -864,13 +826,16 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                             });
                           }
                         },
+                        child: _buildDateDisplay(
+                          formatDate(item['FinalDeliveryDate']?.toString()),
+                        ),
                       ),
                     ),
                   ),
                 ),
                 DataCell(
                   SizedBox(
-                    width: 90,
+                    width: 140,
                     child: TextFormField(
                       initialValue:
                           item['OrderEntryComments']?.toString() ?? '',
