@@ -63,7 +63,9 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
     try {
       final response = await _service.Locations();
       setState(() {
-        locationOptions = List<Map<String, dynamic>>.from(response.data['data']);
+        locationOptions = List<Map<String, dynamic>>.from(
+          response.data['data'],
+        );
         locations = List<String>.from(
           (response.data['data'] as List)
               .map((e) => (e['Location'] ?? '').toString())
@@ -104,13 +106,15 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
               .where((e) => e.isNotEmpty),
         );
         for (final item in SOPByIdData) {
-          if (item['SOPProductionManagerId'] == null && item['prodMgr'] != null) {
+          if (item['SOPProductionManagerId'] == null &&
+              item['prodMgr'] != null) {
             final selected = prodMgrOptions.firstWhere(
               (e) => e['Name']?.toString() == item['prodMgr']?.toString(),
               orElse: () => <String, dynamic>{},
             );
             if (selected.isNotEmpty) {
-              item['SOPProductionManagerId'] = selected['SOPProductionManagerId'];
+              item['SOPProductionManagerId'] =
+                  selected['SOPProductionManagerId'];
             }
           }
         }
@@ -190,9 +194,10 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
             "Shipping out updated successfully",
             style: TextStyle(color: Colors.white),
           ),
-          backgroundColor: const Color.fromARGB(255, 40, 137, 38),
+          // backgroundColor: const Color.fromARGB(255, 40, 137, 38),
         ),
       );
+      Navigator.pop(context, true);
     } catch (e) {
       debugPrint("Error updating shipping out: $e");
       setState(() {

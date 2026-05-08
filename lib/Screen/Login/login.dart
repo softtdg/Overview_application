@@ -86,6 +86,7 @@ class _LoginPageState extends State<LoginPage> {
         MaterialPageRoute(builder: (_) => SOPSearch()),
       );
     } catch (e) {
+      print("LOGIN ERROR: $e");
       // 5. Error message
       ScaffoldMessenger.of(
         context,
