@@ -14,16 +14,51 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
   Map<String, dynamic> QAInEditData = {};
   final QAInService _service = QAInService();
   bool isLoading = false;
+  final SOPController = TextEditingController();
 
   Future<void> GetQAInSOPById() async {
     try {
       final response = await _service.QAInSOPById(widget.SOPId);
       QAInEditData = response.data['data'];
+      SOPController.text = QAInEditData['SOPNum']?.toString() ?? '';
       setState(() {
         isLoading = false;
       });
     } catch (e) {
       throw Exception('Failed to fetch QA In SOP by ID: $e');
+    }
+  }
+
+  void handleUpdate() async {
+    try {
+      setState(() {
+        isLoading = true;
+      });
+      final payload = {
+        'sopId': widget.SOPId,
+        'finalInDate': QAInEditData['FinalDateReceivedInQC']?.toString() ?? '',
+        'qaComments': QAInEditData['QAComments']?.toString() ?? '',
+        'qaInDate': QAInEditData['QCDateIn']?.toString() ?? '',
+        'qaOutDate': QAInEditData['QCOut']?.toString() ?? '',
+        'reworkOutDate': QAInEditData['ReworkDateOut']?.toString() ?? '',
+      };
+      print("PAYLOAD OF QAIN EDIT : $payload");
+      final resposne = await _service.UpdateQAInEntry(widget.SOPId, payload);
+      print("RESPONSE OF QAIN EDIT : $resposne");
+      await GetQAInSOPById();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: const Text("Updated Successfully")));
+      Navigator.pop(context, true);
+    } catch (e) {
+      print('Error updating QA In entry: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -104,7 +139,7 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
     try {
       String dateStr = date.toString();
       DateTime parsedDate = DateTime.parse(dateStr);
-      return DateFormat('dd/MM/yyyy').format(parsedDate);
+      return DateFormat('dd-MM-yyyy').format(parsedDate);
     } catch (e) {
       return "";
     }
@@ -298,13 +333,36 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
                     cells: [
                       DataCell(
                         SizedBox(
-                          width: 60,
-                          child: Center(
-                            child: Text(
-                              QAInEditData['SOPNum']?.toString() ?? '',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 12),
+                          width: 90,
+                          child: TextFormField(
+                            controller: SOPController,
+                            readOnly: true,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 12),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 8,
+                              ),
+
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(4),
+                                borderSide: const BorderSide(
+                                  color: Colors.grey,
+                                ),
+                              ),
+
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(4),
+                                borderSide: const BorderSide(
+                                  color: Colors.grey,
+                                ),
+                              ),
                             ),
+                            onChanged: (value) {
+                              QAInEditData['SOPNum'] = value;
+                            },
                           ),
                         ),
                       ),
@@ -496,16 +554,40 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
                           ),
                         ),
                       ),
-
                       DataCell(
                         SizedBox(
-                          width: 60,
-                          child: Center(
-                            child: Text(
-                              QAInEditData['QAComments']?.toString() ?? '',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 12),
+                          width: 140,
+                          child: TextFormField(
+                            initialValue:
+                                QAInEditData['QAComments']?.toString() ?? '',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 12),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 8,
+                              ),
+
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(4),
+                                borderSide: const BorderSide(
+                                  color: Colors.grey,
+                                ),
+                              ),
+
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(4),
+                                borderSide: const BorderSide(
+                                  color: Colors.grey,
+                                ),
+                              ),
                             ),
+                            onChanged: (value) {
+                              setState(() {
+                                QAInEditData['QAComments'] = value;
+                              });
+                            },
                           ),
                         ),
                       ),
@@ -551,6 +633,58 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
                       ),
                     )
                   : buildTable(),
+
+              SizedBox(height: 20),
+
+              SizedBox(
+                width: 200,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: QAInEditData.isEmpty ? null : () => handleUpdate(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1565C0),
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: const Color(0xFF1565C0),
+                    disabledForegroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    elevation: 8,
+                    shadowColor: Colors.black.withOpacity(0.35),
+                    surfaceTintColor: Colors.transparent,
+                  ),
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white),
+                        )
+                      : const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: Icon(
+                                Icons.save,
+                                size: 20,
+                                color: Colors.white,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Update Entry',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
             ],
           ),
         ),

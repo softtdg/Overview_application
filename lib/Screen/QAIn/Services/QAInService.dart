@@ -45,4 +45,22 @@ class QAInService {
       throw Exception('Failed to fetch QA In SOP by ID: $e');
     }
   }
+
+  Future<Response<dynamic>> UpdateQAInEntry(
+    String SOPId,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final body = Map<String, dynamic>.from(payload);
+      final id = int.tryParse(SOPId);
+      if (id != null) body['sopId'] = id;
+      final response = await Dioservices.dio.post(
+        '/qa/update-entry',
+        data: body,
+      );
+      return response;
+    } catch (e) {
+      throw Exception('Failed to update QA In entry: $e');
+    }
+  }
 }
