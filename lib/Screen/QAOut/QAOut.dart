@@ -1,79 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:overview_app/Screen/QAIn/Components/QAInEditEntry.dart';
-import 'package:overview_app/Screen/QAIn/Services/QAInService.dart';
+import 'package:overview_app/Screen/QAOut/Components/QAOutEditEntry.dart';
+import 'package:overview_app/Screen/QAOut/Services/QAOutService.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
-class QAIn extends StatefulWidget {
+class QAOut extends StatefulWidget {
   @override
-  _QAInState createState() => _QAInState();
+  _QAOutState createState() => _QAOutState();
 }
 
-class _QAInState extends State<QAIn> {
+class _QAOutState extends State<QAOut> {
+  final QAOutService _service = const QAOutService();
   final SOPController = TextEditingController();
-  final QAInService _service = QAInService();
-  List<Map<String, dynamic>> QaInHistory = [];
-  List<Map<String, dynamic>> searchedQaInHistory = [];
   bool hasSearched = false;
+  List<Map<String, dynamic>> searchedQaOutHistory = [];
+  List<Map<String, dynamic>> QaOutHistory = [];
   bool isLoading = false;
 
-  Future<void> GetQAInHistory() async {
+  Future<void> GetQAOutHistory() async {
     await Dioservices.setToken();
     setState(() {
       isLoading = true;
     });
     try {
-      final response = await _service.QAInHistory();
+      final response = await _service.QAOutHistory();
       setState(() {
-        QaInHistory = List<Map<String, dynamic>>.from(response.data['data']);
-      });
-      // print("QAIN HISTORY: ${response.data}");
-    } catch (e) {
-      print("Error fetching QA In history: $e");
-    } finally {
-      setState(() {
+        QaOutHistory = List<Map<String, dynamic>>.from(response.data['data']);
         isLoading = false;
       });
-    }
-  }
-
-  Future<void> FetchQAInSearch() async {
-    setState(() {
-      hasSearched = true;
-      isLoading = true;
-    });
-    try {
-      final response = await _service.QAInSearch(SOPController.text.trim());
-      setState(() {
-        searchedQaInHistory = List<Map<String, dynamic>>.from(
-          response.data['data'],
-        );
-      });
-      print("QA IN SEARCH RESULTS: ${response.data}");
+      print("QAOut Hisotry ${response.data['data']}");
     } catch (e) {
-      print("Error fetching QA In search results: $e");
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
-    }
-  }
-
-  Future<void> HandleUpdateQAInDate() async {
-    setState(() {
-      isLoading = true;
-    });
-    try {
-      final response = await _service.UpdateQAInDate(SOPController.text.trim());
-      print("Update QA In Response: ${response.data}");
-      await GetQAInHistory();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('QA In date updated successfully')),
-      );
-    } catch (e) {
-      print("Error updating QA In date: $e");
-    } finally {
+      print("Error fetching QA Out history: $e");
       setState(() {
         isLoading = false;
       });
@@ -83,7 +41,48 @@ class _QAInState extends State<QAIn> {
   @override
   void initState() {
     super.initState();
-    GetQAInHistory();
+    GetQAOutHistory();
+  }
+
+  Future<void> FetchQAOutSearch() async {
+    setState(() {
+      hasSearched = true;
+      isLoading = true;
+    });
+    try {
+      final response = await _service.QAOutSearch(SOPController.text.trim());
+      setState(() {
+        searchedQaOutHistory = List<Map<String, dynamic>>.from(
+          response.data['data'],
+        );
+      });
+      print("QAIN SEARCH RESULT ${response.data['data']}");
+    } catch (e) {
+      print("Error fetching QA Out search: $e");
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> HandleUpdateQCOutDate() async {
+    try {
+      final response = await _service.UpdateQCOutDate(
+        SOPController.text.trim(),
+      );
+      print("UPDATE QC OUT RESPONSE: ${response.data}");
+      await GetQAOutHistory();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: const Text("QA Out date updated successfully")),
+      );
+    } catch (e) {
+      print("Error updating QA Out date: $e");
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   String formatDate(dynamic date) {
@@ -109,7 +108,7 @@ class _QAInState extends State<QAIn> {
         return "*";
       }
       DateTime parsedDate = DateTime.parse(dateStr);
-      return DateFormat('dd/MM/yyyy hh:mm a').format(parsedDate);
+      return DateFormat('MM/dd/yyyy hh:mm a').format(parsedDate);
     } catch (e) {
       // print("DateTime parse error: $e");
       return "-";
@@ -479,7 +478,7 @@ class _QAInState extends State<QAIn> {
                       width: 170,
                       child: Center(
                         child: Text(
-                          formatDateTime(item['QALastEdit']?.toString()),
+                          formatDateTime(item['LastEdit']?.toString()),
                           textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 12),
                         ),
@@ -498,11 +497,11 @@ class _QAInState extends State<QAIn> {
                             final updated = await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => QAInEditEntry(SOPId: SOPId),
+                                builder: (_) => QAOutEditEntry(SOPId: SOPId),
                               ),
                             );
                             if (updated == true) {
-                              await GetQAInHistory();
+                              await GetQAOutHistory();
                             }
                           },
                           icon: const Center(
@@ -541,6 +540,7 @@ class _QAInState extends State<QAIn> {
     );
   }
 
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
@@ -554,7 +554,7 @@ class _QAInState extends State<QAIn> {
               const Align(
                 alignment: Alignment.center,
                 child: Text(
-                  "Update QA Received In Date",
+                  "Update QA Out Date",
                   style: TextStyle(
                     color: Colors.black,
                     fontSize: 20,
@@ -608,14 +608,14 @@ class _QAInState extends State<QAIn> {
 
                       setState(() {
                         hasSearched = true;
-                        searchedQaInHistory = sopTokens.isEmpty
+                        searchedQaOutHistory = sopTokens.isEmpty
                             ? <Map<String, dynamic>>[]
-                            : QaInHistory.where((item) {
+                            : QaOutHistory.where((item) {
                                 final sop = item['SOPNum']?.toString() ?? '';
                                 return sopTokens.contains(sop);
                               }).toList();
                       });
-                      HandleUpdateQAInDate();
+                      HandleUpdateQCOutDate();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Color.fromARGB(255, 22, 129, 218),
@@ -644,7 +644,7 @@ class _QAInState extends State<QAIn> {
                 ),
               ),
 
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
 
               if (hasSearched) ...[
                 const Align(
@@ -655,14 +655,14 @@ class _QAInState extends State<QAIn> {
                   ),
                 ),
                 SizedBox(height: 8),
-                searchedQaInHistory.isNotEmpty
+                searchedQaOutHistory.isNotEmpty
                     ? buildTable(
-                        searchedQaInHistory,
+                        searchedQaOutHistory,
                         showLastEditedAndAction: false,
                       )
                     : const Padding(
                         padding: EdgeInsets.symmetric(vertical: 24),
-                        child:  const Text(
+                        child: Text(
                           "No data found for searched SOP",
                           style: TextStyle(fontSize: 14, color: Colors.black54),
                         ),
@@ -688,7 +688,7 @@ class _QAInState extends State<QAIn> {
                         ),
                       ),
                     )
-                  : buildTable(QaInHistory),
+                  : buildTable(QaOutHistory),
 
               const SizedBox(height: 10),
             ],
