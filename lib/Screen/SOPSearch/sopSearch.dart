@@ -112,64 +112,83 @@ class _SOPSearchState extends State<SOPSearch> {
     return str;
   }
 
-  Widget _buildFixtureCard(Map<String, dynamic> fixture) {
+  Widget _buildFixtureCard(
+    Map<String, dynamic> fixture, {
+    bool compact = false,
+  }) {
     final bool isDisabled = fixture["Disabled"] == true;
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      margin: compact
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isDisabled
+              ? const Color(0xFF5C5C5C)
+              : const Color.fromARGB(255, 141, 143, 145),
+          width: 1.5,
+        ),
+      ),
       color: isDisabled ? const Color(0xFF8B8B8B) : Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              "Fixture Data",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 8),
-
-            InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        Publicsearch(fixtureNumber: fixture["FixtureNumber"]),
-                  ),
-                );
-              },
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Fixture Data",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF5FF),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => Publicsearch(
+                          fixtureNumber: fixture["FixtureNumber"],
+                        ),
+                      ),
+                    );
+                  },
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: const Color(0xFF1A73E8),
-                    width: 1.2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF5FF),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF1A73E8),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Text(
+                      "Fixture # ${fixture["FixtureNumber"] ?? "-"}",
+                      style: const TextStyle(
+                        color: Color(0xFF1A73E8),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
-                child: Text(
-                  "Fixture # ${fixture["FixtureNumber"] ?? "-"}",
-                  style: const TextStyle(
-                    color: Color(0xFF1A73E8),
-                    fontWeight: FontWeight.w600,
-                  ),
+                const SizedBox(height: 10),
+                Text(
+                  "Description: ${fixture["fixtureMongoData"]?[0]?["Description"] ?? "-"}",
+                  style: const TextStyle(fontSize: 14),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
+              ],
             ),
-
-            const SizedBox(height: 10),
-            Text(
-              "Description: ${fixture["fixtureMongoData"]?[0]?["Description"] ?? "-"}",
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
@@ -193,6 +212,37 @@ class _SOPSearchState extends State<SOPSearch> {
     );
   }
 
+  static const double _tabletCardGap = 12;
+
+  List<Widget> _tabletSopCardRows(List<Widget> cards, double cardWidth) {
+    final rows = <Widget>[];
+    for (var i = 0; i < cards.length; i += 3) {
+      final end = i + 3 <= cards.length ? i + 3 : cards.length;
+      rows.add(_tabletSopCardRow(cards.sublist(i, end), cardWidth));
+      if (end < cards.length) {
+        rows.add(const SizedBox(height: _tabletCardGap));
+      }
+    }
+    return rows;
+  }
+
+  Widget _tabletSopCardRow(List<Widget> chunk, double cardWidth) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var j = 0; j < chunk.length; j++) ...[
+            if (j > 0) SizedBox(width: _tabletCardGap),
+            SizedBox(
+              width: cardWidth,
+              child: SizedBox.expand(child: chunk[j]),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   // static const Color _drawerBrand = Color.fromARGB(255, 57, 73, 95);
 
   // UI Design here
@@ -201,9 +251,122 @@ class _SOPSearchState extends State<SOPSearch> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth >= 700;
     final horizontalPadding = isTablet ? 24.0 : 16.0;
-    final contentMaxWidth = isTablet ? 820.0 : double.infinity;
     final searchControlWidth = isTablet ? 420.0 : double.infinity;
     final searchButtonWidth = isTablet ? 200.0 : double.infinity;
+    final tabletCardWidth = isTablet
+        ? (screenWidth - 2 * horizontalPadding - 24) / 3
+        : 0.0;
+
+    final sopCards = sopData == null
+        ? null
+        : <Widget>[
+            InfoCard(
+              title: "ORDER INFO",
+              color: Colors.grey.shade300,
+              fillHeight: isTablet,
+              children: [
+                infoRow("SOP", safeValue(sopData?["SOPNum"])),
+                infoRow("PO Number", safeValue(sopData?["PONum"])),
+                infoRow("ODD", formatDate(sopData?["ODD"])),
+                infoRow(
+                  "Customer",
+                  safeValue(sopData?["customer"]?[0]?["Name"]),
+                ),
+                infoRow("Prgm", safeValue(sopData?["program"]?[0]?["Name"])),
+                infoRow(
+                  "Location",
+                  safeValue(sopData?["location"]?[0]?["Location"]),
+                ),
+              ],
+            ),
+            InfoCard(
+              title: "SOP ENTRY",
+              color: Color.fromRGBO(255, 204, 204, 1),
+              fillHeight: isTablet,
+              children: [
+                infoRow("SOP Entry", formatDate(sopData?["SOPEntryDateIn"])),
+                infoRow("SOP Out", formatDate(sopData?['SOPOrderEntryOut'])),
+                infoRow(
+                  "Prod MGR",
+                  safeValue(sopData?["sopProductionManager"]?[0]?["Name"]),
+                ),
+                infoRow(
+                  "Order Entry Comments",
+                  safeValue(sopData?["OrderEntryComments"]),
+                ),
+              ],
+            ),
+            InfoCard(
+              title: "PRODUCTION",
+              color: Color.fromRGBO(153, 204, 255, 1),
+              fillHeight: isTablet,
+              children: [
+                infoRow(
+                  "Prod In",
+                  formatDate(
+                    sopData?["productionEntry"]?[0]?['ProductionSOPDateIn'],
+                  ),
+                ),
+                infoRow(
+                  "Lead Hand",
+                  safeValue(sopData?["leadHand"]?[0]?["LeadHandName"]),
+                ),
+                infoRow(
+                  "Lead Hand In",
+                  formatDate(
+                    sopData?["productionEntry"]?[0]?["LeadHandDateIn"],
+                  ),
+                ),
+                infoRow(
+                  "Prod Out",
+                  formatDate(
+                    sopData?["productionEntry"]?[0]?["ProductionDateOut"],
+                  ),
+                ),
+                infoRow(
+                  "Prod Comments",
+                  safeValue(
+                    sopData?["productionEntry"]?[0]?["ProductionComments"],
+                  ),
+                ),
+              ],
+            ),
+            InfoCard(
+              title: "QUALITY CONTROL",
+              color: Color.fromRGBO(240, 230, 140, 1),
+              fillHeight: isTablet,
+              children: [
+                infoRow(
+                  "Final Date Received In QC",
+                  formatDate(sopData?["qaEntry"]?[0]?["QCDateIn"]),
+                ),
+                infoRow(
+                  "RW Sent Back To Prod",
+                  formatDate(sopData?["qaEntry"]?[0]?["ReworkDateOut"]),
+                ),
+                infoRow(
+                  "QC Out",
+                  formatDate(sopData?["qaEntry"]?[0]?["QCOut"]),
+                ),
+                infoRow(
+                  "QC Comments",
+                  safeValue(sopData?["qaEntry"]?[0]?["QAComments"]),
+                ),
+              ],
+            ),
+            InfoCard(
+              title: "QUALITY CONTROL",
+              color: Color.fromRGBO(218, 247, 166, 1),
+              fillHeight: isTablet,
+              children: [
+                infoRow(
+                  "Ship In",
+                  formatDate(sopData?["shippingEntry"]?[0]?["ShippingDateIn"]),
+                ),
+                infoRow("Ship Out", formatDate(sopData?["FinalDeliveryDate"])),
+              ],
+            ),
+          ];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -222,7 +385,7 @@ class _SOPSearchState extends State<SOPSearch> {
                   vertical: 16,
                 ),
                 child: SizedBox(
-                  width: contentMaxWidth,
+                  width: double.infinity,
                   child: Column(
                     children: [
                       Align(
@@ -307,137 +470,14 @@ class _SOPSearchState extends State<SOPSearch> {
                             color: Color.fromARGB(255, 57, 73, 95),
                           ),
                         )
-                      else if (sopData != null) ...[
-                        InfoCard(
-                          title: "ORDER INFO",
-                          color: Colors.grey.shade300,
-                          children: [
-                            infoRow("SOP", safeValue(sopData?["SOPNum"])),
-                            infoRow("PO Number", safeValue(sopData?["PONum"])),
-                            infoRow("ODD", formatDate(sopData?["ODD"])),
-                            infoRow(
-                              "Customer",
-                              safeValue(sopData?["customer"]?[0]?["Name"]),
-                            ),
-                            infoRow(
-                              "Prgm",
-                              safeValue(sopData?["program"]?[0]?["Name"]),
-                            ),
-                            infoRow(
-                              "Location",
-                              safeValue(sopData?["location"]?[0]?["Location"]),
-                            ),
-                          ],
-                        ),
-
-                        // SOP ENTRY
-                        InfoCard(
-                          title: "SOP ENTRY",
-                          color: Color.fromRGBO(255, 204, 204, 1),
-                          children: [
-                            infoRow(
-                              "SOP Entry",
-                              formatDate(sopData?["SOPEntryDateIn"]),
-                            ),
-                            infoRow(
-                              "SOP Out",
-                              formatDate(sopData?['SOPOrderEntryOut']),
-                            ),
-                            infoRow(
-                              "Prod MGR",
-                              safeValue(
-                                sopData?["sopProductionManager"]?[0]?["Name"],
-                              ),
-                            ),
-                            // divider(),
-                            infoRow(
-                              "Order Entry Comments",
-                              safeValue(sopData?["OrderEntryComments"]),
-                            ),
-                          ],
-                        ),
-
-                        // PRODUCTION
-                        InfoCard(
-                          title: "PRODUCTION",
-                          color: Color.fromRGBO(153, 204, 255, 1),
-                          children: [
-                            infoRow(
-                              "Prod In",
-                              formatDate(
-                                sopData?["productionEntry"]?[0]?['ProductionSOPDateIn'],
-                              ),
-                            ),
-                            infoRow(
-                              "Lead Hand",
-                              safeValue(
-                                sopData?["leadHand"]?[0]?["LeadHandName"],
-                              ),
-                            ),
-                            infoRow(
-                              "Lead Hand In",
-                              formatDate(
-                                sopData?["productionEntry"]?[0]?["LeadHandDateIn"],
-                              ),
-                            ),
-                            infoRow(
-                              "Prod Out",
-                              formatDate(
-                                sopData?["productionEntry"]?[0]?["ProductionDateOut"],
-                              ),
-                            ),
-                            // divider(),
-                            infoRow(
-                              "Prod Comments",
-                              safeValue(
-                                sopData?["productionEntry"]?[0]?["ProductionComments"],
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        // QUALITY CONTROL
-                        InfoCard(
-                          title: "QUALITY CONTROL",
-                          color: Color.fromRGBO(240, 230, 140, 1),
-                          children: [
-                            infoRow(
-                              "Final Date Received In QC",
-                              formatDate(sopData?["qaEntry"]?[0]?["QCDateIn"]),
-                            ),
-                            infoRow(
-                              "RW Sent Back To Prod",
-                              formatDate(
-                                sopData?["qaEntry"]?[0]?["ReworkDateOut"],
-                              ),
-                            ),
-                            infoRow(
-                              "QC Out",
-                              formatDate(sopData?["qaEntry"]?[0]?["QCOut"]),
-                            ),
-                            infoRow(
-                              "QC Comments",
-                              safeValue(sopData?["qaEntry"]?[0]?["QAComments"]),
-                            ),
-                          ],
-                        ),
-
-                        InfoCard(
-                          title: "QUALITY CONTROL",
-                          color: Color.fromRGBO(218, 247, 166, 1),
-                          children: [
-                            infoRow(
-                              "Ship In",
-                              formatDate(
-                                sopData?["shippingEntry"]?[0]?["ShippingDateIn"],
-                              ),
-                            ),
-                            infoRow(
-                              "Ship Out",
-                              formatDate(sopData?["FinalDeliveryDate"]),
-                            ),
-                          ],
-                        ),
+                      else if (sopCards != null) ...[
+                        if (isTablet)
+                          ..._tabletSopCardRows(sopCards, tabletCardWidth)
+                        else
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: sopCards,
+                          ),
 
                         if ((sopData?["fixtures"] as List?)?.isNotEmpty ??
                             false) ...[
@@ -454,15 +494,36 @@ class _SOPSearchState extends State<SOPSearch> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: (sopData?["fixtures"] as List).length,
-                            itemBuilder: (context, index) => _buildFixtureCard(
-                              (sopData?["fixtures"][index]
-                                  as Map<String, dynamic>),
+                          if (isTablet)
+                            GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: (sopData?["fixtures"] as List).length,
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                    mainAxisExtent: 180,
+                                  ),
+                              itemBuilder: (context, index) => _buildFixtureCard(
+                                (sopData?["fixtures"][index]
+                                    as Map<String, dynamic>),
+                                compact: true,
+                              ),
+                            )
+                          else
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount:
+                                  (sopData?["fixtures"] as List).length,
+                              itemBuilder: (context, index) =>
+                                  _buildFixtureCard(
+                                    (sopData?["fixtures"][index]
+                                        as Map<String, dynamic>),
+                                  ),
                             ),
-                          ),
                         ],
                       ],
                     ],

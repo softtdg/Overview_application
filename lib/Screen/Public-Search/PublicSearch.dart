@@ -14,6 +14,8 @@ class ItemModel {
   final String vendor;
   final String PathName;
   final double quantity;
+  final String size;
+  final String UOM;
   final String color;
 
   bool isExpanded;
@@ -26,6 +28,8 @@ class ItemModel {
     required this.vendor,
     required this.PathName,
     required this.quantity,
+    required this.size,
+    required this.UOM,
     this.isExpanded = false,
     required this.color,
   });
@@ -156,6 +160,8 @@ class _PublicSearchState extends State<Publicsearch> {
                   PathName: e["PathName"]?.toString() ?? "",
                   quantity:
                       double.tryParse(e["Quantity"]?.toString() ?? "1") ?? 1.0,
+                  size: e['Size']?.toString() ?? '',
+                  UOM: e['UnitOfMeasure']?.toString() ?? "",
                   color: e["color"]?.toString() ?? "white",
                 );
               }).toList()
@@ -235,7 +241,35 @@ class _PublicSearchState extends State<Publicsearch> {
     );
   }
 
-  static const List<double> _bomColWidths = [90, 150, 150, 150, 150, 150, 150];
+  static const List<double> _bomColWidths = [130, 240, 220, 80, 90, 150, 150];
+
+  /// Row width = TDGPN + Description + Material + (Qty/Size/UOM) + State + Vendor + FileName.
+  double get _minBomTableWidth =>
+      _bomColWidths[0] +
+      _bomColWidths[1] +
+      _bomColWidths[2] +
+      3 * _bomColWidths[3] +
+      _bomColWidths[4] +
+      _bomColWidths[5] +
+      _bomColWidths[6];
+
+  List<double> _columnWidthsForBomTable(double available) {
+    final sum = _minBomTableWidth;
+    if (available <= sum) {
+      return List<double>.from(_bomColWidths);
+    }
+    final scale = available / sum;
+    return _bomColWidths.map((w) => w * scale).toList();
+  }
+
+  double _bomTableWidthFor(List<double> widths) =>
+      widths[0] +
+      widths[1] +
+      widths[2] +
+      3 * widths[3] +
+      widths[4] +
+      widths[5] +
+      widths[6];
 
   Widget _bomHeaderCell(String label, double w) {
     final borderColor = Colors.grey.shade300;
@@ -291,27 +325,34 @@ class _PublicSearchState extends State<Publicsearch> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final searchFieldWidth = (screenWidth - 32).clamp(240.0, 420.0);
+
     return Scaffold(
-      appBar: CommonAppBar(),
-      drawer: CommonDrawer(),
+      appBar: const CommonAppBar(),
+      drawer: const CommonDrawer(),
       backgroundColor: Colors.white,
 
       body: Container(
         color: Colors.white,
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Align(
+              const Align(
                 alignment: Alignment.centerLeft,
-                child: Text(
+                child: Center(
+                  child: Text(
                   "Public Search",
                   style: TextStyle(
                     color: Colors.black,
-                    fontSize: 20,
+                    fontSize: 25,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+                ),
+                
               ),
 
               if (hasSearched) ...[
@@ -345,44 +386,38 @@ class _PublicSearchState extends State<Publicsearch> {
               ],
 
               if (!hasSearched) ...[
-                Container(
-                  // padding: const EdgeInsets.all(12.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: PublicSearchController,
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.white,
-                            // prefixIcon: Icon(Icons.lock),
-                            hintText: 'Enter Fixture Number',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: const Color.fromARGB(255, 22, 129, 218),
-                                width: 2,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Colors.blue,
-                                width: 1,
-                              ),
-                            ),
+                Center(
+                  child: SizedBox(
+                    width: searchFieldWidth,
+                    child: TextField(
+                      controller: PublicSearchController,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white,
+                        // prefixIcon: Icon(Icons.lock),
+                        hintText: 'Enter Fixture Number',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color.fromARGB(255, 22, 129, 218),
+                            width: 2,
                           ),
-                          textInputAction: TextInputAction.search,
-                          onSubmitted: (_) => performSearch(),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Colors.blue,
+                            width: 1,
+                          ),
                         ),
                       ),
-                    ],
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: (_) => performSearch(),
+                    ),
                   ),
                 ),
 
@@ -406,7 +441,7 @@ class _PublicSearchState extends State<Publicsearch> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: Text(
+                          child: const Text(
                             "Search",
                             style: TextStyle(
                               fontSize: 16,
@@ -423,15 +458,15 @@ class _PublicSearchState extends State<Publicsearch> {
               SizedBox(height: 16),
 
               if (hasSearched)
-                Text(
+                const Text(
                   "Available SOPs",
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
                 ),
 
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               if (isSopLoading)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 32),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
                   child: Center(
                     child: CircularProgressIndicator(
                       color: Color.fromARGB(255, 57, 73, 95),
@@ -450,7 +485,7 @@ class _PublicSearchState extends State<Publicsearch> {
                           thumbVisibility: true,
                           trackVisibility: true,
                           child: ListView.builder(
-                            padding: EdgeInsets.only(bottom: 24),
+                            padding: const EdgeInsets.only(bottom: 24),
                             controller: _scrollController,
                             scrollDirection: Axis.horizontal,
                             itemCount: sopList.length,
@@ -468,8 +503,8 @@ class _PublicSearchState extends State<Publicsearch> {
                 ),
                 const SizedBox(height: 16),
                 if (isTableLoading)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 32),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32),
                     child: Center(
                       child: CircularProgressIndicator(
                         color: Color.fromARGB(255, 57, 73, 95),
@@ -482,59 +517,84 @@ class _PublicSearchState extends State<Publicsearch> {
                     child: Center(child: Text("No table data found")),
                   )
                 else if (hasSearched)
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _bomHeaderCell("TDGPN", _bomColWidths[1]),
-                              _bomHeaderCell("Description", _bomColWidths[1]),
-                              _bomHeaderCell("Material", _bomColWidths[2]),
-                              _bomHeaderCell("Quantity", _bomColWidths[3]),
-                              _bomHeaderCell("State", _bomColWidths[4]),
-                              _bomHeaderCell("Vendor", _bomColWidths[5]),
-                              _bomHeaderCell("FileName", _bomColWidths[6]),
-                            ],
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final available = constraints.maxWidth;
+                      final colW = _columnWidthsForBomTable(available);
+                      final tableW = _bomTableWidthFor(colW);
+
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
                           ),
-                          for (final item in items)
-                            Container(
-                              color: (item.color.toLowerCase() == "white")
-                                  ? Colors.white
-                                  : Color(
-                                      int.parse(
-                                        "0xFF${item.color.replaceAll("#", "")}",
-                                      ),
+                          child: SizedBox(
+                            width: tableW,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _bomHeaderCell("TDGPN", colW[0]),
+                                    _bomHeaderCell("Description", colW[1]),
+                                    _bomHeaderCell("Material", colW[2]),
+                                    _bomHeaderCell("Quantity", colW[3]),
+                                    _bomHeaderCell("Size", colW[3]),
+                                    _bomHeaderCell("UOM", colW[3]),
+                                    _bomHeaderCell("State", colW[4]),
+                                    _bomHeaderCell("Vendor", colW[5]),
+                                    _bomHeaderCell("FileName", colW[6]),
+                                  ],
+                                ),
+                                for (final item in items)
+                                  Container(
+                                    color: (item.color.toLowerCase() == "white")
+                                        ? Colors.white
+                                        : Color(
+                                            int.parse(
+                                              "0xFF${item.color.replaceAll("#", "")}",
+                                            ),
+                                          ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        _bomDataCell(item.tdgPn, colW[0]),
+                                        _bomDataCell(
+                                          item.description,
+                                          colW[1],
+                                        ),
+                                        _bomDataCell(item.material, colW[2]),
+                                        _bomDataCell(
+                                          item.quantity.toString(),
+                                          colW[3],
+                                        ),
+                                        _bomDataCell(
+                                          item.size.toString(),
+                                          colW[3],
+                                        ),
+                                        _bomDataCell(
+                                          item.UOM.toString(),
+                                          colW[3],
+                                        ),
+                                        _bomDataCell(item.state, colW[4]),
+                                        _bomDataCell(item.vendor, colW[5]),
+                                        _bomDataCell(
+                                          item.PathName,
+                                          colW[6],
+                                        ),
+                                      ],
                                     ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _bomDataCell(item.tdgPn, _bomColWidths[1]),
-                                  _bomDataCell(
-                                    item.description,
-                                    _bomColWidths[1],
                                   ),
-                                  _bomDataCell(item.material, _bomColWidths[2]),
-                                  _bomDataCell(
-                                    item.quantity.toString(),
-                                    _bomColWidths[3],
-                                  ),
-                                  _bomDataCell(item.state, _bomColWidths[4]),
-                                  _bomDataCell(item.vendor, _bomColWidths[5]),
-                                  _bomDataCell(item.PathName, _bomColWidths[6]),
-                                ],
-                              ),
+                              ],
                             ),
-                        ],
-                      ),
-                    ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
               ],
             ],

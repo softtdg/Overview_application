@@ -4,18 +4,21 @@ import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/PickedHistory/Services/PickedHistoryService.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
+import 'package:overview_app/Widgets/pagination_bar.dart';
 
 class ItemModel {
   final String sopNumber;
   final String fixtureNumber;
   final String dateChanged;
   final String picked;
+  final String status;
 
   ItemModel({
     required this.sopNumber,
     required this.fixtureNumber,
     required this.dateChanged,
     required this.picked,
+    required this.status,
   });
 }
 
@@ -30,9 +33,38 @@ class _PickedHistoryState extends State<PickedHistory> {
   List<ItemModel> items = [];
   bool isLoading = false;
 
-  static const List<double> _bomColWidths = [150, 170, 170, 130];
+  static const int _pageSize = 200;
+  int _currentPage = 1;
 
-  double get _tableWidth => _bomColWidths.fold<double>(0, (sum, w) => sum + w);
+  static const List<double> _bomColWidths = [130, 160, 200, 100, 120];
+
+  List<ItemModel> get _visibleItems {
+    final start = (_currentPage - 1) * _pageSize;
+    if (start >= items.length) return [];
+    final end = (start + _pageSize).clamp(0, items.length);
+    return items.sublist(start, end);
+  }
+
+  int get _totalPages {
+    if (items.isEmpty) return 1;
+    return (items.length + _pageSize - 1) ~/ _pageSize;
+  }
+
+  /// Minimum table width (all columns; used when parent is narrower — horizontal scroll).
+  double get _minTableWidth =>
+      _bomColWidths.fold<double>(0, (sum, w) => sum + w);
+
+  List<double> _columnWidthsForAvailable(double available) {
+    final sum = _minTableWidth;
+    if (available <= sum) {
+      return List<double>.from(_bomColWidths);
+    }
+    final scale = available / sum;
+    return _bomColWidths.map((w) => w * scale).toList();
+  }
+
+  double _tableWidthFor(List<double> widths) =>
+      widths.fold<double>(0, (a, b) => a + b);
 
   Future<void> fetchHistoryData() async {
     setState(() {
@@ -47,6 +79,7 @@ class _PickedHistoryState extends State<PickedHistory> {
       if (!mounted) return;
       setState(() {
         items = parsedItems;
+        _currentPage = 1;
         isLoading = false;
       });
 
@@ -134,27 +167,15 @@ class _PickedHistoryState extends State<PickedHistory> {
       final normalizedRow = _normalizedFieldMap(row);
       parsed.add(
         ItemModel(
-          sopNumber: _firstMatchingValue(normalizedRow, const [
-            "SOPNum",
-            "SOPNumber",
-            "sopNumber",
-            "sopNo",
-          ]),
+          sopNumber: _firstMatchingValue(normalizedRow, const ["SOPNumber"]),
           fixtureNumber: _firstMatchingValue(normalizedRow, const [
             "FixtureNumber",
           ]),
           dateChanged: _firstMatchingValue(normalizedRow, const [
             "dateChanged",
-            "createdAt",
-            "updatedAt",
           ]),
-          picked: _firstMatchingValue(normalizedRow, const [
-            "Status",
-            "PickStatus",
-            "PickedStatus",
-            "Picked",
-            "isPicked",
-          ]),
+          picked: _firstMatchingValue(normalizedRow, const ["picked"]),
+          status: _firstMatchingValue(normalizedRow, const ['status']),
         ),
       );
     }
@@ -223,8 +244,8 @@ class _PickedHistoryState extends State<PickedHistory> {
         child: Text(
           value,
           maxLines: 1,
-          softWrap: true,
-          overflow: TextOverflow.visible,
+          softWrap: false,
+          overflow: TextOverflow.ellipsis,
         ),
       ),
     );
@@ -244,12 +265,14 @@ class _PickedHistoryState extends State<PickedHistory> {
             children: [
               const Align(
                 alignment: Alignment.center,
-                child: Text(
-                  "Picked History",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                child: Center(
+                  child: Text(
+                    "Picked History",
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 25,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -275,69 +298,108 @@ class _PickedHistoryState extends State<PickedHistory> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(10),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: SizedBox(
-                          width: _tableWidth,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _bomHeaderCell(
-                                    "SOP Number",
-                                    _bomColWidths[0],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final available = constraints.maxWidth;
+                              final colW = _columnWidthsForAvailable(available);
+                              final tableW = _tableWidthFor(colW);
+
+                              return SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                    ),
                                   ),
-                                  _bomHeaderCell(
-                                    "Fixture Number",
-                                    _bomColWidths[1],
-                                  ),
-                                  _bomHeaderCell(
-                                    "Date Changed",
-                                    _bomColWidths[2],
-                                  ),
-                                  _bomHeaderCell("Status", _bomColWidths[3]),
-                                ],
-                              ),
-                              Expanded(
-                                child: ListView.builder(
-                                  itemCount: items.length,
-                                  itemBuilder: (context, index) {
-                                    final item = items[index];
-                                    return Row(
+                                  child: SizedBox(
+                                    width: tableW,
+                                    height: constraints.maxHeight,
+                                    child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        _bomDataCell(
-                                          item.sopNumber,
-                                          _bomColWidths[0],
+                                        Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            _bomHeaderCell(
+                                              "SOP Number",
+                                              colW[0],
+                                            ),
+                                            _bomHeaderCell(
+                                              "Fixture Number",
+                                              colW[1],
+                                            ),
+                                            _bomHeaderCell(
+                                              "Date Changed",
+                                              colW[2],
+                                            ),
+                                            _bomHeaderCell("Picked", colW[3]),
+                                            _bomHeaderCell("Status", colW[4]),
+                                          ],
                                         ),
-                                        _bomDataCell(
-                                          item.fixtureNumber,
-                                          _bomColWidths[1],
-                                        ),
-                                        _bomDataCell(
-                                          _formatDateValue(item.dateChanged),
-                                          _bomColWidths[2],
-                                        ),
-                                        _bomDataCell(
-                                          item.picked,
-                                          _bomColWidths[3],
+                                        Expanded(
+                                          child: ListView.builder(
+                                            itemCount: _visibleItems.length,
+                                            itemBuilder: (context, index) {
+                                              final item = _visibleItems[index];
+                                              return Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  _bomDataCell(
+                                                    item.sopNumber,
+                                                    colW[0],
+                                                  ),
+                                                  _bomDataCell(
+                                                    item.fixtureNumber,
+                                                    colW[1],
+                                                  ),
+                                                  _bomDataCell(
+                                                    _formatDateValue(
+                                                      item.dateChanged,
+                                                    ),
+                                                    colW[2],
+                                                  ),
+                                                  _bomDataCell(
+                                                    item.picked,
+                                                    colW[3],
+                                                  ),
+                                                  _bomDataCell(
+                                                    item.status,
+                                                    colW[4],
+                                                  ),
+                                                ],
+                                              );
+                                            },
+                                          ),
                                         ),
                                       ],
-                                    );
-                                  },
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ],
+                              );
+                            },
                           ),
                         ),
-                      ),
+                        if (items.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          PaginationBar(
+                            currentPage: _currentPage.clamp(1, _totalPages),
+                            totalPages: _totalPages,
+                            onPageChanged: (page) {
+                              setState(() {
+                                _currentPage = page;
+                              });
+                            },
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),

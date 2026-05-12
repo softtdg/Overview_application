@@ -293,8 +293,8 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CommonAppBar(),
-      drawer: CommonDrawer(),
+      appBar: const CommonAppBar(),
+      drawer: const CommonDrawer(),
       body: Container(
         color: Colors.white,
         child: Container(
@@ -308,7 +308,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                   "Inventory Picked Log",
                   style: TextStyle(
                     color: Colors.black,
-                    fontSize: 20,
+                    fontSize: 25,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -355,15 +355,46 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                     ),
                   ),
                   const SizedBox(width: 12),
+                  // SizedBox(
+                  //   width: 155,
+                  //   child: TextField(
+                  //     controller: _pickListSearchController,
+                  //     keyboardType: TextInputType.number,
+                  //     decoration: const InputDecoration(
+                  //       labelText: 'Pick List Number',
+                  //       border: OutlineInputBorder(),
+                  //     ),
+                  //     onSubmitted: (_) => fetchInvetoryPickedData(),
+                  //   ),
+                  // ),
                   SizedBox(
-                    width: 155,
+                    // width: _pickListSearchController,
                     child: TextField(
                       controller: _pickListSearchController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Pick List Number',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white,
+                        hintText: 'Enter SOP Number',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Colors.grey,
+                            width: 1,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color.fromARGB(255, 22, 129, 218),
+                            width: 2,
+                          ),
+                        ),
                       ),
+                      textInputAction: TextInputAction.search,
                       onSubmitted: (_) => fetchInvetoryPickedData(),
                     ),
                   ),

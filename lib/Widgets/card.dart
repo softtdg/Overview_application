@@ -4,17 +4,22 @@ class InfoCard extends StatelessWidget {
   final String title;
   final Color color;
   final List<Widget> children;
+  /// When true, expands to parent height (use with equal-height tablet rows).
+  final bool fillHeight;
 
   const InfoCard({
     required this.title,
     required this.color,
     required this.children,
+    this.fillHeight = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.only(bottom: 12),
+      width: fillHeight ? double.infinity : null,
+      height: fillHeight ? double.infinity : null,
+      margin: fillHeight ? EdgeInsets.zero : EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: color,
@@ -24,7 +29,9 @@ class InfoCard extends StatelessWidget {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.start,
+        mainAxisSize: fillHeight ? MainAxisSize.max : MainAxisSize.min,
         children: [
           // Title
           Text(
@@ -33,11 +40,14 @@ class InfoCard extends StatelessWidget {
               fontWeight: FontWeight.bold,
               letterSpacing: 1,
               color: Colors.black,
+              fontSize: 16,
             ),
           ),
 
           SizedBox(height: 10),
+
           Divider(color: Color.fromRGBO(143, 146, 149, 1.0)),
+
           SizedBox(height: 8),
 
           ...children,
@@ -48,27 +58,27 @@ class InfoCard extends StatelessWidget {
 }
 
 Widget infoRow(String label, String value) {
-  return Container(
+  return Padding(
     padding: const EdgeInsets.symmetric(vertical: 6),
     child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Flexible(
-          flex: 1,
-          child: Text(label, style: TextStyle(color: Colors.black)),
-        ),
-        SizedBox(width: 20),
         Expanded(
           flex: 2,
-          child: Align(
-            alignment: Alignment.topRight,
-            child: Text(
-              value,
-              style: TextStyle(fontWeight: FontWeight.w600),
-              textAlign: TextAlign.right,
-              softWrap: true,
-            ),
+          child: Text(
+            label,
+            style: TextStyle(color: Colors.black),
+            softWrap: true,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 3,
+          child: Text(
+            value,
+            style: TextStyle(fontWeight: FontWeight.w600),
+            textAlign: TextAlign.right,
+            softWrap: true,
           ),
         ),
       ],
