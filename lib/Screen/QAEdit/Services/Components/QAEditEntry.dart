@@ -1,38 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:overview_app/Screen/QAOut/Services/QAOutService.dart';
+import 'package:overview_app/Screen/QAEdit/Services/QAEditService.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
-class QAOutEditEntry extends StatefulWidget {
+class QAEditEntry extends StatefulWidget {
   final String SOPId;
-  const QAOutEditEntry({super.key, required this.SOPId});
+  const QAEditEntry({super.key, required this.SOPId});
+
   @override
-  _QAOutEditEntryState createState() => _QAOutEditEntryState();
+  _QAEditEntryState createState() => _QAEditEntryState();
 }
 
-class _QAOutEditEntryState extends State<QAOutEditEntry> {
-  Map<String, dynamic> QAOutEditData = {};
-  final QAOutService _service = const QAOutService();
-  final SOPController = TextEditingController();
+class _QAEditEntryState extends State<QAEditEntry> {
+  final QAEditServices _service = QAEditServices();
   bool isLoading = false;
+  Map<String, dynamic> QAEditData = {};
+  final SOPController = TextEditingController();
 
-  Future<void> GetQAOutSOPById() async {
+  Future<void> GetQAEditSOPById() async {
     setState(() {
       isLoading = true;
     });
     try {
-      final response = await _service.QAOutSOPById(widget.SOPId);
-      final data = response.data['data'];
-      final firstRow = (data is List && data.isNotEmpty && data.first is Map)
-          ? Map<String, dynamic>.from(data.first as Map)
-          : <String, dynamic>{};
+      final response = await _service.QAEditSOPById(widget.SOPId);
+      QAEditData = response.data['data'];
       setState(() {
-        QAOutEditData = firstRow;
-        SOPController.text = QAOutEditData['SOPNum']?.toString() ?? '';
+        SOPController.text = QAEditData['SOPNum']?.toString() ?? '';
       });
-      print("QA Out SOP By ID Response: ${response.data['data']}");
+      print("QA Edit SOP by ID data: $QAEditData");
     } catch (e) {
-      print("Error fetching QA Out SOP by ID: $e");
+      print("Error fetching QA Edit SOP by ID: $e");
     } finally {
       setState(() {
         isLoading = false;
@@ -40,27 +37,27 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
     }
   }
 
-  Future<void> HandleUpdateQAOutEntry() async {
+  Future<void> HandleQAEditUpdateEntry() async {
     try {
       setState(() {
         isLoading = true;
       });
       final payload = {
         'sopId': int.tryParse(widget.SOPId) ?? widget.SOPId,
-        'qaInDate': QAOutEditData['QCDateIn']?.toString() ?? '',
-        'reworkOutDate': QAOutEditData['reworkOutDate']?.toString() ?? '',
-        'finalInDate': QAOutEditData['FinalDateReceivedInQC']?.toString() ?? '',
-        'qaOutDate': QAOutEditData['QCOut']?.toString() ?? '',
-        'qaComments': QAOutEditData['QAComments']?.toString() ?? '',
+        'qaInDate': QAEditData['QCDateIn']?.toString() ?? '',
+        'reworkOutDate': QAEditData['ReworkDateOut']?.toString() ?? '',
+        'finalInDate': QAEditData['FinalDateReceivedInQC']?.toString() ?? '',
+        'qaOutDate': QAEditData['QCOut']?.toString() ?? '',
+        'qaComments': QAEditData['QAComments']?.toString() ?? '',
       };
-      final response = await _service.UpdateQAOutEntry(payload);
-      print("UPDATE QA OUT ENTRY RESPONSE: ${response.data['data']}");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("QA Out entry updated successfully")),
-      );
+      final response = await _service.UpdateQAEdit(payload);
+      print("UPDATE QA EDIT ENTRY RESPONSE ${response.data['data']}");
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: const Text("Updated Successfully")));
       Navigator.pop(context, true);
     } catch (e) {
-      print("Error updating QA Out entry: $e");
+      print("Error for updating QA edit entry $e");
     } finally {
       setState(() {
         isLoading = false;
@@ -71,7 +68,7 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
   @override
   void initState() {
     super.initState();
-    GetQAOutSOPById();
+    GetQAEditSOPById();
   }
 
   Future<DateTime?> _pickDateWithStyledPicker(DateTime? initialDate) {
@@ -183,7 +180,7 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
             ),
             DataColumn(
               label: SizedBox(
-                width: 70,
+                width: 80,
                 child: Center(
                   child: Text(
                     "PO Num",
@@ -332,7 +329,7 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
               ),
             ),
           ],
-          rows: QAOutEditData.isEmpty
+          rows: QAEditData.isEmpty
               ? []
               : [
                   DataRow(
@@ -367,17 +364,17 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                               ),
                             ),
                             onChanged: (value) {
-                              QAOutEditData['SOPNum'] = value;
+                              QAEditData['SOPNum'] = value;
                             },
                           ),
                         ),
                       ),
                       DataCell(
                         SizedBox(
-                          width: 70,
+                          width: 80,
                           child: Center(
                             child: Text(
-                              QAOutEditData['PoNum']?.toString() ?? '',
+                              QAEditData['PONum']?.toString() ?? '',
                               textAlign: TextAlign.center,
                               style: const TextStyle(fontSize: 12),
                             ),
@@ -389,7 +386,7 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                           width: 90,
                           child: Center(
                             child: Text(
-                              formatDate(QAOutEditData['ODD']?.toString()),
+                              formatDate(QAEditData['ODD']?.toString()),
                               textAlign: TextAlign.center,
                               style: const TextStyle(fontSize: 12),
                             ),
@@ -401,7 +398,7 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                           width: 260,
                           child: Center(
                             child: Text(
-                              QAOutEditData['CustomerName']?.toString() ?? '',
+                              QAEditData['CustomerName']?.toString() ?? '',
                               textAlign: TextAlign.center,
                               softWrap: true,
                               maxLines: null,
@@ -416,7 +413,7 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                           width: 100,
                           child: Center(
                             child: Text(
-                              QAOutEditData['ProgramName']?.toString() ?? '',
+                              QAEditData['ProgramName']?.toString() ?? '',
                               textAlign: TextAlign.center,
                               style: const TextStyle(fontSize: 12),
                             ),
@@ -428,7 +425,7 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                           width: 90,
                           child: Center(
                             child: Text(
-                              QAOutEditData['Location']?.toString() ?? '',
+                              QAEditData['LocationName']?.toString() ?? '',
                               textAlign: TextAlign.center,
                               style: const TextStyle(fontSize: 12),
                             ),
@@ -445,13 +442,42 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                                 final pickedDate =
                                     await _pickDateWithStyledPicker(
                                       DateTime.tryParse(
-                                        QAOutEditData['QCDateIn'] ?? '',
+                                        QAEditData['QCDateIn'] ?? '',
                                       ),
                                     );
 
                                 if (pickedDate != null) {
                                   setState(() {
-                                    QAOutEditData['QCDateIn'] = DateFormat(
+                                    QAEditData['QCDateIn'] = DateFormat(
+                                      'yyyy-MM-dd',
+                                    ).format(pickedDate);
+                                  });
+                                }
+                              },
+                              child: _buildDateDisplay(
+                                formatDate(QAEditData['QCDateIn']?.toString()),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      DataCell(
+                        SizedBox(
+                          width: 140,
+                          child: Center(
+                            child: InkWell(
+                              onTap: () async {
+                                final pickedDate =
+                                    await _pickDateWithStyledPicker(
+                                      DateTime.tryParse(
+                                        QAEditData['ReworkDateOut'] ?? '',
+                                      ),
+                                    );
+
+                                if (pickedDate != null) {
+                                  setState(() {
+                                    QAEditData['ReworkDateOut'] = DateFormat(
                                       'yyyy-MM-dd',
                                     ).format(pickedDate);
                                   });
@@ -459,7 +485,7 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                               },
                               child: _buildDateDisplay(
                                 formatDate(
-                                  QAOutEditData['QCDateIn']?.toString(),
+                                  QAEditData['ReworkDateOut']?.toString(),
                                 ),
                               ),
                             ),
@@ -476,45 +502,14 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                                 final pickedDate =
                                     await _pickDateWithStyledPicker(
                                       DateTime.tryParse(
-                                        QAOutEditData['ReworkDateOut'] ?? '',
-                                      ),
-                                    );
-
-                                if (pickedDate != null) {
-                                  setState(() {
-                                    QAOutEditData['ReworkDateOut'] = DateFormat(
-                                      'yyyy-MM-dd',
-                                    ).format(pickedDate);
-                                  });
-                                }
-                              },
-                              child: _buildDateDisplay(
-                                formatDate(
-                                  QAOutEditData['ReworkDateOut']?.toString(),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      DataCell(
-                        SizedBox(
-                          width: 140,
-                          child: Center(
-                            child: InkWell(
-                              onTap: () async {
-                                final pickedDate =
-                                    await _pickDateWithStyledPicker(
-                                      DateTime.tryParse(
-                                        QAOutEditData['FinalDateReceivedInQC'] ??
+                                        QAEditData['FinalDateReceivedInQC'] ??
                                             '',
                                       ),
                                     );
 
                                 if (pickedDate != null) {
                                   setState(() {
-                                    QAOutEditData['FinalDateReceivedInQC'] =
+                                    QAEditData['FinalDateReceivedInQC'] =
                                         DateFormat(
                                           'yyyy-MM-dd',
                                         ).format(pickedDate);
@@ -523,7 +518,7 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                               },
                               child: _buildDateDisplay(
                                 formatDate(
-                                  QAOutEditData['FinalDateReceivedInQC']
+                                  QAEditData['FinalDateReceivedInQC']
                                       ?.toString(),
                                 ),
                               ),
@@ -541,20 +536,20 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                                 final pickedDate =
                                     await _pickDateWithStyledPicker(
                                       DateTime.tryParse(
-                                        QAOutEditData['QCOut'] ?? '',
+                                        QAEditData['QCOut'] ?? '',
                                       ),
                                     );
 
                                 if (pickedDate != null) {
                                   setState(() {
-                                    QAOutEditData['QCOut'] = DateFormat(
+                                    QAEditData['QCOut'] = DateFormat(
                                       'yyyy-MM-dd',
                                     ).format(pickedDate);
                                   });
                                 }
                               },
                               child: _buildDateDisplay(
-                                formatDate(QAOutEditData['QCOut']?.toString()),
+                                formatDate(QAEditData['QCOut']?.toString()),
                               ),
                             ),
                           ),
@@ -565,7 +560,7 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                           width: 140,
                           child: TextFormField(
                             initialValue:
-                                QAOutEditData['QAComments']?.toString() ?? '',
+                                QAEditData['QAComments']?.toString() ?? '',
                             textAlign: TextAlign.center,
                             style: TextStyle(fontSize: 12),
                             decoration: InputDecoration(
@@ -591,7 +586,7 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                             ),
                             onChanged: (value) {
                               setState(() {
-                                QAOutEditData['QAComments'] = value;
+                                QAEditData['QAComments'] = value;
                               });
                             },
                           ),
@@ -639,15 +634,15 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                     )
                   : buildTable(),
 
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
 
               SizedBox(
                 width: 200,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: QAOutEditData.isEmpty
+                  onPressed: QAEditData.isEmpty
                       ? null
-                      : () => HandleUpdateQAOutEntry(),
+                      : () => HandleQAEditUpdateEntry(),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1565C0),
                     foregroundColor: Colors.white,

@@ -5,6 +5,7 @@ import 'package:overview_app/Screen/OpenItems/OpenItems.dart';
 import 'package:overview_app/Screen/OpenItems/SearchOpenItems.dart';
 import 'package:overview_app/Screen/PickedHistory/PickedHistory.dart';
 import 'package:overview_app/Screen/Public-Search/PublicSearch.dart';
+import 'package:overview_app/Screen/QAEdit/QAEdit.dart';
 import 'package:overview_app/Screen/QAIn/QAIn.dart';
 import 'package:overview_app/Screen/QAOut/QAOut.dart';
 import 'package:overview_app/Screen/SOPSearch/sopSearch.dart';
@@ -317,6 +318,14 @@ class _CommonDrawerState extends State<CommonDrawer> {
                       final nav = Navigator.of(context);
                       nav.pop();
                       nav.push(MaterialPageRoute(builder: (_) => QAOut()));
+                    },
+                  ),
+                  ListTile(
+                    title: const Text("QA Edit"),
+                    onTap: () {
+                      final nav = Navigator.of(context);
+                      nav.pop();
+                      nav.push(MaterialPageRoute(builder: (_) => QAEdit()));
                     },
                   ),
                 ],
