@@ -48,6 +48,37 @@ class _QAEditState extends State<QAEdit> {
     GetQAEditHistory();
   }
 
+  @override
+  void dispose() {
+    SOPController.dispose();
+    super.dispose();
+  }
+
+  /// Case-insensitive match across the main table columns.
+  List<Map<String, dynamic>> get _filteredHistory {
+    final q = SOPController.text.trim().toLowerCase();
+    if (q.isEmpty) return QCEditHistory;
+
+    String cell(dynamic v) => (v?.toString() ?? '').toLowerCase();
+
+    bool rowMatches(Map<String, dynamic> item) {
+      return cell(item['SOPNum']).contains(q) ||
+          cell(item['PONum']).contains(q) ||
+          cell(item['CustomerName']).contains(q) ||
+          cell(item['ProgramName']).contains(q) ||
+          cell(item['LocationName']).contains(q) ||
+          cell(item['QAComments']).contains(q) ||
+          cell(item['ODD']).contains(q) ||
+          cell(item['QCDateIn']).contains(q) ||
+          cell(item['ReworkDateOut']).contains(q) ||
+          cell(item['FinalDateReceivedInQC']).contains(q) ||
+          cell(item['QCOut']).contains(q) ||
+          cell(item['LastEdit']).contains(q);
+    }
+
+    return QCEditHistory.where(rowMatches).toList();
+  }
+
   String formatDate(dynamic date) {
     if (date == null) return "*";
     try {
@@ -77,8 +108,75 @@ class _QAEditState extends State<QAEdit> {
     }
   }
 
+  static const TextStyle _cellTextStyle = TextStyle(fontSize: 12);
+
+  /// Highlights [SOPController] query in [text] (case-insensitive).
+  Widget _highlightedCellText(
+    String text, {
+    TextAlign textAlign = TextAlign.center,
+    int? maxLines,
+    bool softWrap = false,
+  }) {
+    final q = SOPController.text.trim();
+    if (q.isEmpty) {
+      return Text(
+        text,
+        textAlign: textAlign,
+        style: _cellTextStyle,
+        maxLines: maxLines,
+        softWrap: softWrap,
+        overflow: maxLines == null ? TextOverflow.visible : TextOverflow.clip,
+      );
+    }
+
+    final lower = text.toLowerCase();
+    final needle = q.toLowerCase();
+    if (!lower.contains(needle)) {
+      return Text(
+        text,
+        textAlign: textAlign,
+        style: _cellTextStyle,
+        maxLines: maxLines,
+        softWrap: softWrap,
+        overflow: maxLines == null ? TextOverflow.visible : TextOverflow.clip,
+      );
+    }
+
+    final children = <InlineSpan>[];
+    var i = 0;
+    while (i < text.length) {
+      final j = lower.indexOf(needle, i);
+      if (j < 0) {
+        children.add(TextSpan(text: text.substring(i)));
+        break;
+      }
+      if (j > i) {
+        children.add(TextSpan(text: text.substring(i, j)));
+      }
+      final end = j + needle.length;
+      children.add(
+        TextSpan(
+          text: text.substring(j, end),
+          style: _cellTextStyle.copyWith(
+            backgroundColor: const Color.fromARGB(255, 245, 197, 41),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+      i = end;
+    }
+
+    return Text.rich(
+      TextSpan(style: _cellTextStyle, children: children),
+      textAlign: textAlign,
+      maxLines: maxLines,
+      softWrap: softWrap,
+      overflow: maxLines == null ? TextOverflow.visible : TextOverflow.clip,
+    );
+  }
+
   int get _totalPages {
-    final n = QCEditHistory.length;
+    final n = _filteredHistory.length;
     if (n == 0) return 1;
     return (n + _rowsPerPage - 1) ~/ _rowsPerPage;
   }
@@ -87,7 +185,7 @@ class _QAEditState extends State<QAEdit> {
     final tp = _totalPages;
     final c = _currentPage.clamp(1, tp);
     final start = (c - 1) * _rowsPerPage;
-    return QCEditHistory.skip(start).take(_rowsPerPage).toList();
+    return _filteredHistory.skip(start).take(_rowsPerPage).toList();
   }
 
   List<Object?> _pageButtons(int current, int total) {
@@ -442,10 +540,8 @@ class _QAEditState extends State<QAEdit> {
                   SizedBox(
                     width: 60,
                     child: Center(
-                      child: Text(
+                      child: _highlightedCellText(
                         item['SOPNum']?.toString() ?? '-',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
                       ),
                     ),
                   ),
@@ -454,10 +550,8 @@ class _QAEditState extends State<QAEdit> {
                   SizedBox(
                     width: 80,
                     child: Center(
-                      child: Text(
+                      child: _highlightedCellText(
                         item['PONum']?.toString() ?? '-',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
                       ),
                     ),
                   ),
@@ -466,10 +560,8 @@ class _QAEditState extends State<QAEdit> {
                   SizedBox(
                     width: 90,
                     child: Center(
-                      child: Text(
+                      child: _highlightedCellText(
                         formatDate(item['ODD']?.toString() ?? '-'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
                       ),
                     ),
                   ),
@@ -478,13 +570,10 @@ class _QAEditState extends State<QAEdit> {
                   SizedBox(
                     width: 260,
                     child: Center(
-                      child: Text(
+                      child: _highlightedCellText(
                         item['CustomerName']?.toString() ?? '-',
-                        textAlign: TextAlign.center,
                         softWrap: true,
                         maxLines: null,
-                        overflow: TextOverflow.visible,
-                        style: TextStyle(fontSize: 12),
                       ),
                     ),
                   ),
@@ -493,10 +582,8 @@ class _QAEditState extends State<QAEdit> {
                   SizedBox(
                     width: 100,
                     child: Center(
-                      child: Text(
+                      child: _highlightedCellText(
                         item['ProgramName']?.toString() ?? '-',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
                       ),
                     ),
                   ),
@@ -505,10 +592,8 @@ class _QAEditState extends State<QAEdit> {
                   SizedBox(
                     width: 90,
                     child: Center(
-                      child: Text(
+                      child: _highlightedCellText(
                         item['LocationName']?.toString() ?? '-',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
                       ),
                     ),
                   ),
@@ -517,10 +602,8 @@ class _QAEditState extends State<QAEdit> {
                   SizedBox(
                     width: 140,
                     child: Center(
-                      child: Text(
+                      child: _highlightedCellText(
                         formatDate(item['QCDateIn']?.toString() ?? '-'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
                       ),
                     ),
                   ),
@@ -529,10 +612,8 @@ class _QAEditState extends State<QAEdit> {
                   SizedBox(
                     width: 75,
                     child: Center(
-                      child: Text(
+                      child: _highlightedCellText(
                         formatDate(item['ReworkDateOut']?.toString() ?? '-'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
                       ),
                     ),
                   ),
@@ -541,12 +622,10 @@ class _QAEditState extends State<QAEdit> {
                   SizedBox(
                     width: 140,
                     child: Center(
-                      child: Text(
+                      child: _highlightedCellText(
                         formatDate(
                           item['FinalDateReceivedInQC']?.toString() ?? '-',
                         ),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
                       ),
                     ),
                   ),
@@ -555,10 +634,8 @@ class _QAEditState extends State<QAEdit> {
                   SizedBox(
                     width: 100,
                     child: Center(
-                      child: Text(
+                      child: _highlightedCellText(
                         formatDate(item['QCOut']?.toString() ?? '-'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
                       ),
                     ),
                   ),
@@ -568,10 +645,8 @@ class _QAEditState extends State<QAEdit> {
                   SizedBox(
                     width: 110,
                     child: Center(
-                      child: Text(
+                      child: _highlightedCellText(
                         item['QAComments']?.toString() ?? '',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
                       ),
                     ),
                   ),
@@ -580,10 +655,8 @@ class _QAEditState extends State<QAEdit> {
                   SizedBox(
                     width: 100,
                     child: Center(
-                      child: Text(
+                      child: _highlightedCellText(
                         formatDateTime(item['LastEdit']?.toString() ?? '-'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
                       ),
                     ),
                   ),
@@ -669,6 +742,11 @@ class _QAEditState extends State<QAEdit> {
                 // width: ,
                 child: TextField(
                   controller: SOPController,
+                  onChanged: (_) {
+                    setState(() {
+                      _currentPage = 1;
+                    });
+                  },
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: Colors.white,
@@ -688,10 +766,22 @@ class _QAEditState extends State<QAEdit> {
                         width: 2,
                       ),
                     ),
+                    suffixIcon: SOPController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.clear, size: 20),
+                            onPressed: () {
+                              SOPController.clear();
+                              setState(() {
+                                _currentPage = 1;
+                              });
+                            },
+                          ),
                   ),
                   textInputAction: TextInputAction.search,
                 ),
               ),
+
               const SizedBox(height: 10),
 
               isLoading
@@ -716,7 +806,7 @@ class _QAEditState extends State<QAEdit> {
                                 ),
                               )
                             : buildTable(),
-                        if (QCEditHistory.isNotEmpty) buildPaginationBar(),
+                        if (_filteredHistory.isNotEmpty) buildPaginationBar(),
                       ],
                     ),
 
