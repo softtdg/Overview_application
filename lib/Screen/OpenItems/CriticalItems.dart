@@ -5,6 +5,7 @@ import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Screen/OpenItems/Components/Query.dart';
 import 'package:overview_app/Screen/OpenItems/Services/OpenItemsServices.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
+import 'package:overview_app/Widgets/pagination_bar.dart';
 
 class CriticalItems extends StatefulWidget {
   const CriticalItems({
@@ -35,7 +36,7 @@ class _CriticalItemsState extends State<CriticalItems> {
   String _pickedFilter = 'All';
   String _searchQuery = '';
   bool _isLoading = true;
-  int _currentPage = 0;
+  int _currentPage = 1;
   int _rowsPerPage = 50;
   int? _sortColumnIndex;
   bool _sortAscending = true;
@@ -292,7 +293,7 @@ class _CriticalItemsState extends State<CriticalItems> {
     setState(() {
       _sortColumnIndex = columnIndex;
       _sortAscending = ascending;
-      _currentPage = 0;
+      _currentPage = 1;
       _clampCurrentPage();
     });
   }
@@ -300,7 +301,7 @@ class _CriticalItemsState extends State<CriticalItems> {
   void _runSearch() {
     setState(() {
       _searchQuery = _searchController.text.trim();
-      _currentPage = 0;
+      _currentPage = 1;
       _clampCurrentPage();
     });
   }
@@ -719,137 +720,13 @@ class _CriticalItemsState extends State<CriticalItems> {
 
   List<Map<String, dynamic>> get _pagedRows {
     if (_filteredRows.isEmpty) return [];
-    final start = _currentPage * _rowsPerPage;
+    final start = (_currentPage - 1) * _rowsPerPage;
     final end = min(start + _rowsPerPage, _filteredRows.length);
     return _filteredRows.sublist(start, end);
   }
 
   void _clampCurrentPage() {
-    final last = max(0, _totalPages - 1);
-    if (_currentPage > last) _currentPage = last;
-  }
-
-  void _setPage(int page) {
-    setState(() {
-      _currentPage = page.clamp(0, max(0, _totalPages - 1));
-    });
-  }
-
-  List<int?> _paginationItems() {
-    final lastPage = _totalPages - 1;
-    if (_totalPages <= 7) {
-      return List<int?>.generate(_totalPages, (i) => i);
-    }
-
-    final items = <int?>[0];
-    final showLeftDots = _currentPage > 3;
-    final showRightDots = _currentPage < lastPage - 3;
-
-    if (showLeftDots) {
-      items.add(null);
-    }
-
-    final start = max(1, _currentPage - 1);
-    final end = min(lastPage - 1, _currentPage + 1);
-    for (int i = start; i <= end; i++) {
-      items.add(i);
-    }
-
-    if (showRightDots) {
-      items.add(null);
-    }
-
-    items.add(lastPage);
-    return items;
-  }
-
-  Widget _pageBox({
-    required Widget child,
-    required VoidCallback? onTap,
-    bool isSelected = false,
-  }) {
-    return Material(
-      color: isSelected ? const Color(0xFF314D75) : const Color(0xFFE9ECEF),
-      borderRadius: BorderRadius.circular(4),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
-        child: SizedBox(width: 36, height: 36, child: Center(child: child)),
-      ),
-    );
-  }
-
-  Widget _paginationBar() {
-    final pages = _paginationItems();
-    final hasPrev = _currentPage > 0;
-    final hasNext = _currentPage < _totalPages - 1;
-
-    return Material(
-      color: const Color(0xFFF5F6F8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Wrap(
-          alignment: WrapAlignment.center,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            _pageBox(
-              onTap: hasPrev ? () => _setPage(_currentPage - 1) : null,
-              child: Icon(
-                Icons.chevron_left,
-                size: 18,
-                color: hasPrev
-                    ? const Color(0xFF546375)
-                    : const Color(0xFFB7C0CB),
-              ),
-            ),
-            ...pages.map((pageIndex) {
-              if (pageIndex == null) {
-                return const SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: Center(
-                    child: Text(
-                      '...',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Color(0xFF657589),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                );
-              }
-
-              final isSelected = _currentPage == pageIndex;
-              return _pageBox(
-                isSelected: isSelected,
-                onTap: () => _setPage(pageIndex),
-                child: Text(
-                  '${pageIndex + 1}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: isSelected ? Colors.white : const Color(0xFF546375),
-                  ),
-                ),
-              );
-            }),
-            _pageBox(
-              onTap: hasNext ? () => _setPage(_currentPage + 1) : null,
-              child: Icon(
-                Icons.chevron_right,
-                size: 18,
-                color: hasNext
-                    ? const Color(0xFF546375)
-                    : const Color(0xFFB7C0CB),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    _currentPage = _currentPage.clamp(1, _totalPages);
   }
 
   @override
@@ -860,6 +737,29 @@ class _CriticalItemsState extends State<CriticalItems> {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = MediaQuery.sizeOf(context).width >= 700;
+    final searchField = TextField(
+      controller: _searchController,
+      onChanged: (_) => _runSearch(),
+      decoration: InputDecoration(
+        hintText: 'Search in table...',
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: isTablet ? 12 : 14,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+          borderSide: BorderSide(
+            color: isTablet ? const Color(0xFFBDBDBD) : const Color(0xFF2196F3),
+            width: isTablet ? 1 : 2,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+          borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2),
+        ),
+      ),
+    );
     final groupedRows = _groupRowsForDisplay(_pagedRows);
     final tableColumns = _criticalDataColumns();
     const tableBorderColor = Color(0xFFD1D5DB);
@@ -881,57 +781,83 @@ class _CriticalItemsState extends State<CriticalItems> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              widget.pageTitle,
-              style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _searchController,
-              onChanged: (_) => _runSearch(),
-              decoration: InputDecoration(
-                hintText: 'Search in table...',
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 14,
+            if (isTablet)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: Color(0xFF2196F3),
-                    width: 2,
-                  ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFD1D5DB)),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: Color(0xFF2196F3),
-                    width: 2,
-                  ),
+                child: Row(
+                  children: [
+                    Text(
+                      widget.pageTitle,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    SizedBox(width: 360, child: searchField),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.search, size: 20),
+                      label: const Text('Search'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E88E5),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Center(
-              child: SizedBox(
-                width: 170,
-                height: 46,
-                child: ElevatedButton(
-                  onPressed: _runSearch,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3A4F6B),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              )
+            else
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    widget.pageTitle,
+                    style: const TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  child: const Text(
-                    'Search',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  const SizedBox(height: 12),
+                  searchField,
+                  const SizedBox(height: 12),
+                  Center(
+                    child: SizedBox(
+                      width: 170,
+                      height: 46,
+                      child: ElevatedButton(
+                        onPressed: _runSearch,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF3A4F6B),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Search',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ),
             const SizedBox(height: 12),
             Expanded(
               child: _isLoading
@@ -1316,7 +1242,21 @@ class _CriticalItemsState extends State<CriticalItems> {
                                 ),
                               ),
                             ),
-                            child: _paginationBar(),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              child: PaginationBar(
+                                currentPage: _currentPage.clamp(1, _totalPages),
+                                totalPages: _totalPages,
+                                onPageChanged: (page) {
+                                  setState(() {
+                                    _currentPage = page;
+                                  });
+                                },
+                              ),
+                            ),
                           ),
                         ),
                       ],

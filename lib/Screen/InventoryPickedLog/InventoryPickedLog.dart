@@ -293,6 +293,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: const CommonAppBar(),
       drawer: const CommonDrawer(),
       body: Container(
@@ -355,46 +356,31 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // SizedBox(
-                  //   width: 155,
-                  //   child: TextField(
-                  //     controller: _pickListSearchController,
-                  //     keyboardType: TextInputType.number,
-                  //     decoration: const InputDecoration(
-                  //       labelText: 'Pick List Number',
-                  //       border: OutlineInputBorder(),
-                  //     ),
-                  //     onSubmitted: (_) => fetchInvetoryPickedData(),
-                  //   ),
-                  // ),
                   SizedBox(
-                    // width: _pickListSearchController,
+                    width: 155,
                     child: TextField(
                       controller: _pickListSearchController,
+                      keyboardType: TextInputType.number,
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: Colors.white,
-                        hintText: 'Enter SOP Number',
+                        hintText: 'Pick List Number',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Colors.grey,
-                            width: 1,
-                          ),
+                          borderSide: BorderSide(color: Colors.grey, width: 1),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color.fromARGB(255, 22, 129, 218),
+                          borderSide: BorderSide(
+                            color: const Color.fromARGB(255, 22, 129, 218),
                             width: 2,
                           ),
                         ),
                       ),
-                      textInputAction: TextInputAction.search,
                       onSubmitted: (_) => fetchInvetoryPickedData(),
                     ),
                   ),
@@ -450,147 +436,153 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                             ),
                           ],
                         )
-                      : SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: SizedBox(
-                              width: _tableWidth,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildHeaderRow(),
-                                  Expanded(
-                                    child: ListView.builder(
-                                      itemCount: items.length,
-                                      itemBuilder: (context, index) {
-                                        final item = items[index];
-                                        return Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            _bomDataCell(
-                                              _orDash(item.pickListNumber),
-                                              _colWidths[0],
-                                            ),
-                                            _bomDataCell(
-                                              _orDash(item.sopNum),
-                                              _colWidths[1],
-                                            ),
-                                            _bomDataCell(
-                                              _orDash(item.fixture),
-                                              _colWidths[2],
-                                            ),
-                                            _bomDataCell(
-                                              _orDash(item.description),
-                                              _colWidths[3],
-                                            ),
-                                            _bomDataCell(
-                                              _orDash(item.project),
-                                              _colWidths[4],
-                                            ),
-                                            _bomDataCell(
-                                              _orDash(item.tempQuantity),
-                                              _colWidths[5],
-                                            ),
-                                            _bomDataCell(
-                                              _orDash(item.RMA),
-                                              _colWidths[6],
-                                            ),
-                                            _bomDataCell(
-                                              _orDash(item.MPFRequestedBy),
-                                              _colWidths[7],
-                                            ),
-                                            _bomDataCell(
-                                              _formatDateValue(item.createdAt),
-                                              _colWidths[8],
-                                            ),
-                                            SizedBox(
-                                              width: _colWidths[9],
-                                              child: Container(
-                                                height: 56,
-                                                alignment: Alignment.center,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 4,
-                                                      vertical: 4,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  border: Border(
-                                                    right: BorderSide(
-                                                      color:
-                                                          Colors.grey.shade300,
-                                                    ),
-                                                    bottom: BorderSide(
-                                                      color:
-                                                          Colors.grey.shade300,
-                                                    ),
-                                                  ),
-                                                ),
-                                                child: ElevatedButton.icon(
-                                                  onPressed: () {
-                                                    debugPrint(
-                                                      'View clicked - passed pickedLogId: ${item.id}',
-                                                    );
-                                                    Navigator.of(context).push(
-                                                      MaterialPageRoute(
-                                                        builder: (_) =>
-                                                            ViewPickedLog(
-                                                              id: item.id,
-                                                            ),
+                      : Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: SizedBox(
+                                width: _tableWidth,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildHeaderRow(),
+                                    Expanded(
+                                      child: ListView.builder(
+                                        itemCount: items.length,
+                                        itemBuilder: (context, index) {
+                                          final item = items[index];
+                                          return Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              _bomDataCell(
+                                                _orDash(item.pickListNumber),
+                                                _colWidths[0],
+                                              ),
+                                              _bomDataCell(
+                                                _orDash(item.sopNum),
+                                                _colWidths[1],
+                                              ),
+                                              _bomDataCell(
+                                                _orDash(item.fixture),
+                                                _colWidths[2],
+                                              ),
+                                              _bomDataCell(
+                                                _orDash(item.description),
+                                                _colWidths[3],
+                                              ),
+                                              _bomDataCell(
+                                                _orDash(item.project),
+                                                _colWidths[4],
+                                              ),
+                                              _bomDataCell(
+                                                _orDash(item.tempQuantity),
+                                                _colWidths[5],
+                                              ),
+                                              _bomDataCell(
+                                                _orDash(item.RMA),
+                                                _colWidths[6],
+                                              ),
+                                              _bomDataCell(
+                                                _orDash(item.MPFRequestedBy),
+                                                _colWidths[7],
+                                              ),
+                                              _bomDataCell(
+                                                _formatDateValue(item.createdAt),
+                                                _colWidths[8],
+                                              ),
+                                              SizedBox(
+                                                width: _colWidths[9],
+                                                child: Container(
+                                                  height: 56,
+                                                  alignment: Alignment.center,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 4,
+                                                        vertical: 4,
                                                       ),
-                                                    );
-                                                  },
-                                                  icon: const Icon(
-                                                    Icons
-                                                        .remove_red_eye_outlined,
-                                                    size: 16,
+                                                  decoration: BoxDecoration(
+                                                    border: Border(
+                                                      right: BorderSide(
+                                                        color: Colors
+                                                            .grey.shade300,
+                                                      ),
+                                                      bottom: BorderSide(
+                                                        color: Colors
+                                                            .grey.shade300,
+                                                      ),
+                                                    ),
                                                   ),
-                                                  label: const Text("View"),
-                                                  style: ElevatedButton.styleFrom(
-                                                    backgroundColor:
-                                                        const Color(0xFF1565C0),
-                                                    foregroundColor:
-                                                        Colors.white,
-                                                    disabledBackgroundColor:
-                                                        const Color(0xFF1565C0),
-                                                    disabledForegroundColor:
-                                                        Colors.white,
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            12,
+                                                  child: ElevatedButton.icon(
+                                                    onPressed: () {
+                                                      debugPrint(
+                                                        'View clicked - passed pickedLogId: ${item.id}',
+                                                      );
+                                                      Navigator.of(context).push(
+                                                        MaterialPageRoute(
+                                                          builder: (_) =>
+                                                              ViewPickedLog(
+                                                            id: item.id,
                                                           ),
-                                                    ),
-                                                    elevation: 8,
-                                                    shadowColor: Colors.black
-                                                        .withOpacity(0.35),
-                                                    surfaceTintColor:
-                                                        Colors.transparent,
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 8,
-                                                          vertical: 6,
                                                         ),
-                                                    minimumSize: const Size(
-                                                      0,
-                                                      34,
+                                                      );
+                                                    },
+                                                    icon: const Icon(
+                                                      Icons
+                                                          .remove_red_eye_outlined,
+                                                      size: 16,
                                                     ),
-                                                    tapTargetSize:
-                                                        MaterialTapTargetSize
-                                                            .shrinkWrap,
+                                                    label: const Text("View"),
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      backgroundColor:
+                                                          const Color(0xFF1565C0),
+                                                      foregroundColor:
+                                                          Colors.white,
+                                                      disabledBackgroundColor:
+                                                          const Color(0xFF1565C0),
+                                                      disabledForegroundColor:
+                                                          Colors.white,
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                      ),
+                                                      elevation: 8,
+                                                      shadowColor: Colors.black
+                                                          .withOpacity(0.35),
+                                                      surfaceTintColor:
+                                                          Colors.transparent,
+                                                      padding:
+                                                          const EdgeInsets
+                                                              .symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 6,
+                                                      ),
+                                                      minimumSize: const Size(
+                                                        0,
+                                                        34,
+                                                      ),
+                                                      tapTargetSize:
+                                                          MaterialTapTargetSize
+                                                              .shrinkWrap,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
-                                        );
-                                      },
+                                            ],
+                                          );
+                                        },
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),

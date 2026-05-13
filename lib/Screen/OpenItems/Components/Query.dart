@@ -30,26 +30,10 @@ class _QueryState extends State<Query> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (widget.showRemovedFromSop)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                  child: const Text(
-                    'REMOVED FROM SOP',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFFB71C1C),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 17,
-                    ),
-                  ),
-                ),
               BackOrder(
                 sopLeadHandEntryId: widget.sopLeadHandEntryId,
                 showNewSearchButton: false,
+                showRemovedFromSop: widget.showRemovedFromSop,
               ),
             ],
           ),

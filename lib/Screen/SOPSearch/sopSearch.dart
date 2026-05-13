@@ -415,15 +415,15 @@ class _SOPSearchState extends State<SOPSearch> {
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
+                              borderSide: const BorderSide(
                                 color: Colors.grey,
                                 width: 1,
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: const Color.fromARGB(255, 22, 129, 218),
+                              borderSide: const BorderSide(
+                                color: Color.fromARGB(255, 22, 129, 218),
                                 width: 2,
                               ),
                             ),
@@ -443,13 +443,18 @@ class _SOPSearchState extends State<SOPSearch> {
                           child: ElevatedButton(
                             onPressed: handleSOPSearch,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Color.fromARGB(255, 57, 73, 95),
+                              backgroundColor: const Color.fromARGB(
+                                255,
+                                57,
+                                73,
+                                95,
+                              ),
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: Text(
+                            child: const Text(
                               "Search",
                               style: TextStyle(
                                 fontSize: 16,
@@ -465,7 +470,7 @@ class _SOPSearchState extends State<SOPSearch> {
                       SizedBox(height: 16),
 
                       if (isLoading)
-                        Center(
+                        const Center(
                           child: CircularProgressIndicator(
                             color: Color.fromARGB(255, 57, 73, 95),
                           ),
@@ -506,18 +511,18 @@ class _SOPSearchState extends State<SOPSearch> {
                                     mainAxisSpacing: 12,
                                     mainAxisExtent: 180,
                                   ),
-                              itemBuilder: (context, index) => _buildFixtureCard(
-                                (sopData?["fixtures"][index]
-                                    as Map<String, dynamic>),
-                                compact: true,
-                              ),
+                              itemBuilder: (context, index) =>
+                                  _buildFixtureCard(
+                                    (sopData?["fixtures"][index]
+                                        as Map<String, dynamic>),
+                                    compact: true,
+                                  ),
                             )
                           else
                             ListView.builder(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
-                              itemCount:
-                                  (sopData?["fixtures"] as List).length,
+                              itemCount: (sopData?["fixtures"] as List).length,
                               itemBuilder: (context, index) =>
                                   _buildFixtureCard(
                                     (sopData?["fixtures"][index]

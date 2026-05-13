@@ -6,7 +6,7 @@ import 'package:overview_app/Services/DioServices.dart';
 
 String _formatDisplayDate(String raw) {
   final value = raw.trim();
-  if (value.isEmpty || value == '-') return '-';
+  if (value.isEmpty || value == '-') return '';
   final parsed = DateTime.tryParse(value);
   if (parsed == null) return value;
   return DateFormat('dd-MMM-yy').format(parsed.toLocal());
@@ -15,9 +15,7 @@ String _formatDisplayDate(String raw) {
 String _inventoryActionErrorMessage(Object e) {
   if (e is DioException) {
     final data = e.response?.data;
-    debugPrint(
-      'inventory action HTTP ${e.response?.statusCode} body: $data',
-    );
+    debugPrint('inventory action HTTP ${e.response?.statusCode} body: $data');
     if (data is Map) {
       for (final key in ['message', 'error', 'msg', 'detail']) {
         final v = data[key];
@@ -113,6 +111,7 @@ class ViewPickedLog extends StatefulWidget {
 class ViewPickedLogState extends State<ViewPickedLog> {
   final InventoryPickedLogService _service = InventoryPickedLogService();
   List<ViewPickLogModel> data = [];
+
   /// Original line items for PUT accept/reject (server requires `sheetData`).
   List<Map<String, dynamic>> _sheetDataForSubmit = [];
   bool isLoading = false;
@@ -125,8 +124,8 @@ class ViewPickedLogState extends State<ViewPickedLog> {
   String requiredOn = '-';
   String blankListDescription = '-';
   String pickListPrintedOn = '-';
-  String pickListLogNumber = '-';
-  String datePicked = '-';
+  String pickListLogNumber = '';
+  String datePicked = '';
   String rma = '-';
   String leadHandSignOff = '-';
 
@@ -153,17 +152,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
         root = Map<String, dynamic>.from(
           payload.map((k, v) => MapEntry(k.toString(), v)),
         );
-        final dynamic firstLevel =
-            root['data'] ??
-            root['sheetData'] ??
-            root['items'] ??
-            root['rows'] ??
-            root['result'] ??
-            root['list'] ??
-            root['content'] ??
-            root['records'] ??
-            root['excelFixtureDetails'] ??
-            root['excelFixtureDetail'];
+        final dynamic firstLevel = root['data'];
 
         if (firstLevel is List) {
           rawRows = firstLevel;
@@ -172,17 +161,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
             firstLevel.map((k, v) => MapEntry(k.toString(), v)),
           );
           root = {...root, ...nested};
-          final dynamic secondLevel =
-              nested['data'] ??
-              nested['sheetData'] ??
-              nested['items'] ??
-              nested['rows'] ??
-              nested['result'] ??
-              nested['list'] ??
-              nested['content'] ??
-              nested['records'] ??
-              nested['excelFixtureDetails'] ??
-              nested['excelFixtureDetail'];
+          final dynamic secondLevel = nested['sheetData'];
           if (secondLevel is List) rawRows = secondLevel;
         }
       } else if (payload is List) {
@@ -204,10 +183,10 @@ class ViewPickedLogState extends State<ViewPickedLog> {
             return value.toString();
           }
         }
-        return '-';
+        return '';
       }
 
-      String asDash(String value) => value.trim().isEmpty ? '-' : value.trim();
+      String asDash(String value) => value.trim().isEmpty ? '' : value.trim();
 
       final parsedRows = rawRows.whereType<Map>().map((raw) {
         final row = Map<String, dynamic>.from(
@@ -227,59 +206,40 @@ class ViewPickedLogState extends State<ViewPickedLog> {
               return value.toString();
             }
           }
-          return '-';
+          return '';
         }
 
         return ViewPickLogModel(
-          TDGPN: rowPick(const ['TDGPN', 'tdgpn', 'partNumber']),
-          description: rowPick(
-            const ['Description', 'description', 'partDescription', 'fixtureDescription', 'desc'],
-          ),
-          vendor: rowPick(const ['Vendor', 'vendor', 'vendorName']),
-          vendorPN: rowPick(const ['VendorPN', 'vendorPN', 'vendorPn', 'vendorPartNo']),
-          qtyPerFixture: rowPick(
-            const ['QuantityPerFixture', 'qtyPerFixture', 'quantityPerFixture'],
-          ),
-          unitOfMeasure: rowPick(const ['UnitOfMeasure', 'unitOfMeasure', 'uom']),
-          totalQtyNeeded: rowPick(
-            const ['TotalQtyNeeded', 'totalQtyNeeded', 'requiredQuantity', 'qty'],
-          ),
-          location: rowPick(const ['Location', 'location', 'locationName']),
-          leadHandComments: rowPick(const ['LeadHandComments', 'leadHandComments', 'comments']),
+          TDGPN: rowPick(const ['TDGPN']),
+          description: rowPick(const ['Description']),
+          vendor: rowPick(const ['Vendor']),
+          vendorPN: rowPick(const ['VendorPN']),
+          qtyPerFixture: rowPick(const ['QuantityPerFixture']),
+          unitOfMeasure: rowPick(const ['UnitOfMeasure']),
+          totalQtyNeeded: rowPick(const ['TotalQtyNeeded']),
+          location: rowPick(const ['Location']),
+          leadHandComments: rowPick(const ['LeadHandComments']),
         );
       }).toList();
 
-      final sheetDataForSubmit =
-          _sheetDataListFromResponse(root, rawRows);
+      final sheetDataForSubmit = _sheetDataListFromResponse(root, rawRows);
 
       setState(() {
         _sheetDataForSubmit = sheetDataForSubmit;
-        referenceSop = asDash(pickFrom(const ['sopNum', 'sopNumber', 'SOPNum']));
-        pickListNo = asDash(
-          pickFrom(const ['pickListNumber', 'pickListNo', 'pickListId']),
+        referenceSop = asDash(pickFrom(const ['sopNum']));
+        pickListNo = asDash(pickFrom(const ['pickListNumber']));
+        project = asDash(pickFrom(const ['project']));
+        fixture = asDash(pickFrom(const ['fixture']));
+        quantity = asDash(pickFrom(const ['tempQuantity']));
+        blankListDescription = asDash(pickFrom(const ['description']));
+        requiredOn = _formatDisplayDate(asDash(pickFrom(const ['odd'])));
+        pickListPrintedOn = _formatLongDisplayDate(
+          asDash(pickFrom(const ['createdAt'])),
         );
-        project = asDash(pickFrom(const ['project', 'projectName']));
-        fixture = asDash(pickFrom(const ['fixture', 'fixtureNumber']));
-        quantity = asDash(pickFrom(const ['tempQuantity', 'quantity', 'qty']));
-        blankListDescription = asDash(
-          pickFrom(const ['description', 'partDescription', 'fixtureDescription']),
-        );
-        requiredOn = _formatDisplayDate(asDash(
-          pickFrom(const ['odd', 'requiredOn', 'requiredDate', 'dateRequired']),
-        ));
-        pickListPrintedOn = _formatLongDisplayDate(asDash(
-          pickFrom(const ['pickListPrintedOn', 'printedOn', 'createdAt']),
-        ));
-        pickListLogNumber = asDash(
-          pickFrom(const ['pickListLogNumber', 'pickLogNumber', 'id']),
-        );
-        datePicked = _formatDisplayDate(asDash(
-          pickFrom(const ['datePicked', 'pickedDate', 'updatedAt', 'createdAt']),
-        ));
-        rma = asDash(pickFrom(const ['RMA', 'rma']));
-        leadHandSignOff = asDash(
-          pickFrom(const ['leadHandSignOff', 'leadHandComments', 'MPFRequestedBy']),
-        );
+        pickListLogNumber = asDash(pickFrom(const ['']));
+        datePicked = _formatDisplayDate(asDash(pickFrom(const [''])));
+        rma = asDash(pickFrom(const ['RMA']));
+        leadHandSignOff = asDash(pickFrom(const ['MPFRequestedBy']));
         data = parsedRows;
         isLoading = false;
       });
@@ -325,9 +285,9 @@ class ViewPickedLogState extends State<ViewPickedLog> {
     } catch (e) {
       debugPrint('AcceptInventory error: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_inventoryActionErrorMessage(e))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_inventoryActionErrorMessage(e))));
     } finally {
       if (mounted) {
         setState(() {
@@ -370,9 +330,9 @@ class ViewPickedLogState extends State<ViewPickedLog> {
     } catch (e) {
       debugPrint('RejectInventory error: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_inventoryActionErrorMessage(e))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_inventoryActionErrorMessage(e))));
     } finally {
       if (mounted) {
         setState(() {
@@ -389,100 +349,102 @@ class ViewPickedLogState extends State<ViewPickedLog> {
         : pickListPrintedOn;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE9ECEF),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Pick Log View'),
         backgroundColor: const Color(0xFF1F2937),
         foregroundColor: Colors.white,
       ),
-      body: Center(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final tableWidth = constraints.maxWidth > 820
-                ? 760.0
-                : constraints.maxWidth - 16;
-            final isMobile = constraints.maxWidth < 480;
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 480;
 
-            return SizedBox(
-              width: tableWidth,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 14),
+                  Row(
                     children: [
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          ElevatedButton(
-                            onPressed: isActionLoading || isLoading
-                                ? null
-                                : _handleVoid,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFDC2626),
-                              foregroundColor: Colors.white,
-                              padding: EdgeInsets.symmetric(
-                                horizontal: isMobile ? 14 : 22,
-                                vertical: isMobile ? 10 : 14,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                            child: const Text(
-                              'Void',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
+                      ElevatedButton(
+                        onPressed: isActionLoading || isLoading
+                            ? null
+                            : _handleVoid,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color.fromARGB(
+                            255,
+                            202,
+                            25,
+                            25,
                           ),
-                          const SizedBox(width: 12),
-                          ElevatedButton(
-                            onPressed: isActionLoading || isLoading
-                                ? null
-                                : _handlePicked,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF15803D),
-                              foregroundColor: Colors.white,
-                              padding: EdgeInsets.symmetric(
-                                horizontal: isMobile ? 14 : 22,
-                                vertical: isMobile ? 10 : 14,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                            child: const Text(
-                              'Picked',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isMobile ? 14 : 22,
+                            vertical: isMobile ? 10 : 14,
                           ),
-                        ],
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        child: const Text(
+                          'Void',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
-                      const SizedBox(height: 18),
-                    if (isLoading)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    else
-                      _buildInfoGrid(today, isMobile: isMobile),
-                      const SizedBox(height: 16),
-                      _buildPickedItemsTable(),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: isActionLoading || isLoading
+                            ? null
+                            : _handlePicked,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color.fromARGB(
+                            255,
+                            10,
+                            136,
+                            41,
+                          ),
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isMobile ? 14 : 22,
+                            vertical: isMobile ? 10 : 14,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        child: const Text(
+                          'Picked',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 18),
+                  if (isLoading)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else
+                    _buildInfoGrid(today, isMobile: isMobile),
+                  const SizedBox(height: 16),
+                  _buildPickedItemsTable(context),
+                ],
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 
   Widget _buildInfoGrid(String today, {required bool isMobile}) {
     const borderColor = Color(0xFF2C3138);
-    final rowHeight = isMobile ? 48.0 : 56.0;
-    final labelFontSize = isMobile ? 10.0 : 24.0;
-    final valueFontSize = isMobile ? 10.0 : 22.0;
+    final rowHeight = isMobile ? 48.0 : 44.0;
+    final labelFontSize = isMobile ? 10.0 : 12.0;
+    final valueFontSize = isMobile ? 10.0 : 14.0;
     final leftLabelFlex = isMobile ? 26 : 22;
     final leftValueFlex = isMobile ? 20 : 24;
     const labelBg = Color(0xFFB9C7D9);
@@ -521,7 +483,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
                   'PICK\nLIST #$pickListNo',
                   height: rowHeight,
                   bgColor: labelBg,
-                  fontSize: isMobile ? labelFontSize : 14,
+                  fontSize: isMobile ? labelFontSize : 11,
                   isLabel: true,
                   alignCenter: true,
                   maxLines: 4,
@@ -689,17 +651,28 @@ class ViewPickedLogState extends State<ViewPickedLog> {
     );
   }
 
-  Widget _buildPickedItemsTable() {
+  Widget _buildPickedItemsTable(BuildContext context) {
     const headerBg = Color(0xFF334155);
     const borderColor = Color(0xFFD1D5DB);
-    const headerTextStyle = TextStyle(
+    final isTablet = MediaQuery.sizeOf(context).shortestSide >= 600;
+    final denseRows = MediaQuery.sizeOf(context).shortestSide < 1024;
+    final headerTextStyle = TextStyle(
       color: Colors.white,
-      fontSize: 12,
+      fontSize: isTablet ? 14 : 12,
       fontWeight: FontWeight.w600,
+      height: denseRows ? 1.05 : 1.2,
     );
-    const bodyTextStyle = TextStyle(color: Color(0xFF111827), fontSize: 11);
+    final headerLabelPadding = EdgeInsets.symmetric(
+      horizontal: isTablet ? 10 : 8,
+      vertical: isTablet ? 8 : (denseRows ? 4 : 6),
+    );
+    final bodyTextStyle = TextStyle(
+      color: const Color(0xFF111827),
+      fontSize: isTablet ? 14 : 11,
+      height: denseRows ? 1.05 : 1.25,
+    );
 
-    final headers = const [
+    final headers = [
       'TDGPN',
       'Description',
       'Vendor',
@@ -712,7 +685,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
     ];
     final rows = data.isEmpty
         ? const <List<String>>[
-            ['-', '-', '-', '-', '-', '-', '-', '-', '-'],
+            ['-', '-', '-', '-', '-', '', '', '-', '-'],
           ]
         : data
               .map(
@@ -734,44 +707,83 @@ class ViewPickedLogState extends State<ViewPickedLog> {
       scrollDirection: Axis.horizontal,
       child: Container(
         decoration: BoxDecoration(border: Border.all(color: borderColor)),
-        child: DataTable(
-          headingRowHeight: 40,
-          dataRowMinHeight: 44,
-          dataRowMaxHeight: 120,
-          horizontalMargin: 10,
-          columnSpacing: 14,
-          headingRowColor: WidgetStateProperty.all(headerBg),
-          border: TableBorder.all(color: borderColor),
-          columns: headers
-              .map(
-                (header) =>
-                    DataColumn(label: Text(header, style: headerTextStyle)),
-              )
-              .toList(),
-          rows: rows
-              .map(
-                (row) => DataRow(
-                  cells: List.generate(row.length, (index) {
-                    final cell = row[index];
-                    final isDescriptionColumn = index == 1;
-                    return DataCell(
-                      SizedBox(
-                        width: isDescriptionColumn ? 280 : null,
-                        child: Text(
-                          cell,
-                          style: bodyTextStyle,
-                          maxLines: isDescriptionColumn ? 6 : 2,
-                          softWrap: true,
-                          overflow: isDescriptionColumn
-                              ? TextOverflow.visible
-                              : TextOverflow.ellipsis,
-                        ),
+        child: Theme(
+          data: Theme.of(context).copyWith(
+            visualDensity: denseRows
+                ? VisualDensity.compact
+                : VisualDensity.standard,
+          ),
+          child: DataTable(
+            headingRowHeight: denseRows
+                ? (isTablet ? 40 : 30)
+                : (isTablet ? 46 : 40),
+            dataRowMinHeight: denseRows ? 28 : 44,
+            dataRowMaxHeight: denseRows ? 76 : 120,
+            horizontalMargin: denseRows ? 6 : 10,
+            columnSpacing: denseRows ? 8 : 14,
+            headingRowColor: WidgetStateProperty.all(headerBg),
+            border: TableBorder.all(color: borderColor),
+            columns: headers
+                .map(
+                  (header) => DataColumn(
+                    label: Padding(
+                      padding: headerLabelPadding,
+                      child: Text(
+                        header,
+                        style: headerTextStyle,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    );
-                  }),
-                ),
-              )
-              .toList(),
+                    ),
+                  ),
+                )
+                .toList(),
+            rows: rows
+                .map(
+                  (row) => DataRow(
+                    cells: List.generate(row.length, (index) {
+                      final cell = row[index];
+                      final isDescriptionColumn = index == 1;
+                      final centerCell = index > 1;
+                      final double? colWidth = switch (index) {
+                        1 => denseRows ? 300 : 260,
+                        2 => denseRows ? 100 : 72,
+                        3 => denseRows ? 100 : 84,
+                        _ => null,
+                      };
+                      return DataCell(
+                        SizedBox(
+                          width: colWidth,
+                          child: centerCell
+                              ? Align(
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    cell,
+                                    style: bodyTextStyle,
+                                    textAlign: TextAlign.center,
+                                    maxLines: isDescriptionColumn ? 6 : 2,
+                                    softWrap: true,
+                                    overflow: isDescriptionColumn
+                                        ? TextOverflow.visible
+                                        : TextOverflow.ellipsis,
+                                  ),
+                                )
+                              : Text(
+                                  cell,
+                                  style: bodyTextStyle,
+                                  textAlign: TextAlign.start,
+                                  maxLines: isDescriptionColumn ? 6 : 2,
+                                  softWrap: true,
+                                  overflow: isDescriptionColumn
+                                      ? TextOverflow.visible
+                                      : TextOverflow.ellipsis,
+                                ),
+                        ),
+                      );
+                    }),
+                  ),
+                )
+                .toList(),
+          ),
         ),
       ),
     );

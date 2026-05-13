@@ -17,6 +17,18 @@ const Color _kFixtureBorder = Color(0xFF1976D2);
 
 const Color _yellow = Color(0xFFFFC107);
 
+const double _kNoticesContentMinWidth = 1000;
+
+const EdgeInsets _kBackorderCellPadding = EdgeInsets.symmetric(
+  horizontal: 8,
+  vertical: 10,
+);
+
+const EdgeInsets _kBackorderHeaderPadding = EdgeInsets.symmetric(
+  vertical: 10,
+  horizontal: 4,
+);
+
 class BackOrder extends StatefulWidget {
   const BackOrder({
     super.key,
@@ -36,6 +48,7 @@ class BackOrder extends StatefulWidget {
     this.onAddBackorder,
     this.sopLeadHandEntryId,
     this.showNewSearchButton = true,
+    this.showRemovedFromSop = false,
   });
 
   final String sop;
@@ -48,6 +61,7 @@ class BackOrder extends StatefulWidget {
   final String purchasingNotice;
   final String? sopLeadHandEntryId;
   final bool showNewSearchButton;
+  final bool showRemovedFromSop;
 
   final VoidCallback? onUpdateEntry;
   final VoidCallback? onNewSearch;
@@ -72,6 +86,7 @@ class _BackOrderState extends State<BackOrder> {
   bool? _notifyProductionOverride;
   final List<Map<String, dynamic>> _editableBackorders = [];
   final List<_DraftBackorderRow> _draftBackorders = [];
+  double? _noticesRowHeight;
 
   static InputDecoration _fieldDecoration({
     String? hint,
@@ -117,6 +132,7 @@ class _BackOrderState extends State<BackOrder> {
       _purchasingNoticeCtrl.text = widget.purchasingNotice;
     }
     if (oldWidget.sopLeadHandEntryId != widget.sopLeadHandEntryId) {
+      _noticesRowHeight = null;
       _fetchDetailByLeadHandEntryId();
     }
   }
@@ -457,6 +473,20 @@ class _BackOrderState extends State<BackOrder> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
+          if (widget.showRemovedFromSop) ...[
+            const Expanded(
+              child: Text(
+                'REMOVED FROM SOP',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color.fromARGB(255, 228, 31, 31),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 22,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+          ],
           ElevatedButton.icon(
             onPressed: _onUpdateEntry,
             icon: const Icon(Icons.save_outlined, size: 18),
@@ -505,10 +535,18 @@ class _BackOrderState extends State<BackOrder> {
     String text, {
     int flex = 1,
     TextAlign align = TextAlign.center,
+    bool showRightBorder = true,
   }) {
     return Expanded(
       flex: flex,
-      child: Padding(
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(
+            right: showRightBorder
+                ? BorderSide(color: Colors.white.withValues(alpha: 0.25))
+                : BorderSide.none,
+          ),
+        ),
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
         child: Text(
           text,
@@ -532,14 +570,33 @@ class _BackOrderState extends State<BackOrder> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _headerCell('SOP', flex: 1),
-          _headerCell('Lead Hand', flex: 1),
-          _headerCell('Assembler', flex: 1),
-          _headerCell('ODD', flex: 1),
-          _headerCell('Fixture', flex: 2),
-          _headerCell('Desc', flex: 3, align: TextAlign.start),
-          _headerCell('Qty', flex: 1),
-          _headerCell('Notices', flex: 6, align: TextAlign.start),
+          Expanded(
+            flex: 10,
+            child: Row(
+              children: [
+                _headerCell('SOP', flex: 1),
+                _headerCell('Lead Hand', flex: 1),
+                _headerCell('Assembler', flex: 1),
+                _headerCell('ODD', flex: 1),
+                _headerCell('Fixture', flex: 2),
+                _headerCell('Desc', flex: 3, align: TextAlign.start),
+                _headerCell('Qty', flex: 1, showRightBorder: false),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 6,
+            child: Row(
+              children: [
+                _headerCell(
+                  'Notices',
+                  flex: 1,
+                  align: TextAlign.start,
+                  showRightBorder: false,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -625,8 +682,35 @@ class _BackOrderState extends State<BackOrder> {
     );
   }
 
+  Widget _buildHorizontallyScrollableNotices(Widget child) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewportWidth = constraints.hasBoundedWidth &&
+                constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        final contentWidth = viewportWidth < _kNoticesContentMinWidth
+            ? _kNoticesContentMinWidth
+            : viewportWidth;
+
+        return SizedBox(
+          width: viewportWidth,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const ClampingScrollPhysics(),
+            clipBehavior: Clip.hardEdge,
+            primary: false,
+            child: SizedBox(
+              width: contentWidth,
+              child: child,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _purchasingBlock() {
-    const minPurchasingWidth = 760.0;
     Widget purchasingBodyCell({
       required Widget child,
       required int flex,
@@ -649,47 +733,42 @@ class _BackOrderState extends State<BackOrder> {
       );
     }
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SizedBox(
-        width: minPurchasingWidth,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              color: _kTableHeaderBg,
-              child: Row(
-                children: [
-                  _threeColHeaderCell('Notify Purchasing', flex: 1),
-                  _threeColHeaderCell(
-                    'Purchasing Notice',
-                    flex: 2,
-                    align: TextAlign.center,
-                  ),
-                  _threeColHeaderCell(
-                    'Purchasing Response',
-                    flex: 2,
-                    align: TextAlign.center,
-                    rightBorder: false,
-                  ),
-                ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          color: _kTableHeaderBg,
+          child: Row(
+            children: [
+              _threeColHeaderCell('Notify Purchasing', flex: 2),
+              _threeColHeaderCell(
+                'Purchasing Notice',
+                flex: 3,
+                align: TextAlign.center,
               ),
-            ),
-            Container(
-              color: Colors.white,
-              child: IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    purchasingBodyCell(
-                      flex: 1,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: 140,
-                            height: 44,
-                            child: ElevatedButton(
+              _threeColHeaderCell(
+                'Purchasing Response',
+                flex: 3,
+                align: TextAlign.center,
+                rightBorder: false,
+              ),
+            ],
+          ),
+        ),
+        Container(
+          color: Colors.white,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                purchasingBodyCell(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: 44,
+                        child: ElevatedButton(
                               onPressed: () {
                                 setState(() {
                                   _notifyPurchasingOverride =
@@ -723,7 +802,7 @@ class _BackOrderState extends State<BackOrder> {
                                     : 'Purchasing Issue is Closed',
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -731,7 +810,6 @@ class _BackOrderState extends State<BackOrder> {
                           ),
                           const SizedBox(height: 8),
                           SizedBox(
-                            width: 140,
                             height: 40,
                             child: ElevatedButton(
                               onPressed: () async {
@@ -771,7 +849,7 @@ class _BackOrderState extends State<BackOrder> {
                               child: Text(
                                 _isPickedTrue ? 'Picked' : 'Not Picked',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: _isPickedTrue
                                       ? Colors.black
@@ -784,7 +862,7 @@ class _BackOrderState extends State<BackOrder> {
                       ),
                     ),
                     purchasingBodyCell(
-                      flex: 2,
+                      flex: 3,
                       child: TextField(
                         controller: _purchasingNoticeCtrl,
                         maxLines: 4,
@@ -792,21 +870,19 @@ class _BackOrderState extends State<BackOrder> {
                       ),
                     ),
                     purchasingBodyCell(
-                      flex: 2,
+                      flex: 3,
                       rightBorder: false,
                       child: TextField(
                         controller: _purchasingResponseCtrl,
                         maxLines: 4,
                         decoration: _fieldDecoration(),
                       ),
-                    ),
-                  ],
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -829,7 +905,7 @@ class _BackOrderState extends State<BackOrder> {
             Expanded(
               flex: flexes[i],
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                padding: _kBackorderHeaderPadding,
                 decoration: BoxDecoration(
                   border: Border(
                     right: i != labels.length - 1
@@ -858,7 +934,6 @@ class _BackOrderState extends State<BackOrder> {
 
   Widget _backorderBlock() {
     const flexes = [2, 1, 1, 1, 2, 2, 1];
-    const tableWidth = 760.0;
     final rawComponents = _apiItem?['Components'];
     final uomByPn = <String, String>{};
     if (rawComponents is List) {
@@ -896,11 +971,8 @@ class _BackOrderState extends State<BackOrder> {
                       Expanded(
                         flex: flexes[i],
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
+                          padding: _kBackorderCellPadding,
+                          decoration: const BoxDecoration(
                             border: Border(
                               top: const BorderSide(
                                 color: Color(0xFF374151),
@@ -919,7 +991,7 @@ class _BackOrderState extends State<BackOrder> {
                                   decoration: _fieldDecoration(
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 10,
-                                      vertical: 8,
+                                      vertical: 10,
                                     ),
                                   ),
                                   onChanged: (value) {
@@ -943,7 +1015,7 @@ class _BackOrderState extends State<BackOrder> {
                       flex: flexes.last,
                       child: Container(
                         alignment: Alignment.center,
-                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
                         decoration: const BoxDecoration(
                           border: Border(
                             top: BorderSide(color: Color(0xFF374151), width: 1),
@@ -1017,10 +1089,7 @@ class _BackOrderState extends State<BackOrder> {
                   Expanded(
                     flex: flexes[0],
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
+                      padding: _kBackorderCellPadding,
                       decoration: const BoxDecoration(
                         border: Border(
                           top: BorderSide(color: Color(0xFF374151), width: 1),
@@ -1066,10 +1135,7 @@ class _BackOrderState extends State<BackOrder> {
                     flex: flexes[1],
                     child: Container(
                       alignment: Alignment.centerLeft,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
+                      padding: _kBackorderCellPadding,
                       decoration: const BoxDecoration(
                         border: Border(
                           top: BorderSide(color: Color(0xFF374151), width: 1),
@@ -1111,10 +1177,7 @@ class _BackOrderState extends State<BackOrder> {
                   Expanded(
                     flex: flexes[2],
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
+                      padding: _kBackorderCellPadding,
                       decoration: const BoxDecoration(
                         border: Border(
                           top: BorderSide(color: Color(0xFF374151), width: 1),
@@ -1131,10 +1194,7 @@ class _BackOrderState extends State<BackOrder> {
                   Expanded(
                     flex: flexes[3],
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
+                      padding: _kBackorderCellPadding,
                       decoration: const BoxDecoration(
                         border: Border(
                           top: BorderSide(color: Color(0xFF374151), width: 1),
@@ -1152,10 +1212,7 @@ class _BackOrderState extends State<BackOrder> {
                     flex: flexes[4],
                     child: Container(
                       alignment: Alignment.centerLeft,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
+                      padding: _kBackorderCellPadding,
                       decoration: const BoxDecoration(
                         border: Border(
                           top: BorderSide(color: Color(0xFF374151), width: 1),
@@ -1169,10 +1226,7 @@ class _BackOrderState extends State<BackOrder> {
                     flex: flexes[5],
                     child: Container(
                       alignment: Alignment.centerLeft,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
+                      padding: _kBackorderCellPadding,
                       decoration: const BoxDecoration(
                         border: Border(
                           top: BorderSide(color: Color(0xFF374151), width: 1),
@@ -1212,10 +1266,7 @@ class _BackOrderState extends State<BackOrder> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(width: tableWidth, child: tableContent),
-        ),
+        tableContent,
         Container(
           padding: const EdgeInsets.all(10),
           decoration: const BoxDecoration(
@@ -1248,7 +1299,6 @@ class _BackOrderState extends State<BackOrder> {
   }
 
   Widget _productionBlock() {
-    const minProductionWidth = 760.0;
     Widget productionBodyCell({
       required Widget child,
       required int flex,
@@ -1260,7 +1310,6 @@ class _BackOrderState extends State<BackOrder> {
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             border: Border(
-              top: const BorderSide(color: Color(0xFF374151), width: 1),
               right: rightBorder
                   ? const BorderSide(color: Color(0xFF374151), width: 1)
                   : BorderSide.none,
@@ -1271,125 +1320,123 @@ class _BackOrderState extends State<BackOrder> {
       );
     }
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SizedBox(
-        width: minProductionWidth,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              color: _kTableHeaderBg,
-              child: Row(
-                children: [
-                  _threeColHeaderCell('Notify Production', flex: 1),
-                  _threeColHeaderCell(
-                    'Production Notice',
-                    flex: 2,
-                    align: TextAlign.center,
-                  ),
-                  _threeColHeaderCell(
-                    'Production Response',
-                    flex: 2,
-                    align: TextAlign.center,
-                    rightBorder: false,
-                  ),
-                ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          color: _kTableHeaderBg,
+          child: Row(
+            children: [
+              _threeColHeaderCell('Notify Production', flex: 2),
+              _threeColHeaderCell(
+                'Production Notice',
+                flex: 3,
+                align: TextAlign.center,
               ),
+              _threeColHeaderCell(
+                'Production Response',
+                flex: 3,
+                align: TextAlign.center,
+                rightBorder: false,
+              ),
+            ],
+          ),
+        ),
+        Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              top: BorderSide(color: Color(0xFF374151), width: 1),
             ),
-            Container(
-              color: Colors.white,
-              child: IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    productionBodyCell(
-                      flex: 1,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: SizedBox(
-                          width: 140,
-                          height: 44,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              setState(() {
-                                _notifyProductionOverride =
-                                    !_isNotifyProductionTrue;
-                              });
-                              (widget.onProductionClosed ?? () {})();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _isNotifyProductionTrue
-                                  ? _yellow
-                                  : _kPrimaryBlue,
-                              foregroundColor: _isNotifyProductionTrue
-                                  ? Colors.black
-                                  : Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 6,
-                              ),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              visualDensity: const VisualDensity(
-                                horizontal: -2,
-                                vertical: -2,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                            child: Text(
-                              _isNotifyProductionTrue
-                                  ? 'Production Issue is Open'
-                                  : 'Production Issue is Closed',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                productionBodyCell(
+                  flex: 2,
+                  child: Center(
+                    child: SizedBox(
+                      height: 36,
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _notifyProductionOverride = !_isNotifyProductionTrue;
+                          });
+                          (widget.onProductionClosed ?? () {})();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _isNotifyProductionTrue
+                              ? _yellow
+                              : _kPrimaryBlue,
+                          foregroundColor: _isNotifyProductionTrue
+                              ? Colors.black
+                              : Colors.white,
+                          minimumSize: Size.zero,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: const VisualDensity(
+                            horizontal: -2,
+                            vertical: -4,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        child: Text(
+                          _isNotifyProductionTrue
+                              ? 'Production Issue is Open'
+                              : 'Production Issue is Closed',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                     ),
-                    productionBodyCell(
-                      flex: 2,
-                      child: TextField(
-                        controller: _productionNoticeCtrl,
-                        maxLines: 4,
-                        decoration: _fieldDecoration(),
-                      ),
-                    ),
-                    productionBodyCell(
-                      flex: 2,
-                      rightBorder: false,
-                      child: ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: _productionResponseCtrl,
-                        builder: (context, value, _) {
-                          final text = value.text.trim();
-                          return Container(
-                            width: double.infinity,
-                            constraints: const BoxConstraints(minHeight: 88),
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey[400]!),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              text.isEmpty ? '-' : text,
-                              style: const TextStyle(fontSize: 13, height: 1.3),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                productionBodyCell(
+                  flex: 3,
+                  child: TextField(
+                    controller: _productionNoticeCtrl,
+                    maxLines: 4,
+                    decoration: _fieldDecoration(),
+                  ),
+                ),
+                productionBodyCell(
+                  flex: 3,
+                  rightBorder: false,
+                  child: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _productionResponseCtrl,
+                    builder: (context, value, _) {
+                      final text = value.text.trim();
+                      return Container(
+                        width: double.infinity,
+                        constraints: const BoxConstraints(minHeight: 88),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[400]!),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          text.isEmpty ? '-' : text,
+                          style: const TextStyle(fontSize: 13, height: 1.3),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -1427,42 +1474,50 @@ class _BackOrderState extends State<BackOrder> {
     );
   }
 
-  Widget _noticesColumn() {
+  Widget _noticesColumn({bool wrappedInDataCell = false}) {
     Widget withSectionBorder(Widget child) => Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         color: Colors.white,
       ),
-      clipBehavior: Clip.antiAlias,
+      clipBehavior: Clip.hardEdge,
       child: child,
     );
+
+    final content = Padding(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          withSectionBorder(_purchasingBlock()),
+          const SizedBox(height: 10),
+          withSectionBorder(_backorderBlock()),
+          const SizedBox(height: 10),
+          withSectionBorder(_productionBlock()),
+          const SizedBox(height: 10),
+          withSectionBorder(_inventoryCommentBlock()),
+        ],
+      ),
+    );
+
+    final scrollableContent = _buildHorizontallyScrollableNotices(content);
+
+    if (wrappedInDataCell) {
+      return ColoredBox(color: Colors.grey[50]!, child: scrollableContent);
+    }
 
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         color: Colors.grey[50],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            withSectionBorder(_purchasingBlock()),
-            const SizedBox(height: 10),
-            withSectionBorder(_backorderBlock()),
-            const SizedBox(height: 10),
-            withSectionBorder(_productionBlock()),
-            const SizedBox(height: 10),
-            withSectionBorder(_inventoryCommentBlock()),
-          ],
-        ),
-      ),
+      child: scrollableContent,
     );
   }
 
-  Widget _dataRow() {
+  Widget _leftDataCells({required CrossAxisAlignment crossAxisAlignment}) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: crossAxisAlignment,
       children: [
         _dataCell(Text(_sop), flex: 1),
         _dataCell(Text(_leadHand.isEmpty ? ' ' : _leadHand), flex: 1),
@@ -1480,7 +1535,44 @@ class _BackOrderState extends State<BackOrder> {
           Align(alignment: Alignment.topCenter, child: _qtyBadge(_qty)),
           flex: 1,
         ),
-        Expanded(flex: 6, child: _noticesColumn()),
+      ],
+    );
+  }
+
+  Widget _dataRow() {
+    final leftColumns = _leftDataCells(
+      crossAxisAlignment: _noticesRowHeight == null
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.stretch,
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 10,
+          child: _noticesRowHeight == null
+              ? leftColumns
+              : SizedBox(height: _noticesRowHeight, child: leftColumns),
+        ),
+        Expanded(
+          flex: 6,
+          child: _MeasureSize(
+            onChange: (size) {
+              if (_noticesRowHeight != size.height) {
+                setState(() => _noticesRowHeight = size.height);
+              }
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              clipBehavior: Clip.hardEdge,
+              alignment: Alignment.topLeft,
+              child: _noticesColumn(wrappedInDataCell: true),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -1657,15 +1749,46 @@ class _BackOrderState extends State<BackOrder> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        const minTableWidth = 960.0;
-        return constraints.maxWidth < minTableWidth
-            ? _mobileLayout(context)
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [_actionBar(context), _tableHeaderRow(), _dataRow()],
-              );
+        const minTableWidth = 700.0;
+        if (constraints.maxWidth < minTableWidth) {
+          return _mobileLayout(context);
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [_actionBar(context), _tableHeaderRow(), _dataRow()],
+        );
       },
     );
+  }
+}
+
+class _MeasureSize extends StatefulWidget {
+  const _MeasureSize({required this.onChange, required this.child});
+
+  final ValueChanged<Size> onChange;
+  final Widget child;
+
+  @override
+  State<_MeasureSize> createState() => _MeasureSizeState();
+}
+
+class _MeasureSizeState extends State<_MeasureSize> {
+  Size? _lastSize;
+
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final renderObject = context.findRenderObject();
+      if (renderObject is! RenderBox || !renderObject.hasSize) return;
+
+      final size = renderObject.size;
+      if (_lastSize == size) return;
+      _lastSize = size;
+      widget.onChange(size);
+    });
+
+    return widget.child;
   }
 }
 

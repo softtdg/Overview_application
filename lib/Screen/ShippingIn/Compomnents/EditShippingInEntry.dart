@@ -84,11 +84,14 @@ class _EditShippingInEntryState extends State<EditShippingInEntry> {
   }
 
   Widget buildTable() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: DataTable(
           headingRowColor: MaterialStateProperty.all(
             Color.fromARGB(255, 57, 73, 95),
           ),
@@ -393,8 +396,11 @@ class _EditShippingInEntryState extends State<EditShippingInEntry> {
               ],
             );
           }).toList(),
-        ),
-      ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -404,30 +410,28 @@ class _EditShippingInEntryState extends State<EditShippingInEntry> {
       backgroundColor: Colors.white,
       appBar: const CommonAppBar(),
       drawer: const CommonDrawer(),
-      body: Container(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              const Align(
-                alignment: Alignment.center,
-                child: Text(
-                  "Edit Shipping Entry",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Align(
+              alignment: Alignment.center,
+              child: Text(
+                "Edit Shipping Entry",
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-
-              const SizedBox(height: 20),
-
-              buildTable(),
-
-              const SizedBox(height: 20),
-
-              SizedBox(
+            ),
+            const SizedBox(height: 20),
+            buildTable(),
+            const SizedBox(height: 20),
+            Align(
+              alignment: Alignment.center,
+              child: SizedBox(
                 width: 200,
                 height: 48,
                 child: ElevatedButton(
@@ -476,8 +480,8 @@ class _EditShippingInEntryState extends State<EditShippingInEntry> {
                         ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
