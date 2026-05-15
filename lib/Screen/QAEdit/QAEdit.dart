@@ -4,6 +4,7 @@ import 'package:overview_app/Screen/QAEdit/Services/Components/QAEditEntry.dart'
 import 'package:overview_app/Screen/QAEdit/Services/QAEditService.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
+import 'package:overview_app/Widgets/pagination_bar.dart';
 
 class QAEdit extends StatefulWidget {
   @override
@@ -15,7 +16,9 @@ class _QAEditState extends State<QAEdit> {
   List<Map<String, dynamic>> QCEditHistory = [];
   final QAEditServices _service = QAEditServices();
   bool isLoading = false;
-  bool _pageLoading = false;
+  final ScrollController _headerHorizontalScroll = ScrollController();
+  final ScrollController _bodyHorizontalScroll = ScrollController();
+
   static const int _rowsPerPage = 100;
   int _currentPage = 1;
 
@@ -23,15 +26,14 @@ class _QAEditState extends State<QAEdit> {
     await Dioservices.setToken();
     setState(() {
       isLoading = true;
-      _pageLoading = false;
     });
     try {
       final response = await _service.GetQAEditHistory();
       final data = response.data['data'];
       setState(() {
         QCEditHistory = List<Map<String, dynamic>>.from(data);
-        _currentPage = 1;
         isLoading = false;
+        _clampCurrentPage();
       });
       print("QA EDIT DATA $data");
     } catch (e) {
@@ -45,11 +47,37 @@ class _QAEditState extends State<QAEdit> {
   @override
   void initState() {
     super.initState();
+    _headerHorizontalScroll.addListener(
+      () => _syncHorizontalScroll(
+        _headerHorizontalScroll,
+        _bodyHorizontalScroll,
+      ),
+    );
+    _bodyHorizontalScroll.addListener(
+      () => _syncHorizontalScroll(
+        _bodyHorizontalScroll,
+        _headerHorizontalScroll,
+      ),
+    );
     GetQAEditHistory();
+  }
+
+  void _syncHorizontalScroll(
+    ScrollController source,
+    ScrollController target,
+  ) {
+    if (!target.hasClients) {
+      return;
+    }
+    if (target.offset != source.offset) {
+      target.jumpTo(source.offset);
+    }
   }
 
   @override
   void dispose() {
+    _headerHorizontalScroll.dispose();
+    _bodyHorizontalScroll.dispose();
     SOPController.dispose();
     super.dispose();
   }
@@ -77,6 +105,21 @@ class _QAEditState extends State<QAEdit> {
     }
 
     return QCEditHistory.where(rowMatches).toList();
+  }
+
+  int get _totalPages => _filteredHistory.isEmpty
+      ? 1
+      : ((_filteredHistory.length + _rowsPerPage - 1) ~/ _rowsPerPage);
+
+  List<Map<String, dynamic>> get _pagedHistory {
+    if (_filteredHistory.isEmpty) return [];
+    final start = (_currentPage - 1) * _rowsPerPage;
+    final end = (start + _rowsPerPage).clamp(0, _filteredHistory.length);
+    return _filteredHistory.sublist(start, end);
+  }
+
+  void _clampCurrentPage() {
+    _currentPage = _currentPage.clamp(1, _totalPages);
   }
 
   String formatDate(dynamic date) {
@@ -175,543 +218,166 @@ class _QAEditState extends State<QAEdit> {
     );
   }
 
-  int get _totalPages {
-    final n = _filteredHistory.length;
-    if (n == 0) return 1;
-    return (n + _rowsPerPage - 1) ~/ _rowsPerPage;
-  }
+  static const Color _tableHeaderColor = Color.fromARGB(255, 57, 73, 95);
 
-  List<Map<String, dynamic>> get _pageRows {
-    final tp = _totalPages;
-    final c = _currentPage.clamp(1, tp);
-    final start = (c - 1) * _rowsPerPage;
-    return _filteredHistory.skip(start).take(_rowsPerPage).toList();
-  }
-
-  List<Object?> _pageButtons(int current, int total) {
-    if (total <= 9) return List.generate(total, (i) => i + 1);
-    // Fewer number chips on small screens (was 1–5; skip 4 & 5).
-    if (current <= 3) return [1, 2, 3, null, total];
-    if (current >= total - 2) {
-      return [1, null, total - 4, total - 3, total - 2, total - 1, total];
-    }
-    return [1, null, current - 1, current, current + 1, null, total];
-  }
-
-  Widget _pagerSquare({
-    required Widget child,
-    bool selected = false,
-    VoidCallback? onTap,
-  }) {
-    final active = Color(0xFF34495E);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 3),
-      child: Material(
-        color: selected ? active : Colors.white,
-        borderRadius: BorderRadius.circular(6),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(6),
-          child: Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: selected ? active : Colors.grey.shade300,
+  Widget _headerCell(String text, double width) {
+    return SizedBox(
+      width: width,
+      height: 56,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: _tableHeaderColor,
+          border: Border.all(color: Colors.grey, width: 0.5),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Center(
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
               ),
-              borderRadius: BorderRadius.circular(6),
             ),
-            child: child,
           ),
         ),
       ),
     );
   }
 
-  Widget _iconPager({
-    required IconData icon,
-    required bool enabled,
-    required VoidCallback onTap,
+  Widget _bodyCell(
+    String text,
+    double width, {
+    bool wrap = false,
   }) {
-    return _pagerSquare(
-      onTap: enabled ? onTap : null,
-      child: Icon(
-        icon,
-        size: 20,
-        color: enabled ? Colors.grey.shade800 : Colors.grey.shade400,
+    return Container(
+      width: width,
+      constraints: const BoxConstraints(minHeight: 56),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey, width: 0.5),
+      ),
+      child: _highlightedCellText(
+        text,
+        softWrap: wrap,
+        maxLines: wrap ? null : 1,
       ),
     );
   }
 
-  Widget buildPaginationBar() {
-    final total = _totalPages;
-    final c = _currentPage.clamp(1, total);
-    void go(int p) {
-      if (_pageLoading) return;
-      final next = p.clamp(1, total);
-      if (next == _currentPage) return;
-      setState(() => _pageLoading = true);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        setState(() {
-          _currentPage = next;
-          _pageLoading = false;
-        });
-      });
-    }
+  Widget _buildTableHeaderRow() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _headerCell('SOP', 100),
+        _headerCell('PO Num', 140),
+        _headerCell('ODD', 90),
+        _headerCell('Customer', 260),
+        _headerCell('Prgm', 100),
+        _headerCell('Loc.', 90),
+        _headerCell('QC In', 140),
+        _headerCell('RW QC Out', 75),
+        _headerCell('Final Date Received In QC', 140),
+        _headerCell('QC Out', 100),
+        _headerCell('Comments', 110),
+        _headerCell('Last Edited On', 100),
+        _headerCell('Action', 90),
+      ],
+    );
+  }
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _iconPager(
-              icon: Icons.first_page,
-              enabled: c > 1,
-              onTap: () => go(1),
+  Widget _buildTableDataRow(Map<String, dynamic> item) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _bodyCell(item['SOPNum']?.toString() ?? '-', 100),
+          _bodyCell(item['PONum']?.toString() ?? '-', 140),
+          _bodyCell(formatDate(item['ODD']?.toString() ?? '-'), 90),
+          _bodyCell(
+            item['CustomerName']?.toString() ?? '-',
+            260,
+            wrap: true,
+          ),
+          _bodyCell(item['ProgramName']?.toString() ?? '-', 100),
+          _bodyCell(item['LocationName']?.toString() ?? '-', 90),
+          _bodyCell(formatDate(item['QCDateIn']?.toString() ?? '-'), 140),
+          _bodyCell(formatDate(item['ReworkDateOut']?.toString() ?? '-'), 75),
+          _bodyCell(
+            formatDate(item['FinalDateReceivedInQC']?.toString() ?? '-'),
+            140,
+          ),
+          _bodyCell(formatDate(item['QCOut']?.toString() ?? '-'), 100),
+          _bodyCell(item['QAComments']?.toString() ?? '', 110),
+          _bodyCell(formatDateTime(item['LastEdit']?.toString() ?? '-'), 100),
+          Container(
+            width: 90,
+            constraints: const BoxConstraints(minHeight: 56),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey, width: 0.5),
             ),
-            _iconPager(
-              icon: Icons.chevron_left,
-              enabled: c > 1,
-              onTap: () => go(c - 1),
-            ),
-            ..._pageButtons(c, total).map((e) {
-              if (e == null) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Text(
-                    '...',
-                    style: TextStyle(color: Colors.grey.shade700),
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final SOPId = item['SOPId']?.toString() ?? '-';
+                print("PASSING SOPId: $SOPId");
+                final updated = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => QAEditEntry(SOPId: SOPId),
                   ),
                 );
-              }
-              final p = e as int;
-              return _pagerSquare(
-                selected: p == c,
-                onTap: () => go(p),
-                child: Text(
-                  '$p',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: p == c ? Colors.white : Colors.grey.shade800,
-                    fontWeight: p == c ? FontWeight.w600 : FontWeight.normal,
-                  ),
+                if (updated == true) {
+                  await GetQAEditHistory();
+                }
+              },
+              icon: const Icon(Icons.edit, size: 20, color: Colors.black),
+              label: const Text(''),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.black),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(5),
                 ),
-              );
-            }),
-            _iconPager(
-              icon: Icons.chevron_right,
-              enabled: c < total,
-              onTap: () => go(c + 1),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 6,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
             ),
-            _iconPager(
-              icon: Icons.last_page,
-              enabled: c < total,
-              onTap: () => go(total),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget buildTable() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: MaterialStateProperty.all(
-            Color.fromARGB(255, 57, 73, 95),
-          ),
-          dataRowMinHeight: 56,
-          dataRowMaxHeight: double.infinity,
-          horizontalMargin: 20,
-          columnSpacing: 20,
-          border: TableBorder.all(color: Colors.grey, width: 1),
-          columns: const [
-            DataColumn(
-              label: SizedBox(
-                width: 60,
-                child: Center(
-                  child: Text(
-                    "SOP",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 80,
-                child: Center(
-                  child: Text(
-                    "PO Num",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 90,
-                child: Center(
-                  child: Text(
-                    "ODD",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 260,
-                child: Center(
-                  child: Text(
-                    "Customer",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 60,
-                child: Center(
-                  child: Text(
-                    "Prgm",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 90,
-                child: Center(
-                  child: Text(
-                    "Loc.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 140,
-                child: Center(
-                  child: Text(
-                    "QC In",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 75,
-                child: Center(
-                  child: Text(
-                    "RW QC Out",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 140,
-                child: Center(
-                  child: Text(
-                    "Final Date Received In QC",
-                    textAlign: TextAlign.center,
-                    softWrap: true,
-                    maxLines: 2,
-                    overflow: TextOverflow.visible,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 100,
-                child: Center(
-                  child: Text(
-                    "QC Out",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 110,
-                child: Center(
-                  child: Text(
-                    "Comments",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 60,
-                child: Center(
-                  child: Text(
-                    "Last Edited On",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 90,
-                child: Center(
-                  child: Text(
-                    "Action",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-          rows: _pageRows.map((item) {
-            return DataRow(
-              cells: [
-                DataCell(
-                  SizedBox(
-                    width: 60,
-                    child: Center(
-                      child: _highlightedCellText(
-                        item['SOPNum']?.toString() ?? '-',
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 80,
-                    child: Center(
-                      child: _highlightedCellText(
-                        item['PONum']?.toString() ?? '-',
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 90,
-                    child: Center(
-                      child: _highlightedCellText(
-                        formatDate(item['ODD']?.toString() ?? '-'),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 260,
-                    child: Center(
-                      child: _highlightedCellText(
-                        item['CustomerName']?.toString() ?? '-',
-                        softWrap: true,
-                        maxLines: null,
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 100,
-                    child: Center(
-                      child: _highlightedCellText(
-                        item['ProgramName']?.toString() ?? '-',
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 90,
-                    child: Center(
-                      child: _highlightedCellText(
-                        item['LocationName']?.toString() ?? '-',
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 140,
-                    child: Center(
-                      child: _highlightedCellText(
-                        formatDate(item['QCDateIn']?.toString() ?? '-'),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 75,
-                    child: Center(
-                      child: _highlightedCellText(
-                        formatDate(item['ReworkDateOut']?.toString() ?? '-'),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 140,
-                    child: Center(
-                      child: _highlightedCellText(
-                        formatDate(
-                          item['FinalDateReceivedInQC']?.toString() ?? '-',
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 100,
-                    child: Center(
-                      child: _highlightedCellText(
-                        formatDate(item['QCOut']?.toString() ?? '-'),
-                      ),
-                    ),
-                  ),
-                ),
-
-                DataCell(
-                  SizedBox(
-                    width: 110,
-                    child: Center(
-                      child: _highlightedCellText(
-                        item['QAComments']?.toString() ?? '',
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 100,
-                    child: Center(
-                      child: _highlightedCellText(
-                        formatDateTime(item['LastEdit']?.toString() ?? '-'),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 90,
-                    child: Center(
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          final SOPId = item['SOPId']?.toString() ?? '-';
-                          print("PASSING SOPId: $SOPId");
-                          final updated = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => QAEditEntry(SOPId: SOPId),
-                            ),
-                          );
-                          if (updated == true) {
-                            await GetQAEditHistory();
-                          }
-                        },
-                        icon: const Center(
-                          child: Icon(
-                            Icons.edit,
-                            size: 20,
-                            color: Colors.black,
-                          ),
-                        ),
-                        label: const Text(
-                          // "Edit Entry",
-                          "",
-                          // style: TextStyle(fontSize: 12, color: Colors.black),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.black),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                          minimumSize: Size(0, 0),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          }).toList(),
+    return Column(
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          controller: _headerHorizontalScroll,
+          child: _buildTableHeaderRow(),
         ),
-      ),
+        Expanded(
+          child: SingleChildScrollView(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              controller: _bodyHorizontalScroll,
+              child: Column(
+                children: _pagedHistory
+                    .map(_buildTableDataRow)
+                    .toList(growable: false),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -721,99 +387,96 @@ class _QAEditState extends State<QAEdit> {
       backgroundColor: Colors.white,
       appBar: const CommonAppBar(),
       drawer: const CommonDrawer(),
-      body: Container(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              const Align(
-                alignment: Alignment.center,
-                child: Text(
-                  "QA Edit SOP History",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFD1D5DB)),
               ),
-
-              SizedBox(
-                // width: ,
-                child: TextField(
-                  controller: SOPController,
-                  onChanged: (_) {
-                    setState(() {
-                      _currentPage = 1;
-                    });
-                  },
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    hintText: 'Search in table...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey, width: 1),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: Color.fromARGB(255, 22, 129, 218),
-                        width: 2,
-                      ),
-                    ),
-                    suffixIcon: SOPController.text.isEmpty
-                        ? null
-                        : IconButton(
-                            icon: const Icon(Icons.clear, size: 20),
-                            onPressed: () {
-                              SOPController.clear();
-                              setState(() {
-                                _currentPage = 1;
-                              });
-                            },
+              child: Row(
+                children: [
+                  const Text(
+                    'Search SOP to Edit',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: 280,
+                    child: TextField(
+                      controller: SOPController,
+                      onChanged: (_) {
+                        setState(() {
+                          _currentPage = 1;
+                          _clampCurrentPage();
+                        });
+                      },
+                      decoration: const InputDecoration(
+                        hintText: 'Search in table...',
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(4)),
+                          borderSide: BorderSide(color: Color(0xFFBDBDBD)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(4)),
+                          borderSide: BorderSide(
+                            color: Color(0xFF1565C0),
+                            width: 2,
                           ),
-                  ),
-                  textInputAction: TextInputAction.search,
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              isLoading
-                  ? const SizedBox(
-                      height: 220,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: Color.fromARGB(255, 57, 73, 95),
                         ),
                       ),
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _pageLoading
-                            ? const SizedBox(
-                                height: 220,
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    color: Color.fromARGB(255, 57, 73, 95),
-                                  ),
-                                ),
-                              )
-                            : buildTable(),
-                        if (_filteredHistory.isNotEmpty) buildPaginationBar(),
-                      ],
+                      textInputAction: TextInputAction.search,
                     ),
-
-              SizedBox(height: 10),
-            ],
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
+          const SizedBox(height: 10),
+          if (isLoading)
+            const Expanded(
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: Color.fromARGB(255, 57, 73, 95),
+                ),
+              ),
+            )
+          else
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: buildTable()),
+                    if (_filteredHistory.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: PaginationBar(
+                          currentPage: _currentPage.clamp(1, _totalPages),
+                          totalPages: _totalPages,
+                          onPageChanged: (page) {
+                            setState(() {
+                              _currentPage = page;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

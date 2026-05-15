@@ -13,15 +13,17 @@ class ShippingOut extends StatefulWidget {
 class _ShippingOutState extends State<ShippingOut> {
   final TextEditingController SOPController = TextEditingController();
   final ShippingOutService _service = ShippingOutService();
-  List<Map<String,dynamic>> ShippingOutHistory = [];
+  final ScrollController _headerHorizontalScroll = ScrollController();
+  final ScrollController _bodyHorizontalScroll = ScrollController();
+  List<Map<String, dynamic>> ShippingOutHistory = [];
   bool isLoading = false;
 
-  Future<void> GetShippingOutHistory() async{
+  Future<void> GetShippingOutHistory() async {
     await Dioservices.setToken();
     setState(() {
       isLoading = true;
     });
-    try{
+    try {
       final response = await _service.ShippingOutHistory();
       final data = response.data["data"];
       setState(() {
@@ -35,30 +37,60 @@ class _ShippingOutState extends State<ShippingOut> {
   }
 
   void handleSOPs() async {
-    try{
+    try {
       setState(() {
         isLoading = true;
       });
       await _service.EditSOPNums(SOPController.text);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("ShippingOut Date Updated Successfully"))
+        SnackBar(content: Text("ShippingOut Date Updated Successfully")),
       );
       await GetShippingOutHistory();
-    } catch(e) {
+    } catch (e) {
       print("Error in shipping out while update shipping out date");
       setState(() {
         isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Something went wrong")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Something went wrong")));
     }
   }
 
   @override
   void initState() {
     super.initState();
+    _headerHorizontalScroll.addListener(_syncBodyHorizontalScroll);
+    _bodyHorizontalScroll.addListener(_syncHeaderHorizontalScroll);
     GetShippingOutHistory();
+  }
+
+  @override
+  void dispose() {
+    _headerHorizontalScroll.removeListener(_syncBodyHorizontalScroll);
+    _bodyHorizontalScroll.removeListener(_syncHeaderHorizontalScroll);
+    _headerHorizontalScroll.dispose();
+    _bodyHorizontalScroll.dispose();
+    SOPController.dispose();
+    super.dispose();
+  }
+
+  void _syncBodyHorizontalScroll() {
+    if (!_bodyHorizontalScroll.hasClients) {
+      return;
+    }
+    if (_bodyHorizontalScroll.offset != _headerHorizontalScroll.offset) {
+      _bodyHorizontalScroll.jumpTo(_headerHorizontalScroll.offset);
+    }
+  }
+
+  void _syncHeaderHorizontalScroll() {
+    if (!_headerHorizontalScroll.hasClients) {
+      return;
+    }
+    if (_headerHorizontalScroll.offset != _bodyHorizontalScroll.offset) {
+      _headerHorizontalScroll.jumpTo(_bodyHorizontalScroll.offset);
+    }
   }
 
   String formatDate(dynamic date) {
@@ -90,520 +122,282 @@ class _ShippingOutState extends State<ShippingOut> {
     }
   }
 
-  Widget buildTable() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: MaterialStateProperty.all(
-            Color.fromARGB(255, 57, 73, 95),
-          ),
-          dataRowMinHeight: 56,
-          dataRowMaxHeight: double.infinity,
-          horizontalMargin: 20,
-          columnSpacing: 20,
-          border: TableBorder.all(color: Colors.grey, width: 1),
-          columns: const [
-            DataColumn(
-              label: SizedBox(
-                width: 60,
-                child: Center(
-                  child: Text(
-                    "SOP",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 80,
-                child: Center(
-                  child: Text(
-                    "PO Num",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 90,
-                child: Center(
-                  child: Text(
-                    "ODD",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 260,
-                child: Center(
-                  child: Text(
-                    "Customer",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 60,
-                child: Center(
-                  child: Text(
-                    "Prgm",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 90,
-                child: Center(
-                  child: Text(
-                    "Loc.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 140,
-                child: Center(
-                  child: Text(
-                    "SOP Entry",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 75,
-                child: Center(
-                  child: Text(
-                    "SOP Out",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 60,
-                child: Center(
-                  child: Text(
-                    "PROD MGR",
-                    textAlign: TextAlign.center,
-                    softWrap: true,
-                    maxLines: 2,
-                    overflow: TextOverflow.visible,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 100,
-                child: Center(
-                  child: Text(
-                    "Delivery Date",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 110,
-                child: Center(
-                  child: Text(
-                    "New Comments",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 60,
-                child: Center(
-                  child: Text(
-                    "Last Edited On",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 90,
-                child: Center(
-                  child: Text(
-                    "Action",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-          rows: ShippingOutHistory.map((item) {
-            return DataRow(
-              cells: [
-                DataCell(
-                  SizedBox(
-                    width: 60,
-                    child: Center(
-                      child: Text(
-                        item['SOPNum']?.toString() ?? '-',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 80,
-                    child: Center(
-                      child: Text(
-                        item['PONum']?.toString() ?? '-',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 90,
-                    child: Center(
-                      child: Text(
-                        formatDate(item['ODD']?.toString() ?? '-'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 260,
-                    child: Center(
-                      child: Text(
-                        item['customer']?.toString() ?? '-',
-                        textAlign: TextAlign.center,
-                        softWrap: true,
-                        maxLines: null,
-                        overflow: TextOverflow.visible,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 100,
-                    child: Center(
-                      child: Text(
-                        item['program']?.toString() ?? '-',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 90,
-                    child: Center(
-                      child: Text(
-                        item['Location']?.toString() ?? '-',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 140,
-                    child: Center(
-                      child: Text(
-                        formatDate(item['SOPEntryDateIn']?.toString() ?? '-'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 75,
-                    child: Center(
-                      child: Text(
-                        formatDate(item['SOPOrderEntryOut']?.toString() ?? '-'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 70,
-                    child: Center(
-                      child: Text(
-                        item['prodMgr']?.toString() ?? '-',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 100,
-                    child: Center(
-                      child: Text(
-                        formatDate(item['FinalDeliveryDate']?.toString() ?? '-'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
+  static const Color _tableHeaderColor = Color.fromARGB(255, 57, 73, 95);
 
-                DataCell(
-                  SizedBox(
-                    width: 110,
-                    child: Center(
-                      child: Text(
-                        item['OrderEntryComments']?.toString() ?? '-',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 100,
-                    child: Center(
-                      child: Text(
-                        formatDateTime(item['LastEdit']?.toString() ?? '-'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 90,
-                    child: Center(
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          final SOPId = item['SOPId']?.toString() ?? '-';
-                          print("PASSING SOPId: $SOPId");
-                          final updated = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  EditShippingOutEntry(SOPId: SOPId),
-                            ),
-                          );
-                          if (updated == true) {
-                            await GetShippingOutHistory();
-                          }
-                        },
-                        icon: Center(
-                          child: Icon(
-                            Icons.edit,
-                            size: 20,
-                            color: Colors.black,
-                          ),
-                        ),
-                        label: Text(
-                          // "Edit Entry",
-                          "",
-                          // style: TextStyle(fontSize: 12, color: Colors.black),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.black),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                          minimumSize: Size(0, 0),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          }).toList(),
+  Widget _headerCell(String text, double width) {
+    return SizedBox(
+      width: width,
+      height: 56,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: _tableHeaderColor,
+          border: Border.all(color: Colors.grey, width: 0.5),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Center(
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
         ),
       ),
     );
   }
 
+  Widget _bodyTextCell(
+    String text,
+    double width, {
+    bool wrap = false,
+  }) {
+    return Container(
+      width: width,
+      constraints: const BoxConstraints(minHeight: 56),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey, width: 0.5),
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        softWrap: wrap,
+        maxLines: wrap ? null : 1,
+        overflow: wrap ? TextOverflow.visible : TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 12),
+      ),
+    );
+  }
+
+  Widget _buildTableHeaderRow() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _headerCell('SOP', 60),
+        _headerCell('PO Num', 80),
+        _headerCell('ODD', 90),
+        _headerCell('Customer', 260),
+        _headerCell('Prgm', 100),
+        _headerCell('Loc.', 90),
+        _headerCell('SOP Entry', 140),
+        _headerCell('SOP Out', 75),
+        _headerCell('PROD MGR', 70),
+        _headerCell('Delivery Date', 100),
+        _headerCell('New Comments', 110),
+        _headerCell('Last Edited On', 100),
+        _headerCell('Action', 90),
+      ],
+    );
+  }
+
+  Widget _buildTableDataRow(Map<String, dynamic> item) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _bodyTextCell(item['SOPNum']?.toString() ?? '-', 60),
+          _bodyTextCell(item['PONum']?.toString() ?? '-', 80),
+          _bodyTextCell(formatDate(item['ODD']?.toString() ?? '-'), 90),
+          _bodyTextCell(item['customer']?.toString() ?? '-', 260, wrap: true),
+          _bodyTextCell(item['program']?.toString() ?? '-', 100),
+          _bodyTextCell(item['Location']?.toString() ?? '-', 90),
+          _bodyTextCell(
+            formatDate(item['SOPEntryDateIn']?.toString() ?? '-'),
+            140,
+          ),
+          _bodyTextCell(
+            formatDate(item['SOPOrderEntryOut']?.toString() ?? '-'),
+            75,
+          ),
+          _bodyTextCell(item['prodMgr']?.toString() ?? '-', 70),
+          _bodyTextCell(
+            formatDate(item['FinalDeliveryDate']?.toString() ?? '-'),
+            100,
+          ),
+          _bodyTextCell(item['OrderEntryComments']?.toString() ?? '-', 110),
+          _bodyTextCell(
+            formatDateTime(item['LastEdit']?.toString() ?? '-'),
+            100,
+          ),
+          Container(
+            width: 90,
+            constraints: const BoxConstraints(minHeight: 56),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey, width: 0.5),
+            ),
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final SOPId = item['SOPId']?.toString() ?? '-';
+                print("PASSING SOPId: $SOPId");
+                final updated = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => EditShippingOutEntry(SOPId: SOPId),
+                  ),
+                );
+                if (updated == true) {
+                  await GetShippingOutHistory();
+                }
+              },
+              icon: const Icon(
+                Icons.edit,
+                size: 20,
+                color: Colors.black,
+              ),
+              label: const Text(''),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.black),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 6,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildTable() {
+    return Column(
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          controller: _headerHorizontalScroll,
+          child: _buildTableHeaderRow(),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              controller: _bodyHorizontalScroll,
+              child: Column(
+                children: ShippingOutHistory
+                    .map(_buildTableDataRow)
+                    .toList(growable: false),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isTablet = MediaQuery.sizeOf(context).width >= 700;
+    final sopField = TextField(
+      controller: SOPController,
+      decoration: InputDecoration(
+        hintText: 'Enter SOP Number',
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: isTablet ? 12 : 14,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+          borderSide: BorderSide(
+            color: isTablet ? const Color(0xFFBDBDBD) : const Color(0xFF2196F3),
+            width: isTablet ? 1 : 2,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+          borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2),
+        ),
+      ),
+      textInputAction: TextInputAction.search,
+    );
+    final updateButton = ElevatedButton(
+      onPressed: handleSOPs,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF1E88E5),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+        ),
+      ),
+      child: const Text(
+        'Update SOP Shipping Out Date',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+    );
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: const CommonAppBar(),
       drawer: const CommonDrawer(),
-      body: Container(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            children: [
-
-              Align(
-                alignment: Alignment.center,
-                child: Text(
-                  "Update SOP Shipping Out Date",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+      body: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isTablet)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFD1D5DB)),
                 ),
-              ),
-
-              SizedBox(
-                // width: ,
-                child: TextField(
-                  controller: SOPController,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    hintText: 'Enter SOP Number',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey, width: 1),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: const Color.fromARGB(255, 22, 129, 218),
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                  textInputAction: TextInputAction.search,
-                ),
-              ),
-
-              SizedBox(height: 10),
-
-              SizedBox(
-                // width: searchButtonWidth,
-                child: SizedBox(
-                  height: 45,
-                  child: ElevatedButton(
-                    onPressed: () => handleSOPs(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color.fromARGB(255, 57, 73, 95),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      "Update SOP Shipping Out Date",
+                child: Row(
+                  children: [
+                    const Text(
+                      'Update SOP Shipping Out Date',
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                  ),
-                ),
-              ),
-
-              SizedBox(height: 10),
-
-              isLoading
-                  ? SizedBox(
-                height: 220,
-                child: Center(
-                  child: CircularProgressIndicator(
-                    color: Color.fromARGB(255, 57, 73, 95),
-                  ),
+                    const SizedBox(width: 16),
+                    SizedBox(width: 360, child: sopField),
+                    const SizedBox(width: 16),
+                    updateButton,
+                  ],
                 ),
               )
+            else
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Update SOP Shipping Out Date',
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  sopField,
+                  const SizedBox(height: 12),
+                  updateButton,
+                ],
+              ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color.fromARGB(255, 57, 73, 95),
+                      ),
+                    )
                   : buildTable(),
-
-              SizedBox(height: 10),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

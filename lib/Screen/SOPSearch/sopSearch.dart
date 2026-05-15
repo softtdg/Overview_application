@@ -112,42 +112,106 @@ class _SOPSearchState extends State<SOPSearch> {
     return str;
   }
 
-  Widget _buildFixtureCard(
-    Map<String, dynamic> fixture, {
-    bool compact = false,
-  }) {
-    final bool isDisabled = fixture["Disabled"] == true;
-    return Card(
-      margin: compact
-          ? EdgeInsets.zero
-          : const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      elevation: 3,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: isDisabled
-              ? const Color(0xFF5C5C5C)
-              : const Color.fromARGB(255, 141, 143, 145),
-          width: 1.5,
-        ),
-      ),
-      color: isDisabled ? const Color(0xFF8B8B8B) : Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Fixture Data",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+  /// Converts decimal hours (e.g. 1.5) to display format (e.g. "1h30m").
+  String convertPerUnitTimeToMinutes(dynamic perUnitTime) {
+    final perUnitHours = double.tryParse(perUnitTime?.toString() ?? '');
+    if (perUnitHours == null) return '-';
+
+    final totalMinutes = (perUnitHours * 60).ceil();
+    final hours = totalMinutes ~/ 60;
+    final minutes = totalMinutes % 60;
+    return '${hours}h${minutes}m';
+  }
+
+  /// Total build time: Hours × Quantity (e.g. 2.25 × 3 → "6h45m").
+  String convertDecimalToTime(dynamic perUnitTime, dynamic quantity) {
+    final perUnitHours = double.tryParse(perUnitTime?.toString() ?? '');
+    final qty = double.tryParse(quantity?.toString() ?? '');
+    if (perUnitHours == null || qty == null) return '-';
+
+    final totalHoursDecimal = perUnitHours * qty;
+    final totalMinutes = (totalHoursDecimal * 60).floor();
+    final hours = totalMinutes ~/ 60;
+    final minutes = totalMinutes % 60;
+    if (minutes == 0) return '${hours}h';
+    return '${hours}h${minutes}m';
+  }
+
+  static const Color _fixtureTableHeaderColor = Color.fromARGB(255, 57, 73, 95);
+  static const Color _fixtureButtonColor = Color(0xFF1A73E8);
+
+  Widget _fixtureDataTable(List<dynamic> fixtures) {
+    const headerStyle = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: Colors.white,
+    );
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SizedBox(
+            width: constraints.maxWidth,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: DataTable(
+                  border: TableBorder.all(color: Colors.black, width: 1),
+                  headingRowColor: WidgetStateProperty.all(
+                    _fixtureTableHeaderColor,
+                  ),
+                  headingTextStyle: headerStyle,
+                  dataRowColor: WidgetStateProperty.all(Colors.white),
+                  columns: const [
+                    DataColumn(label: Text('Fixture', style: headerStyle)),
+                    DataColumn(label: Text('Desc', style: headerStyle)),
+                    DataColumn(
+                      label: Text('Time To Build/Per Unit', style: headerStyle),
+                    ),
+                    DataColumn(
+                      label: Text('Total Time To Build', style: headerStyle),
+                    ),
+                    DataColumn(label: Text('Currency', style: headerStyle)),
+                    DataColumn(label: Text('Qty', style: headerStyle)),
+                    DataColumn(label: Text('Amount', style: headerStyle)),
+                  ],
+                  rows: [
+                    for (final raw in fixtures)
+                      _fixtureDataRow(raw as Map<String, dynamic>),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: () {
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  DataRow _fixtureDataRow(Map<String, dynamic> fixture) {
+    final isDisabled = fixture["Disabled"] == true;
+    final desc =
+        fixture["fixtureMongoData"]?[0]?["Description"]?.toString() ?? "-";
+    final qty = fixture["Quantity"]?.toString() ?? "-";
+    final amt = fixture["Amount"];
+    final amtStr = amt != null
+        ? "\$${(double.tryParse(amt.toString()) ?? 0).ceil()}"
+        : "-";
+    final perUnitTimeText = convertPerUnitTimeToMinutes(fixture["Hours"]);
+    final totalTimeText = convertDecimalToTime(
+      fixture["Hours"],
+      fixture["Quantity"],
+    );
+    final currency = fixture["Currency"]?.toString() ?? "N/A";
+
+    return DataRow(
+      color: isDisabled ? WidgetStateProperty.all(Colors.grey.shade400) : null,
+      cells: [
+        DataCell(
+          GestureDetector(
+            onTap: isDisabled
+                ? null
+                : () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -157,58 +221,35 @@ class _SOPSearchState extends State<SOPSearch> {
                       ),
                     );
                   },
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF5FF),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: const Color(0xFF1A73E8),
-                        width: 1.2,
-                      ),
-                    ),
-                    child: Text(
-                      "Fixture # ${fixture["FixtureNumber"] ?? "-"}",
-                      style: const TextStyle(
-                        color: Color(0xFF1A73E8),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 76),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                border: Border.all(
+                  color: const Color.fromARGB(255, 17, 107, 224),
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  "Description: ${fixture["fixtureMongoData"]?[0]?["Description"] ?? "-"}",
-                  style: const TextStyle(fontSize: 14),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                safeValue(fixture["FixtureNumber"], fallback: "-"),
+                textAlign: TextAlign.center,
+                softWrap: true,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: _fixtureButtonColor,
                 ),
-              ],
+              ),
             ),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    "Qty: ${fixture["Quantity"] ?? "-"}",
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    "Amount: \$${fixture["Amount"] != null ? (double.tryParse(fixture["Amount"].toString()) ?? 0).ceil() : "-"}",
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
-      ),
+        DataCell(Text(desc)),
+        DataCell(Text(perUnitTimeText)),
+        DataCell(Text(totalTimeText)),
+        DataCell(Text(currency)),
+        DataCell(Text(qty)),
+        DataCell(Text(amtStr)),
+      ],
     );
   }
 
@@ -251,8 +292,6 @@ class _SOPSearchState extends State<SOPSearch> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth >= 700;
     final horizontalPadding = isTablet ? 24.0 : 16.0;
-    final searchControlWidth = isTablet ? 420.0 : double.infinity;
-    final searchButtonWidth = isTablet ? 200.0 : double.infinity;
     final tabletCardWidth = isTablet
         ? (screenWidth - 2 * horizontalPadding - 24) / 3
         : 0.0;
@@ -368,6 +407,43 @@ class _SOPSearchState extends State<SOPSearch> {
             ),
           ];
 
+    final sopField = TextField(
+      controller: SOPController,
+      decoration: InputDecoration(
+        hintText: 'Enter SOP Number',
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: isTablet ? 12 : 14,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+          borderSide: BorderSide(
+            color: isTablet ? const Color(0xFFBDBDBD) : const Color(0xFF2196F3),
+            width: isTablet ? 1 : 2,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+          borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2),
+        ),
+      ),
+      textInputAction: TextInputAction.search,
+      onSubmitted: (_) => handleSOPSearch(),
+    );
+    final searchButton = ElevatedButton.icon(
+      onPressed: handleSOPSearch,
+      icon: const Icon(Icons.search, size: 20),
+      label: const Text('Search'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF1E88E5),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+        ),
+      ),
+    );
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: const CommonAppBar(),
@@ -388,82 +464,40 @@ class _SOPSearchState extends State<SOPSearch> {
                   width: double.infinity,
                   child: Column(
                     children: [
-                      Align(
-                        alignment: Alignment.topCenter,
-                        child: Text(
-                          "SOP Search",
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: isTablet ? 24 : 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-
-                      // SOP Input
-                      SizedBox(
-                        width: searchControlWidth,
-                        child: TextField(
-                          controller: SOPController,
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.white,
-                            hintText: 'Enter SOP Number',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Colors.grey,
-                                width: 1,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Color.fromARGB(255, 22, 129, 218),
-                                width: 2,
-                              ),
-                            ),
-                          ),
-                          textInputAction: TextInputAction.search,
-                          onSubmitted: (_) => handleSOPSearch(),
-                        ),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      // search button
-                      SizedBox(
-                        width: searchButtonWidth,
-                        child: SizedBox(
-                          height: 45,
-                          child: ElevatedButton(
-                            onPressed: handleSOPSearch,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color.fromARGB(
-                                255,
-                                57,
-                                73,
-                                95,
-                              ),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text(
-                              "Search",
+                      if (isTablet)
+                        Row(
+                          children: [
+                            const Text(
+                              "SOP Search",
                               style: TextStyle(
-                                fontSize: 16,
+                                fontSize: 24,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ),
+                            const SizedBox(width: 16),
+                            SizedBox(width: 360, child: sopField),
+                            const SizedBox(width: 16),
+                            searchButton,
+                          ],
+                        )
+                      else
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Text(
+                              "SOP Search",
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            sopField,
+                            const SizedBox(height: 10),
+                            searchButton,
+                          ],
                         ),
-                      ),
 
                       SizedBox(height: 16),
 
@@ -499,36 +533,12 @@ class _SOPSearchState extends State<SOPSearch> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          if (isTablet)
-                            GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: (sopData?["fixtures"] as List).length,
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 3,
-                                    crossAxisSpacing: 12,
-                                    mainAxisSpacing: 12,
-                                    mainAxisExtent: 180,
-                                  ),
-                              itemBuilder: (context, index) =>
-                                  _buildFixtureCard(
-                                    (sopData?["fixtures"][index]
-                                        as Map<String, dynamic>),
-                                    compact: true,
-                                  ),
-                            )
-                          else
-                            ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: (sopData?["fixtures"] as List).length,
-                              itemBuilder: (context, index) =>
-                                  _buildFixtureCard(
-                                    (sopData?["fixtures"][index]
-                                        as Map<String, dynamic>),
-                                  ),
+                          SizedBox(
+                            width: double.infinity,
+                            child: _fixtureDataTable(
+                              sopData!["fixtures"] as List,
                             ),
+                          ),
                         ],
                       ],
                     ],

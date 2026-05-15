@@ -6,6 +6,7 @@ import 'package:overview_app/Screen/OpenItems/Components/Query.dart';
 import 'package:overview_app/Screen/OpenItems/Services/OpenItemsServices.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:overview_app/Widgets/pagination_bar.dart';
+import 'package:overview_app/Screen/Public-Search/PublicSearch.dart';
 
 class CriticalItems extends StatefulWidget {
   const CriticalItems({
@@ -994,31 +995,51 @@ class _CriticalItemsState extends State<CriticalItems> {
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 10,
                                           ),
-                                          child: Container(
-                                            width: 76,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 6,
-                                              vertical: 8,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              border: Border.all(
-                                                color: const Color(0xFF39495F),
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              final f = _pick(
+                                                row,
+                                                ['FixtureNumber'],
+                                              ).trim();
+                                              if (f.isEmpty) return;
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) => Publicsearch(
+                                                    fixtureNumber: f,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            child: Container(
+                                              width: 76,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 6,
+                                                vertical: 8,
                                               ),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: Text(
-                                              _pick(row, ['FixtureNumber']),
-                                              textAlign: TextAlign.center,
-                                              softWrap: true,
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w500,
-                                                color: Color.fromARGB(
-                                                  255,
-                                                  90,
-                                                  106,
-                                                  131,
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                  color: const Color(
+                                                    0xFF39495F,
+                                                  ),
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                _pick(row, ['FixtureNumber']),
+                                                textAlign: TextAlign.center,
+                                                softWrap: true,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Color.fromARGB(
+                                                    255,
+                                                    90,
+                                                    106,
+                                                    131,
+                                                  ),
                                                 ),
                                               ),
                                             ),

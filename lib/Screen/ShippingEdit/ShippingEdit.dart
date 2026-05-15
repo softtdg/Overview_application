@@ -12,7 +12,9 @@ class ShippingEdit extends StatefulWidget {
 
 class _ShippingEditState extends State<ShippingEdit> {
   final ShippingInService _service = ShippingInService();
-  final SOPController = TextEditingController();
+  final TextEditingController SOPController = TextEditingController();
+  final ScrollController _headerHorizontalScroll = ScrollController();
+  final ScrollController _bodyHorizontalScroll = ScrollController();
   List<Map<String, dynamic>> shippingEditHistory = [];
   bool isLoading = false;
 
@@ -40,7 +42,37 @@ class _ShippingEditState extends State<ShippingEdit> {
   @override
   void initState() {
     super.initState();
+    _headerHorizontalScroll.addListener(_syncBodyHorizontalScroll);
+    _bodyHorizontalScroll.addListener(_syncHeaderHorizontalScroll);
     GetShippingEditHistory();
+  }
+
+  @override
+  void dispose() {
+    _headerHorizontalScroll.removeListener(_syncBodyHorizontalScroll);
+    _bodyHorizontalScroll.removeListener(_syncHeaderHorizontalScroll);
+    _headerHorizontalScroll.dispose();
+    _bodyHorizontalScroll.dispose();
+    SOPController.dispose();
+    super.dispose();
+  }
+
+  void _syncBodyHorizontalScroll() {
+    if (!_bodyHorizontalScroll.hasClients) {
+      return;
+    }
+    if (_bodyHorizontalScroll.offset != _headerHorizontalScroll.offset) {
+      _bodyHorizontalScroll.jumpTo(_headerHorizontalScroll.offset);
+    }
+  }
+
+  void _syncHeaderHorizontalScroll() {
+    if (!_headerHorizontalScroll.hasClients) {
+      return;
+    }
+    if (_headerHorizontalScroll.offset != _bodyHorizontalScroll.offset) {
+      _headerHorizontalScroll.jumpTo(_bodyHorizontalScroll.offset);
+    }
   }
 
   String formatDate(dynamic date) {
@@ -73,444 +105,336 @@ class _ShippingEditState extends State<ShippingEdit> {
     }
   }
 
-  Widget buildTable() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: MaterialStateProperty.all(
-            Color.fromARGB(255, 57, 73, 95),
+  static const Color _tableHeaderColor = Color.fromARGB(255, 57, 73, 95);
+  static const List<String> _headers = [
+    'SOP',
+    'PO Num',
+    'ODD',
+    'Customer',
+    'Prgm',
+    'Loc.',
+    'Ship In',
+    'Last Edited On',
+    'Action',
+  ];
+  static const List<double> _minColumnWidths = [
+    60,
+    80,
+    90,
+    260,
+    100,
+    90,
+    140,
+    140,
+    90,
+  ];
+
+  double get _minTableWidth =>
+      _minColumnWidths.fold<double>(0, (total, width) => total + width);
+
+  List<double> _columnWidthsFor(double availableWidth) {
+    if (availableWidth <= _minTableWidth) {
+      return _minColumnWidths;
+    }
+    final extra = availableWidth - _minTableWidth;
+    return [
+      for (var i = 0; i < _minColumnWidths.length; i++)
+        _minColumnWidths[i] + (i == 3 ? extra : 0),
+    ];
+  }
+
+  double _tableContentWidth(double availableWidth) =>
+      availableWidth > _minTableWidth ? availableWidth : _minTableWidth;
+
+  Widget _headerCell(String text, double width) {
+    return SizedBox(
+      width: width,
+      height: 56,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: _tableHeaderColor,
+          border: Border.all(color: Colors.grey, width: 0.5),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Center(
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
-          dataRowMinHeight: 56,
-          dataRowMaxHeight: double.infinity,
-          horizontalMargin: 20,
-          columnSpacing: 20,
-          border: TableBorder.all(color: Colors.grey, width: 1),
-          columns: const [
-            DataColumn(
-              label: SizedBox(
-                width: 60,
-                child: Center(
-                  child: Text(
-                    "SOP",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+        ),
+      ),
+    );
+  }
+
+  Widget _bodyTextCell(
+    String text,
+    double width, {
+    bool wrap = false,
+  }) {
+    return Container(
+      width: width,
+      constraints: const BoxConstraints(minHeight: 56),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey, width: 0.5),
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        softWrap: wrap,
+        maxLines: wrap ? null : 1,
+        overflow: wrap ? TextOverflow.visible : TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 12),
+      ),
+    );
+  }
+
+  Widget _buildTableHeaderRow(List<double> widths) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < _headers.length; i++)
+          _headerCell(_headers[i], widths[i]),
+      ],
+    );
+  }
+
+  Widget _buildTableDataRow(
+    Map<String, dynamic> item,
+    List<double> widths,
+  ) {
+    final values = [
+      item['sopNum']?.toString() ?? '',
+      item['poNum']?.toString() ?? '',
+      formatDate(item['odd']?.toString()),
+      item['customer']?.toString() ?? '',
+      item['program']?.toString() ?? '',
+      item['location']?.toString() ?? '',
+      formatDate(item['shippingDateIn']?.toString()),
+      formatDateTime(item['lastEditedOn']?.toString()),
+    ];
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < values.length; i++)
+            _bodyTextCell(values[i], widths[i], wrap: i == 3),
+          Container(
+            width: widths.last,
+            constraints: const BoxConstraints(minHeight: 56),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey, width: 0.5),
+            ),
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final sopNumber = item['sopNum']?.toString() ?? '';
+                print("PASSING SOP: $sopNumber");
+                final updated = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ShippingEditEntry(sopNumber: sopNumber),
                   ),
+                );
+                if (updated == true) {
+                  await GetShippingEditHistory();
+                }
+              },
+              icon: const Icon(Icons.edit, size: 20, color: Colors.black),
+              label: const Text(''),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.black),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(5),
                 ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 6,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),
-            DataColumn(
-              label: SizedBox(
-                width: 80,
-                child: Center(
-                  child: Text(
-                    "PO Num",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildTable() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final contentWidth = _tableContentWidth(constraints.maxWidth);
+        final columnWidths = _columnWidthsFor(constraints.maxWidth);
+
+        return Column(
+          children: [
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              controller: _headerHorizontalScroll,
+              child: SizedBox(
+                width: contentWidth,
+                child: _buildTableHeaderRow(columnWidths),
               ),
             ),
-            DataColumn(
-              label: SizedBox(
-                width: 90,
-                child: Center(
-                  child: Text(
-                    "ODD",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 260,
-                child: Center(
-                  child: Text(
-                    "Customer",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 100,
-                child: Center(
-                  child: Text(
-                    "Prgm",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 90,
-                child: Center(
-                  child: Text(
-                    "Loc.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 140,
-                child: Center(
-                  child: Text(
-                    "Ship In",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 170,
-                child: Center(
-                  child: Text(
-                    "Last Edited On",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            DataColumn(
-              label: SizedBox(
-                width: 90,
-                child: Center(
-                  child: Text(
-                    "Action",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+            Expanded(
+              child: SingleChildScrollView(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  controller: _bodyHorizontalScroll,
+                  child: SizedBox(
+                    width: contentWidth,
+                    child: Column(
+                      children: shippingEditHistory
+                          .map(
+                            (item) => _buildTableDataRow(item, columnWidths),
+                          )
+                          .toList(growable: false),
                     ),
                   ),
                 ),
               ),
             ),
           ],
-          rows: shippingEditHistory.map((item) {
-            return DataRow(
-              cells: [
-                DataCell(
-                  SizedBox(
-                    width: 60,
-                    child: Center(
-                      child: Text(
-                        item['sopNum']?.toString() ?? '',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 80,
-                    child: Center(
-                      child: Text(
-                        item['poNum']?.toString() ?? '',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 90,
-                    child: Center(
-                      child: Text(
-                        formatDate(item['odd']?.toString()),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 260,
-                    child: Center(
-                      child: Text(
-                        item['customer']?.toString() ?? '',
-                        textAlign: TextAlign.center,
-                        softWrap: true,
-                        maxLines: null,
-                        overflow: TextOverflow.visible,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 100,
-                    child: Center(
-                      child: Text(
-                        item['program']?.toString() ?? '',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 90,
-                    child: Center(
-                      child: Text(
-                        item['location']?.toString() ?? '',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 140,
-                    child: Center(
-                      child: Text(
-                        formatDate(item['shippingDateIn']?.toString()),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 170,
-                    child: Center(
-                      child: Text(
-                        formatDateTime(item['lastEditedOn']?.toString()),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 90,
-                    child: Center(
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          final sopNumber = item['sopNum']?.toString() ?? '';
-                          print("PASSING SOP: $sopNumber");
-                          final updated = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  ShippingEditEntry(sopNumber: sopNumber),
-                            ),
-                          );
-                          if (updated == true) {
-                            await GetShippingEditHistory();
-                          }
-                        },
-                        icon: const Center(
-                          child: Icon(
-                            Icons.edit,
-                            size: 20,
-                            color: Colors.black,
-                          ),
-                        ),
-                        label: const Text(
-                          // "Edit Entry",
-                          "",
-                          // style: TextStyle(fontSize: 12, color: Colors.black),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.black),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                          minimumSize: const Size(0, 0),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          }).toList(),
-        ),
-      ),
+        );
+      },
     );
   }
 
+  @override
   Widget build(BuildContext context) {
+    final isTablet = MediaQuery.sizeOf(context).width >= 700;
+    final sopField = TextField(
+      controller: SOPController,
+      decoration: InputDecoration(
+        hintText: 'Enter SOP Number',
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: isTablet ? 12 : 14,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+          borderSide: BorderSide(
+            color: isTablet ? const Color(0xFFBDBDBD) : const Color(0xFF2196F3),
+            width: isTablet ? 1 : 2,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+          borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2),
+        ),
+      ),
+      textInputAction: TextInputAction.search,
+    );
+    final searchButton = ElevatedButton.icon(
+      onPressed: () async {
+        final sopNumber = SOPController.text.trim();
+        if (sopNumber.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Please enter SOP number',
+                style: TextStyle(color: Colors.white),
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
+        print("Searching for SOP: $sopNumber");
+        final updated = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ShippingEditEntry(sopNumber: sopNumber),
+          ),
+        );
+        if (updated == true) {
+          await GetShippingEditHistory();
+        }
+      },
+      icon: const Icon(Icons.search, size: 20),
+      label: const Text('Search for Entry'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF1E88E5),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+        ),
+      ),
+    );
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: const CommonAppBar(),
       drawer: const CommonDrawer(),
-      body: Container(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              const Align(
-                alignment: Alignment.center,
-                child: Text(
-                  "Search SOP to Shipping Edit",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+      body: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isTablet)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFD1D5DB)),
                 ),
-              ),
-
-              SizedBox(
-                // width: ,
-                child: TextField(
-                  controller: SOPController,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    hintText: 'Enter SOP Number',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: Colors.grey,
-                        width: 1,
+                child: Row(
+                  children: [
+                    const Text(
+                      'Search SOP to Shipping Edit',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: Color.fromARGB(255, 22, 129, 218),
-                        width: 2,
-                      ),
+                    const SizedBox(width: 16),
+                    SizedBox(width: 360, child: sopField),
+                    const SizedBox(width: 16),
+                    searchButton,
+                  ],
+                ),
+              )
+            else
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Search SOP to Shipping Edit',
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  textInputAction: TextInputAction.search,
-                ),
+                  const SizedBox(height: 12),
+                  sopField,
+                  const SizedBox(height: 12),
+                  searchButton,
+                ],
               ),
-
-              SizedBox(height: 10),
-
-              SizedBox(
-                // width: searchButtonWidth,
-                child: SizedBox(
-                  height: 45,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final sopNumber = SOPController.text.trim();
-                      if (sopNumber.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Please enter SOP number',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                        return;
-                      }
-
-                      print("Searching for SOP: $sopNumber");
-                      final updated = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              ShippingEditEntry(sopNumber: sopNumber),
-                        ),
-                      );
-                      if (updated == true) {
-                        await GetShippingEditHistory();
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color.fromARGB(255, 22, 129, 218),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.search, color: Colors.white),
-                        SizedBox(width: 10),
-                        Text(
-                          "Search for Entry",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              SizedBox(height: 10),
-
-              isLoading
-                  ? const SizedBox(
-                      height: 220,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: Color.fromARGB(255, 57, 73, 95),
-                        ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color.fromARGB(255, 57, 73, 95),
                       ),
                     )
                   : buildTable(),
-
-              SizedBox(height: 10),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

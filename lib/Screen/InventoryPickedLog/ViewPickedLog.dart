@@ -359,81 +359,90 @@ class ViewPickedLogState extends State<ViewPickedLog> {
         builder: (context, constraints) {
           final isMobile = constraints.maxWidth < 480;
 
+          final maxTableHeight = (constraints.maxHeight * 0.52).clamp(
+            280.0,
+            620.0,
+          );
+
           return Padding(
             padding: const EdgeInsets.all(16),
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      ElevatedButton(
-                        onPressed: isActionLoading || isLoading
-                            ? null
-                            : _handleVoid,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(
-                            255,
-                            202,
-                            25,
-                            25,
-                          ),
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isMobile ? 14 : 22,
-                            vertical: isMobile ? 10 : 14,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    ElevatedButton(
+                      onPressed: isActionLoading || isLoading
+                          ? null
+                          : _handleVoid,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromARGB(
+                          255,
+                          202,
+                          25,
+                          25,
                         ),
-                        child: const Text(
-                          'Void',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 14 : 22,
+                          vertical: isMobile ? 10 : 14,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      ElevatedButton(
-                        onPressed: isActionLoading || isLoading
-                            ? null
-                            : _handlePicked,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(
-                            255,
-                            10,
-                            136,
-                            41,
-                          ),
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isMobile ? 14 : 22,
-                            vertical: isMobile ? 10 : 14,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
+                      child: const Text(
+                        'Void',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: isActionLoading || isLoading
+                          ? null
+                          : _handlePicked,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromARGB(
+                          255,
+                          10,
+                          136,
+                          41,
                         ),
-                        child: const Text(
-                          'Picked',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 14 : 22,
+                          vertical: isMobile ? 10 : 14,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  if (isLoading)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else
-                    _buildInfoGrid(today, isMobile: isMobile),
-                  const SizedBox(height: 16),
-                  _buildPickedItemsTable(context),
-                ],
-              ),
+                      child: const Text(
+                        'Picked',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                if (isLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else
+                  _buildInfoGrid(today, isMobile: isMobile),
+                const SizedBox(height: 16),
+                _buildPickedItemsTable(
+                  context,
+                  maxHeight: maxTableHeight,
+                ),
+                const SizedBox(height: 16),
+              ],
             ),
+          ),
           );
         },
       ),
@@ -651,25 +660,24 @@ class ViewPickedLogState extends State<ViewPickedLog> {
     );
   }
 
-  Widget _buildPickedItemsTable(BuildContext context) {
+  Widget _buildPickedItemsTable(
+    BuildContext context, {
+    required double maxHeight,
+  }) {
+    const headerHeight = 56.0;
+    const dataRowHeight = 72.0;
     const headerBg = Color(0xFF334155);
     const borderColor = Color(0xFFD1D5DB);
     final isTablet = MediaQuery.sizeOf(context).shortestSide >= 600;
-    final denseRows = MediaQuery.sizeOf(context).shortestSide < 1024;
     final headerTextStyle = TextStyle(
       color: Colors.white,
       fontSize: isTablet ? 14 : 12,
       fontWeight: FontWeight.w600,
-      height: denseRows ? 1.05 : 1.2,
-    );
-    final headerLabelPadding = EdgeInsets.symmetric(
-      horizontal: isTablet ? 10 : 8,
-      vertical: isTablet ? 8 : (denseRows ? 4 : 6),
+      height: 1.2,
     );
     final bodyTextStyle = TextStyle(
       color: const Color(0xFF111827),
       fontSize: isTablet ? 14 : 11,
-      height: denseRows ? 1.05 : 1.25,
     );
 
     final headers = [
@@ -703,86 +711,81 @@ class ViewPickedLogState extends State<ViewPickedLog> {
               )
               .toList();
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Container(
-        decoration: BoxDecoration(border: Border.all(color: borderColor)),
-        child: Theme(
-          data: Theme.of(context).copyWith(
-            visualDensity: denseRows
-                ? VisualDensity.compact
-                : VisualDensity.standard,
-          ),
-          child: DataTable(
-            headingRowHeight: denseRows
-                ? (isTablet ? 40 : 30)
-                : (isTablet ? 46 : 40),
-            dataRowMinHeight: denseRows ? 28 : 44,
-            dataRowMaxHeight: denseRows ? 76 : 120,
-            horizontalMargin: denseRows ? 6 : 10,
-            columnSpacing: denseRows ? 8 : 14,
-            headingRowColor: WidgetStateProperty.all(headerBg),
-            border: TableBorder.all(color: borderColor),
-            columns: headers
-                .map(
-                  (header) => DataColumn(
-                    label: Padding(
-                      padding: headerLabelPadding,
-                      child: Text(
-                        header,
-                        style: headerTextStyle,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+    double columnWidth(int index) {
+      if (index == 1) return 300;
+      if (index == 8) return 180;
+      return 108;
+    }
+
+    final tableWidth = List.generate(
+      headers.length,
+      columnWidth,
+    ).fold<double>(0, (sum, width) => sum + width);
+    final contentHeight = headerHeight + rows.length * dataRowHeight;
+    final tableHeight = contentHeight > maxHeight ? maxHeight : contentHeight;
+    final scrollRows = contentHeight > maxHeight;
+
+    Widget buildTableRow(List<String> cells, {required bool isHeader}) {
+      final textStyle = isHeader ? headerTextStyle : bodyTextStyle;
+      final rowHeight = isHeader ? headerHeight : dataRowHeight;
+
+      return Container(
+        height: rowHeight,
+        width: tableWidth,
+        color: isHeader ? headerBg : Colors.white,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(cells.length, (index) {
+            final centerCell = isHeader || index > 1;
+            final isLastColumn = index == cells.length - 1;
+            return Container(
+              width: columnWidth(index),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              alignment: centerCell ? Alignment.center : Alignment.centerLeft,
+              decoration: BoxDecoration(
+                border: Border(
+                  right: isLastColumn
+                      ? BorderSide.none
+                      : const BorderSide(color: borderColor),
+                  bottom: const BorderSide(color: borderColor),
+                ),
+              ),
+              child: Text(
+                cells[index],
+                style: textStyle,
+                textAlign: centerCell ? TextAlign.center : TextAlign.start,
+                softWrap: true,
+                maxLines: isHeader ? 3 : null,
+              ),
+            );
+          }),
+        ),
+      );
+    }
+
+    return Container(
+      height: tableHeight,
+      decoration: BoxDecoration(border: Border.all(color: borderColor)),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: tableWidth,
+          height: tableHeight,
+          child: Column(
+            children: [
+              buildTableRow(headers, isHeader: true),
+              if (scrollRows)
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: rows.length,
+                    itemBuilder: (context, index) {
+                      return buildTableRow(rows[index], isHeader: false);
+                    },
                   ),
                 )
-                .toList(),
-            rows: rows
-                .map(
-                  (row) => DataRow(
-                    cells: List.generate(row.length, (index) {
-                      final cell = row[index];
-                      final isDescriptionColumn = index == 1;
-                      final centerCell = index > 1;
-                      final double? colWidth = switch (index) {
-                        1 => denseRows ? 300 : 260,
-                        2 => denseRows ? 100 : 72,
-                        3 => denseRows ? 100 : 84,
-                        _ => null,
-                      };
-                      return DataCell(
-                        SizedBox(
-                          width: colWidth,
-                          child: centerCell
-                              ? Align(
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    cell,
-                                    style: bodyTextStyle,
-                                    textAlign: TextAlign.center,
-                                    maxLines: isDescriptionColumn ? 6 : 2,
-                                    softWrap: true,
-                                    overflow: isDescriptionColumn
-                                        ? TextOverflow.visible
-                                        : TextOverflow.ellipsis,
-                                  ),
-                                )
-                              : Text(
-                                  cell,
-                                  style: bodyTextStyle,
-                                  textAlign: TextAlign.start,
-                                  maxLines: isDescriptionColumn ? 6 : 2,
-                                  softWrap: true,
-                                  overflow: isDescriptionColumn
-                                      ? TextOverflow.visible
-                                      : TextOverflow.ellipsis,
-                                ),
-                        ),
-                      );
-                    }),
-                  ),
-                )
-                .toList(),
+              else
+                ...rows.map((row) => buildTableRow(row, isHeader: false)),
+            ],
           ),
         ),
       ),

@@ -17,6 +17,10 @@ class _QAInState extends State<QAIn> {
   List<Map<String, dynamic>> searchedQaInHistory = [];
   bool hasSearched = false;
   bool isLoading = false;
+  final ScrollController _headerHorizontalScroll = ScrollController();
+  final ScrollController _bodyHorizontalScroll = ScrollController();
+  final ScrollController _searchHeaderHorizontalScroll = ScrollController();
+  final ScrollController _searchBodyHorizontalScroll = ScrollController();
 
   Future<void> GetQAInHistory() async {
     await Dioservices.setToken();
@@ -83,7 +87,53 @@ class _QAInState extends State<QAIn> {
   @override
   void initState() {
     super.initState();
+    _headerHorizontalScroll.addListener(
+      () => _syncHorizontalScroll(
+        _headerHorizontalScroll,
+        _bodyHorizontalScroll,
+      ),
+    );
+    _bodyHorizontalScroll.addListener(
+      () => _syncHorizontalScroll(
+        _bodyHorizontalScroll,
+        _headerHorizontalScroll,
+      ),
+    );
+    _searchHeaderHorizontalScroll.addListener(
+      () => _syncHorizontalScroll(
+        _searchHeaderHorizontalScroll,
+        _searchBodyHorizontalScroll,
+      ),
+    );
+    _searchBodyHorizontalScroll.addListener(
+      () => _syncHorizontalScroll(
+        _searchBodyHorizontalScroll,
+        _searchHeaderHorizontalScroll,
+      ),
+    );
     GetQAInHistory();
+  }
+
+  @override
+  void dispose() {
+    _headerHorizontalScroll.dispose();
+    _bodyHorizontalScroll.dispose();
+    _searchHeaderHorizontalScroll.dispose();
+    _searchBodyHorizontalScroll.dispose();
+    SOPController.dispose();
+    super.dispose();
+  }
+
+  void _syncHorizontalScroll(
+    ScrollController source,
+    ScrollController target,
+  ) {
+    if (!target.hasClients) {
+      return;
+    }
+    if (target.offset != source.offset) {
+      target.jumpTo(source.offset);
+    }
   }
 
   String formatDate(dynamic date) {
@@ -116,583 +166,349 @@ class _QAInState extends State<QAIn> {
     }
   }
 
-  Widget buildTable(
-    List<Map<String, dynamic>> rowsData, {
-    bool showLastEditedAndAction = true,
-  }) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: MaterialStateProperty.all(
-            Color.fromARGB(255, 57, 73, 95),
+  static const Color _tableHeaderColor = Color.fromARGB(255, 57, 73, 95);
+
+  Widget _headerCell(String text, double width) {
+    return SizedBox(
+      width: width,
+      height: 56,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: _tableHeaderColor,
+          border: Border.all(color: Colors.grey, width: 0.5),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Center(
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
-          dataRowMinHeight: 56,
-          dataRowMaxHeight: double.infinity,
-          horizontalMargin: 20,
-          columnSpacing: 20,
-          border: TableBorder.all(color: Colors.grey, width: 1),
-          columns: [
-            const DataColumn(
-              label: SizedBox(
-                width: 60,
-                child: Center(
-                  child: Text(
-                    "SOP",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const DataColumn(
-              label: SizedBox(
-                width: 70,
-                child: Center(
-                  child: Text(
-                    "PO Num",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const DataColumn(
-              label: SizedBox(
-                width: 90,
-                child: Center(
-                  child: Text(
-                    "ODD",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const DataColumn(
-              label: SizedBox(
-                width: 260,
-                child: Center(
-                  child: Text(
-                    "Customer",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const DataColumn(
-              label: SizedBox(
-                width: 100,
-                child: Center(
-                  child: Text(
-                    "Prgm",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const DataColumn(
-              label: SizedBox(
-                width: 90,
-                child: Center(
-                  child: Text(
-                    "Loc.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const DataColumn(
-              label: SizedBox(
-                width: 90,
-                child: Center(
-                  child: Text(
-                    "QC In",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const DataColumn(
-              label: SizedBox(
-                width: 90,
-                child: Center(
-                  child: Text(
-                    "RW QC Out",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const DataColumn(
-              label: SizedBox(
-                width: 120,
-                child: Center(
-                  child: Text(
-                    "Final Date Received In QC",
-                    textAlign: TextAlign.center,
-                    softWrap: true,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const DataColumn(
-              label: SizedBox(
-                width: 90,
-                child: Center(
-                  child: Text(
-                    "QC Out",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const DataColumn(
-              label: SizedBox(
-                width: 140,
-                child: Center(
-                  child: Text(
-                    "Comments",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            if (showLastEditedAndAction)
-              const DataColumn(
-                label: SizedBox(
-                  width: 170,
-                  child: Center(
-                    child: Text(
-                      "Last Edited On",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            if (showLastEditedAndAction)
-              const DataColumn(
-                label: SizedBox(
-                  width: 90,
-                  child: Center(
-                    child: Text(
-                      "Action",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-          rows: rowsData.map((item) {
-            return DataRow(
-              cells: [
-                DataCell(
-                  SizedBox(
-                    width: 60,
-                    child: Center(
-                      child: Text(
-                        item['SOPNum']?.toString() ?? '',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 70,
-                    child: Center(
-                      child: Text(
-                        item['PONum']?.toString() ?? '',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 90,
-                    child: Center(
-                      child: Text(
-                        formatDate(item['ODD']?.toString()),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 260,
-                    child: Center(
-                      child: Text(
-                        item['CustomerName']?.toString() ?? '',
-                        textAlign: TextAlign.center,
-                        softWrap: true,
-                        maxLines: null,
-                        overflow: TextOverflow.visible,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 100,
-                    child: Center(
-                      child: Text(
-                        item['ProgramName']?.toString() ?? '',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 90,
-                    child: Center(
-                      child: Text(
-                        item['Location']?.toString() ?? '',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 90,
-                    child: Center(
-                      child: Text(
-                        formatDate(item['QCDateIn']?.toString() ?? ''),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 90,
-                    child: Center(
-                      child: Text(
-                        formatDate(item['ReworkDateOut']?.toString() ?? ''),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 120,
-                    child: Center(
-                      child: Text(
-                        formatDate(
-                          item['FinalDateReceivedInQC']?.toString() ?? '',
-                        ),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 90,
-                    child: Center(
-                      child: Text(
-                        formatDate(item['QCOut']?.toString() ?? ''),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  SizedBox(
-                    width: 140,
-                    child: Center(
-                      child: Text(
-                        item['QAComments']?.toString() ?? '',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-                if (showLastEditedAndAction)
-                  DataCell(
-                    SizedBox(
-                      width: 170,
-                      child: Center(
-                        child: Text(
-                          formatDateTime(item['QALastEdit']?.toString()),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (showLastEditedAndAction)
-                  DataCell(
-                    SizedBox(
-                      width: 90,
-                      child: Center(
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final SOPId = item['SOPId']?.toString() ?? '';
-                            print("PASSING SOP: $SOPId");
-                            final updated = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => QAInEditEntry(SOPId: SOPId),
-                              ),
-                            );
-                            if (updated == true) {
-                              await GetQAInHistory();
-                            }
-                          },
-                          icon: const Center(
-                            child: Icon(
-                              Icons.edit,
-                              size: 20,
-                              color: Colors.black,
-                            ),
-                          ),
-                          label: const Text(
-                            // "Edit Entry",
-                            "",
-                            // style: TextStyle(fontSize: 12, color: Colors.black),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Colors.black),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 6,
-                            ),
-                            minimumSize: Size(0, 0),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          }).toList(),
         ),
       ),
     );
   }
 
+  Widget _bodyTextCell(
+    String text,
+    double width, {
+    bool wrap = false,
+  }) {
+    return Container(
+      width: width,
+      constraints: const BoxConstraints(minHeight: 56),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey, width: 0.5),
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        softWrap: wrap,
+        maxLines: wrap ? null : 1,
+        overflow: wrap ? TextOverflow.visible : TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 12),
+      ),
+    );
+  }
+
+  Widget _buildTableHeaderRow({required bool showLastEditedAndAction}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _headerCell('SOP', 60),
+        _headerCell('PO Num', 70),
+        _headerCell('ODD', 90),
+        _headerCell('Customer', 260),
+        _headerCell('Prgm', 100),
+        _headerCell('Loc.', 90),
+        _headerCell('QC In', 90),
+        _headerCell('RW QC Out', 90),
+        _headerCell('Final Date Received In QC', 120),
+        _headerCell('QC Out', 90),
+        _headerCell('Comments', 140),
+        if (showLastEditedAndAction) _headerCell('Last Edited On', 170),
+        if (showLastEditedAndAction) _headerCell('Action', 90),
+      ],
+    );
+  }
+
+  Widget _buildTableDataRow(
+    Map<String, dynamic> item, {
+    required bool showLastEditedAndAction,
+  }) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _bodyTextCell(item['SOPNum']?.toString() ?? '', 60),
+          _bodyTextCell(item['PONum']?.toString() ?? '', 70),
+          _bodyTextCell(formatDate(item['ODD']?.toString()), 90),
+          _bodyTextCell(
+            item['CustomerName']?.toString() ?? '',
+            260,
+            wrap: true,
+          ),
+          _bodyTextCell(item['ProgramName']?.toString() ?? '', 100),
+          _bodyTextCell(item['Location']?.toString() ?? '', 90),
+          _bodyTextCell(formatDate(item['QCDateIn']?.toString() ?? ''), 90),
+          _bodyTextCell(
+            formatDate(item['ReworkDateOut']?.toString() ?? ''),
+            90,
+          ),
+          _bodyTextCell(
+            formatDate(item['FinalDateReceivedInQC']?.toString() ?? ''),
+            120,
+          ),
+          _bodyTextCell(formatDate(item['QCOut']?.toString() ?? ''), 90),
+          _bodyTextCell(item['QAComments']?.toString() ?? '', 140, wrap: true),
+          if (showLastEditedAndAction)
+            _bodyTextCell(
+              formatDateTime(item['QALastEdit']?.toString()),
+              170,
+            ),
+          if (showLastEditedAndAction)
+            Container(
+              width: 90,
+              constraints: const BoxConstraints(minHeight: 56),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey, width: 0.5),
+              ),
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  final SOPId = item['SOPId']?.toString() ?? '';
+                  print("PASSING SOP: $SOPId");
+                  final updated = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => QAInEditEntry(SOPId: SOPId),
+                    ),
+                  );
+                  if (updated == true) {
+                    await GetQAInHistory();
+                  }
+                },
+                icon: const Icon(Icons.edit, size: 20, color: Colors.black),
+                label: const Text(''),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.black),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildTable(
+    List<Map<String, dynamic>> rowsData, {
+    bool showLastEditedAndAction = true,
+    bool isSearchTable = false,
+  }) {
+    final headerScroll = isSearchTable
+        ? _searchHeaderHorizontalScroll
+        : _headerHorizontalScroll;
+    final bodyScroll =
+        isSearchTable ? _searchBodyHorizontalScroll : _bodyHorizontalScroll;
+
+    return Column(
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          controller: headerScroll,
+          child: _buildTableHeaderRow(
+            showLastEditedAndAction: showLastEditedAndAction,
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              controller: bodyScroll,
+              child: Column(
+                children: rowsData
+                    .map(
+                      (item) => _buildTableDataRow(
+                        item,
+                        showLastEditedAndAction: showLastEditedAndAction,
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget build(BuildContext context) {
+    final isTablet = MediaQuery.sizeOf(context).width >= 700;
+    final sopField = TextField(
+      controller: SOPController,
+      decoration: InputDecoration(
+        hintText: 'Enter SOP Number',
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: isTablet ? 12 : 14,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+          borderSide: BorderSide(
+            color: isTablet ? const Color(0xFFBDBDBD) : const Color(0xFF2196F3),
+            width: isTablet ? 1 : 2,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+          borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2),
+        ),
+      ),
+      textInputAction: TextInputAction.search,
+    );
+    final searchButton = ElevatedButton.icon(
+      onPressed: () {
+        final rawInput = SOPController.text.trim();
+        final sopTokens = rawInput
+            .split(RegExp(r'[\s,]+'))
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toSet();
+
+        setState(() {
+          hasSearched = true;
+          searchedQaInHistory = sopTokens.isEmpty
+              ? <Map<String, dynamic>>[]
+              : QaInHistory.where((item) {
+                  final sop = item['SOPNum']?.toString() ?? '';
+                  return sopTokens.contains(sop);
+                }).toList();
+        });
+        HandleUpdateQAInDate();
+      },
+      icon: const Icon(Icons.search, size: 20),
+      label: const Text('Search for Entry'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF1E88E5),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+        ),
+      ),
+    );
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: const CommonAppBar(),
       drawer: const CommonDrawer(),
-      body: Container(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              const Align(
-                alignment: Alignment.center,
-                child: Text(
-                  "Update QA Received In Date",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+      body: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isTablet)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
                 ),
-              ),
-
-              SizedBox(
-                // width: ,
-                child: TextField(
-                  controller: SOPController,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    hintText: 'Enter SOP Number',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey, width: 1),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: Color.fromARGB(255, 22, 129, 218),
-                        width: 2,
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFD1D5DB)),
+                ),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Update QA Received In Date',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                  ),
-                  textInputAction: TextInputAction.search,
+                    const SizedBox(width: 16),
+                    SizedBox(width: 360, child: sopField),
+                    const SizedBox(width: 16),
+                    searchButton,
+                  ],
                 ),
-              ),
-
-              SizedBox(height: 10),
-
-              SizedBox(
-                // width: searchButtonWidth,
-                child: SizedBox(
-                  height: 45,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      final rawInput = SOPController.text.trim();
-                      final sopTokens = rawInput
-                          .split(RegExp(r'[\s,]+'))
-                          .map((e) => e.trim())
-                          .where((e) => e.isNotEmpty)
-                          .toSet();
-
-                      setState(() {
-                        hasSearched = true;
-                        searchedQaInHistory = sopTokens.isEmpty
-                            ? <Map<String, dynamic>>[]
-                            : QaInHistory.where((item) {
-                                final sop = item['SOPNum']?.toString() ?? '';
-                                return sopTokens.contains(sop);
-                              }).toList();
-                      });
-                      HandleUpdateQAInDate();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color.fromARGB(255, 22, 129, 218),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.save, color: Colors.white),
-                        SizedBox(width: 10),
-                        Text(
-                          "Update QA Out Date",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
+              )
+            else
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Update QA Received In Date',
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ),
+                  const SizedBox(height: 12),
+                  sopField,
+                  const SizedBox(height: 12),
+                  searchButton,
+                ],
               ),
-
-              SizedBox(height: 10),
-
-              if (hasSearched) ...[
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    "Searched SOP Data",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                SizedBox(height: 8),
-                searchedQaInHistory.isNotEmpty
-                    ? buildTable(
-                        searchedQaInHistory,
-                        showLastEditedAndAction: false,
-                      )
-                    : const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child:  const Text(
-                          "No data found for searched SOP",
-                          style: TextStyle(fontSize: 14, color: Colors.black54),
-                        ),
-                      ),
-                const SizedBox(height: 16),
-              ],
-
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "SOP History",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+            const SizedBox(height: 12),
+            if (hasSearched) ...[
+              const Text(
+                'Searched SOP Data',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-
-              isLoading
-                  ? const SizedBox(
-                      height: 220,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: Color.fromARGB(255, 57, 73, 95),
-                        ),
+              if (searchedQaInHistory.isNotEmpty)
+                SizedBox(
+                  height: 220,
+                  child: buildTable(
+                    searchedQaInHistory,
+                    showLastEditedAndAction: false,
+                    isSearchTable: true,
+                  ),
+                )
+              else
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Text(
+                    'No data found for searched SOP',
+                    style: TextStyle(fontSize: 14, color: Colors.black54),
+                  ),
+                ),
+              const SizedBox(height: 16),
+            ],
+            const Text(
+              'SOP History',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color.fromARGB(255, 57, 73, 95),
                       ),
                     )
                   : buildTable(QaInHistory),
-
-              const SizedBox(height: 10),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

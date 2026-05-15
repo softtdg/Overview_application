@@ -43,8 +43,15 @@ class Publicsearch extends StatefulWidget {
 }
 
 class _PublicSearchState extends State<Publicsearch> {
+  static const double _kMaxBodyVerticalScrollPixels = 500;
+
   final Publicsearchservice _service = Publicsearchservice();
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _bodyScrollController = ScrollController();
+  final ScrollController _tableVerticalScrollController = ScrollController();
+  final ScrollController _tableHorizontalHeaderController = ScrollController();
+  final ScrollController _tableHorizontalBodyController = ScrollController();
+  bool _syncingTableHorizontalScroll = false;
   final TextEditingController PublicSearchController = TextEditingController();
   Map<String, dynamic> result = {};
   List<ItemModel> items = [];
@@ -56,15 +63,64 @@ class _PublicSearchState extends State<Publicsearch> {
 
   String get _fixtureNumberInput => PublicSearchController.text.trim();
 
+  void _syncTableHorizontalScroll(ScrollController source, ScrollController target) {
+    if (_syncingTableHorizontalScroll) return;
+    if (!source.hasClients || !target.hasClients) return;
+    final delta = (target.offset - source.offset).abs();
+    if (delta < 0.5) return;
+    _syncingTableHorizontalScroll = true;
+    target.jumpTo(source.offset);
+    _syncingTableHorizontalScroll = false;
+  }
+
   @override
   void initState() {
     super.initState();
+    _bodyScrollController.addListener(_enforceBodyVerticalScrollLimit);
+    _tableHorizontalHeaderController.addListener(() {
+      _syncTableHorizontalScroll(
+        _tableHorizontalHeaderController,
+        _tableHorizontalBodyController,
+      );
+    });
+    _tableHorizontalBodyController.addListener(() {
+      _syncTableHorizontalScroll(
+        _tableHorizontalBodyController,
+        _tableHorizontalHeaderController,
+      );
+    });
     loadUserName();
     final passed = widget.fixtureNumber?.toString().trim();
     if (passed != null && passed.isNotEmpty) {
       PublicSearchController.text = passed;
       performSearch();
     }
+  }
+
+  void _enforceBodyVerticalScrollLimit() {
+    if (!_bodyScrollController.hasClients) return;
+    final p = _bodyScrollController.position;
+    final limit = _kMaxBodyVerticalScrollPixels.clamp(0.0, p.maxScrollExtent);
+    if (p.pixels > limit) {
+      p.jumpTo(limit);
+    }
+  }
+
+  void _scheduleScrollBodyToVerticalLimit() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_bodyScrollController.hasClients) return;
+        if (!hasSearched || isSopLoading || isTableLoading) return;
+        final p = _bodyScrollController.position;
+        final target = _kMaxBodyVerticalScrollPixels.clamp(0.0, p.maxScrollExtent);
+        if (target <= 0) return;
+        _bodyScrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 450),
+          curve: Curves.easeOut,
+        );
+      });
+    });
   }
 
   Future<void> performSearch() async {
@@ -80,9 +136,23 @@ class _PublicSearchState extends State<Publicsearch> {
       isTableLoading = true;
     });
     await Future.wait([fetchData(), fetchFixtureDetailsData()]);
+    if (!mounted) return;
+    _scheduleScrollBodyToVerticalLimit();
   }
 
   void _handleNewSearch() {
+    if (_bodyScrollController.hasClients) {
+      _bodyScrollController.jumpTo(0);
+    }
+    if (_tableVerticalScrollController.hasClients) {
+      _tableVerticalScrollController.jumpTo(0);
+    }
+    if (_tableHorizontalHeaderController.hasClients) {
+      _tableHorizontalHeaderController.jumpTo(0);
+    }
+    if (_tableHorizontalBodyController.hasClients) {
+      _tableHorizontalBodyController.jumpTo(0);
+    }
     setState(() {
       PublicSearchController.clear();
       hasSearched = false;
@@ -92,6 +162,18 @@ class _PublicSearchState extends State<Publicsearch> {
       items = [];
       result = {};
     });
+  }
+
+  @override
+  void dispose() {
+    _bodyScrollController.removeListener(_enforceBodyVerticalScrollLimit);
+    _bodyScrollController.dispose();
+    _tableVerticalScrollController.dispose();
+    _tableHorizontalHeaderController.dispose();
+    _tableHorizontalBodyController.dispose();
+    _scrollController.dispose();
+    PublicSearchController.dispose();
+    super.dispose();
   }
 
   Future<void> fetchFixtureDetailsData() async {
@@ -327,6 +409,14 @@ class _PublicSearchState extends State<Publicsearch> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final searchFieldWidth = (screenWidth - 32).clamp(240.0, 420.0);
+    final media = MediaQuery.of(context);
+    final bodyViewportHeight =
+        media.size.height - media.padding.vertical - kToolbarHeight;
+    // Tall enough that header + SOP + table area usually exceeds the viewport,
+    // so the outer body scroll view gets scroll extent (not only the inner table).
+    const estimatedHeaderPx = 380.0;
+    final tableBoxHeight =
+        (bodyViewportHeight - estimatedHeaderPx + 120).clamp(240.0, 680.0);
 
     return Scaffold(
       appBar: const CommonAppBar(),
@@ -335,9 +425,15 @@ class _PublicSearchState extends State<Publicsearch> {
 
       body: Container(
         color: Colors.white,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+        child: Scrollbar(
+          controller: _bodyScrollController,
+          thumbVisibility: true,
+          trackVisibility: true,
+          child: SingleChildScrollView(
+            controller: _bodyScrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Align(
@@ -517,88 +613,136 @@ class _PublicSearchState extends State<Publicsearch> {
                     child: Center(child: Text("No table data found")),
                   )
                 else if (hasSearched)
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final available = constraints.maxWidth;
-                      final colW = _columnWidthsForBomTable(available);
-                      final tableW = _bomTableWidthFor(colW);
+                  SizedBox(
+                    height: tableBoxHeight,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final available = constraints.maxWidth;
+                        final colW = _columnWidthsForBomTable(available);
+                        final tableW = _bomTableWidthFor(colW);
 
-                      return SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: DecoratedBox(
+                        return DecoratedBox(
                           decoration: BoxDecoration(
                             border: Border.all(color: Colors.grey.shade300),
                           ),
-                          child: SizedBox(
-                            width: tableW,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _bomHeaderCell("TDGPN", colW[0]),
-                                    _bomHeaderCell("Description", colW[1]),
-                                    _bomHeaderCell("Material", colW[2]),
-                                    _bomHeaderCell("Quantity", colW[3]),
-                                    _bomHeaderCell("Size", colW[3]),
-                                    _bomHeaderCell("UOM", colW[3]),
-                                    _bomHeaderCell("State", colW[4]),
-                                    _bomHeaderCell("Vendor", colW[5]),
-                                    _bomHeaderCell("FileName", colW[6]),
-                                  ],
-                                ),
-                                for (final item in items)
-                                  Container(
-                                    color: (item.color.toLowerCase() == "white")
-                                        ? Colors.white
-                                        : Color(
-                                            int.parse(
-                                              "0xFF${item.color.replaceAll("#", "")}",
-                                            ),
-                                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Material(
+                                color: const Color.fromARGB(255, 57, 73, 95),
+                                elevation: 2,
+                                shadowColor: Colors.black26,
+                                child: SingleChildScrollView(
+                                  controller: _tableHorizontalHeaderController,
+                                  scrollDirection: Axis.horizontal,
+                                  child: SizedBox(
+                                    width: tableW,
                                     child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        _bomDataCell(item.tdgPn, colW[0]),
-                                        _bomDataCell(
-                                          item.description,
-                                          colW[1],
-                                        ),
-                                        _bomDataCell(item.material, colW[2]),
-                                        _bomDataCell(
-                                          item.quantity.toString(),
-                                          colW[3],
-                                        ),
-                                        _bomDataCell(
-                                          item.size.toString(),
-                                          colW[3],
-                                        ),
-                                        _bomDataCell(
-                                          item.UOM.toString(),
-                                          colW[3],
-                                        ),
-                                        _bomDataCell(item.state, colW[4]),
-                                        _bomDataCell(item.vendor, colW[5]),
-                                        _bomDataCell(
-                                          item.PathName,
-                                          colW[6],
-                                        ),
+                                        _bomHeaderCell("TDGPN", colW[0]),
+                                        _bomHeaderCell("Description", colW[1]),
+                                        _bomHeaderCell("Material", colW[2]),
+                                        _bomHeaderCell("Quantity", colW[3]),
+                                        _bomHeaderCell("Size", colW[3]),
+                                        _bomHeaderCell("UOM", colW[3]),
+                                        _bomHeaderCell("State", colW[4]),
+                                        _bomHeaderCell("Vendor", colW[5]),
+                                        _bomHeaderCell("FileName", colW[6]),
                                       ],
                                     ),
                                   ),
-                              ],
-                            ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Scrollbar(
+                                  controller: _tableVerticalScrollController,
+                                  thumbVisibility: true,
+                                  trackVisibility: true,
+                                  child: SingleChildScrollView(
+                                    controller: _tableVerticalScrollController,
+                                    scrollDirection: Axis.vertical,
+                                    child: SingleChildScrollView(
+                                      controller: _tableHorizontalBodyController,
+                                      scrollDirection: Axis.horizontal,
+                                      child: SizedBox(
+                                        width: tableW,
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            for (final item in items)
+                                              Container(
+                                                color:
+                                                    (item.color.toLowerCase() ==
+                                                            "white")
+                                                        ? Colors.white
+                                                        : Color(
+                                                            int.parse(
+                                                              "0xFF${item.color.replaceAll("#", "")}",
+                                                            ),
+                                                          ),
+                                                child: Row(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    _bomDataCell(
+                                                      item.tdgPn,
+                                                      colW[0],
+                                                    ),
+                                                    _bomDataCell(
+                                                      item.description,
+                                                      colW[1],
+                                                    ),
+                                                    _bomDataCell(
+                                                      item.material,
+                                                      colW[2],
+                                                    ),
+                                                    _bomDataCell(
+                                                      item.quantity.toString(),
+                                                      colW[3],
+                                                    ),
+                                                    _bomDataCell(
+                                                      item.size.toString(),
+                                                      colW[3],
+                                                    ),
+                                                    _bomDataCell(
+                                                      item.UOM.toString(),
+                                                      colW[3],
+                                                    ),
+                                                    _bomDataCell(
+                                                      item.state,
+                                                      colW[4],
+                                                    ),
+                                                    _bomDataCell(
+                                                      item.vendor,
+                                                      colW[5],
+                                                    ),
+                                                    _bomDataCell(
+                                                      item.PathName,
+                                                      colW[6],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
               ],
             ],
           ),
+        ),
         ),
       ),
     );

@@ -28,26 +28,29 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
       titleSpacing: 0,
       iconTheme: const IconThemeData(color: Colors.white),
 
-      title: LayoutBuilder(
-        builder: (context, constraints) {
-          return SizedBox(
-            width: constraints.maxWidth,
-            child: Row(
-              children: [
-                Image.asset('assets/images/tdg_logo.png', height: 35),
-                const Spacer(),
-                Builder(
-                  builder: (context) {
-                    return IconButton(
-                      icon: const Icon(Icons.menu, color: Colors.white),
-                      onPressed: () => Scaffold.of(context).openDrawer(),
-                    );
-                  },
-                ),
-              ],
-            ),
-          );
-        },
+      title: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SizedBox(
+              width: constraints.maxWidth,
+              child: Row(
+                children: [
+                  Image.asset('assets/images/tdg_logo.png', height: 35),
+                  const Spacer(),
+                  Builder(
+                    builder: (context) {
+                      return IconButton(
+                        icon: const Icon(Icons.menu, color: Colors.white),
+                        onPressed: () => Scaffold.of(context).openDrawer(),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
