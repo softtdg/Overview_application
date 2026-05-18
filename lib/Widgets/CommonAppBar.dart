@@ -13,6 +13,7 @@ import 'package:overview_app/Screen/ShippingEdit/ShippingEdit.dart';
 import 'package:overview_app/Screen/ShippingIn/ShippingIn.dart';
 import 'package:overview_app/Screen/Login/login.dart';
 import 'package:overview_app/Screen/ShippingOut/ShippingOut.dart';
+import 'package:digital_wall/digital_wall.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Common AppBar
@@ -38,6 +39,21 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
                 children: [
                   Image.asset('assets/images/tdg_logo.png', height: 35),
                   const Spacer(),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const Dashboard()),
+                      );
+                    },
+                    child: const Text(
+                      'Digital Wall',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                   Builder(
                     builder: (context) {
                       return IconButton(
