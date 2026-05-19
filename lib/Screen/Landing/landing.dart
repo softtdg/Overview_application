@@ -28,7 +28,12 @@ class _LandingPageState extends State<LandingPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/images/tdg_logo.png', width: 200, height: 150),
+            Image.asset(
+              'assets/images/tdg_logo.png',
+              width: 200,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+            ),
             const Text(
               'TDG Overview',
               style: TextStyle(

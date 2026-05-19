@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:overview_app/Screen/SOPSearch/sopSearch.dart';
 // import '../Landing/landing.dart';
 
 const String _ociBaseUrl =
@@ -195,11 +196,10 @@ class _DashboardState extends State<Dashboard> {
   final Map<num, FileObject?> _selectedSclByProject = {};
   final Map<num, FileObject?> _selectedProPlanByProject = {};
   String _searchQuery = '';
-  String _userName = "";
+  // String _userName = "";
   late TextEditingController _searchController;
   final GlobalKey _searchBoxKey = GlobalKey();
   static const double _searchFieldWidth = 280;
-  static const int _pageSize = 3;
   static const Color _searchFieldBg = Color(0xFF1C213E);
   static const Color _searchFieldBorder = Color(0xFF5E668A);
   static const Color _searchFieldText = Color.fromARGB(255, 201, 207, 233);
@@ -207,11 +207,16 @@ class _DashboardState extends State<Dashboard> {
   int _currentPage = 1;
   int _totalPages = 1;
 
+  int get _pageLimit =>
+      MediaQuery.sizeOf(context).width >= 600 ? 3 : 1;
+
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
-    fetchProjects(resetToFirstPage: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) fetchProjects(resetToFirstPage: true);
+    });
     _loadUserName();
   }
 
@@ -259,6 +264,7 @@ class _DashboardState extends State<Dashboard> {
     Widget? child,
     String? label,
     double size = 28,
+    double fontSize = 12,
   }) {
     return SizedBox(
       width: size,
@@ -284,7 +290,7 @@ class _DashboardState extends State<Dashboard> {
                         ? Colors.white24
                         : Colors.white,
                     fontWeight: FontWeight.w600,
-                    fontSize: 12,
+                    fontSize: fontSize,
                   ),
                 ),
           ),
@@ -296,6 +302,7 @@ class _DashboardState extends State<Dashboard> {
   Widget _buildPaginationBar() {
     if (_totalPages <= 1) return const SizedBox.shrink();
 
+    const pageFontSize = 13.0;
     final items = _paginationItems();
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -304,9 +311,10 @@ class _DashboardState extends State<Dashboard> {
           onPressed: _currentPage > 1
               ? () => _goToPage(_currentPage - 1)
               : null,
+          size: 30,
           child: Icon(
             Icons.chevron_left,
-            size: 18,
+            size: 20,
             color: _currentPage > 1 ? Colors.white : Colors.white24,
           ),
         ),
@@ -316,14 +324,14 @@ class _DashboardState extends State<Dashboard> {
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 2),
               child: SizedBox(
-                width: 22,
-                height: 28,
+                width: 24,
+                height: 30,
                 child: Center(
                   child: Text(
                     '…',
                     style: TextStyle(
                       color: Colors.white54,
-                      fontSize: 12,
+                      fontSize: pageFontSize,
                       height: 1,
                     ),
                   ),
@@ -338,6 +346,8 @@ class _DashboardState extends State<Dashboard> {
               label: '$page',
               isActive: page == _currentPage,
               onPressed: () => _goToPage(page),
+              size: 30,
+              fontSize: pageFontSize,
             ),
           );
         }),
@@ -346,9 +356,10 @@ class _DashboardState extends State<Dashboard> {
           onPressed: _currentPage < _totalPages
               ? () => _goToPage(_currentPage + 1)
               : null,
+          size: 30,
           child: Icon(
             Icons.chevron_right,
-            size: 18,
+            size: 20,
             color: _currentPage < _totalPages ? Colors.white : Colors.white24,
           ),
         ),
@@ -356,7 +367,36 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  Widget _buildProjectCardSlot(Project project) {
+  Widget _buildMobilePaginationFooter() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        16,
+        4,
+        16,
+        4 + MediaQuery.paddingOf(context).bottom,
+      ),
+      color: const Color(0xFF0D0F36),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: Center(child: _buildPaginationBar()),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildProjectCardSlot(
+    Project project, {
+    bool fillAvailableHeight = true,
+  }) {
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+    final isTablet = !isMobile;
     return buildProjectCard(
       context,
       project,
@@ -375,7 +415,9 @@ class _DashboardState extends State<Dashboard> {
         });
       },
       compact: true,
-      fillAvailableHeight: true,
+      mobileLayout: isMobile,
+      tabletLayout: isTablet,
+      fillAvailableHeight: fillAvailableHeight,
     );
   }
 
@@ -457,13 +499,13 @@ class _DashboardState extends State<Dashboard> {
   }
 
   Future<void> _loadUserName() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userName = prefs.getString('uname') ?? "";
-    final userRole = prefs.getString('userRole') ?? "";
+    // final prefs = await SharedPreferences.getInstance();
+    // final userName = prefs.getString('uname') ?? "";
+    // final userRole = prefs.getString('userRole') ?? "";
 
     setState(() {
       // Show "admin" if role is admin, otherwise show actual username
-      _userName = userRole == 'admin' ? 'admin' : userName;
+      // _userName = userRole == 'admin' ? 'admin' : userName;
     });
   }
 
@@ -551,26 +593,20 @@ class _DashboardState extends State<Dashboard> {
     setState(() {
       isLoading = true;
     });
+    final limit = _pageLimit;
     final Uri url = Uri.parse(
-      'https://digitalwall.api.tdgoverview.cloud/api/projects/getPaginatedProjects'
-      '?page=$_currentPage&limit=$_pageSize',
+      'http://192.168.1.22:8000/api/projects/getPaginatedProjects'
+      '?page=$_currentPage&limit=$limit',
     );
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken');
 
-    if (token == null) {
-      setState(() => isLoading = false);
-      return;
-    }
-
     try {
-      final response = await http.get(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      if (token != null && token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+      final response = await http.get(url, headers: headers);
 
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
@@ -587,45 +623,18 @@ class _DashboardState extends State<Dashboard> {
           throw Exception("Unexpected projects response shape");
         }
 
-        int totalPages = 1;
+        var totalPages = 1;
         if (decoded is Map<String, dynamic>) {
-          final m = decoded;
-          num? fromKeys;
-          for (final k in [
-            'totalPages',
-            'total_pages',
-            'lastPage',
-            'last_page',
-            'pageCount',
-          ]) {
-            final v = m[k];
-            if (v is num && v >= 1) {
-              fromKeys = v;
-              break;
-            }
-          }
-          if (fromKeys != null) {
-            totalPages = fromKeys.ceil();
-          } else {
-            final total = m['total'] ?? m['totalCount'] ?? m['count'];
-            if (total is num && _pageSize > 0) {
-              totalPages = (total / _pageSize).ceil();
-            } else if (data.length < _pageSize) {
-              totalPages = _currentPage;
-            } else {
-              totalPages = _currentPage + 1;
-            }
-          }
-        } else {
-          if (data.length < _pageSize) {
-            totalPages = _currentPage;
-          } else {
-            totalPages = _currentPage + 1;
+          final tp = decoded['totalPages'];
+          if (tp is num && tp >= 1) {
+            totalPages = tp.ceil();
           }
         }
-        if (totalPages < 1) totalPages = 1;
         if (_currentPage > totalPages) {
           _currentPage = totalPages;
+          isLoading = false;
+          fetchProjects();
+          return;
         }
 
         setState(() {
@@ -791,6 +800,43 @@ class _DashboardState extends State<Dashboard> {
   //   }
   // }
 
+  Widget _buildProjectsBody() {
+    final isWide = MediaQuery.sizeOf(context).width >= 600;
+
+    if (!isWide) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < projects.length; i++) ...[
+              if (i > 0) const SizedBox(height: 8),
+              _buildProjectCardSlot(projects[i], fillAvailableHeight: false),
+            ],
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < _pageLimit; i++)
+            Expanded(
+              child: i < projects.length
+                  ? Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _buildProjectCardSlot(projects[i]),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -808,23 +854,36 @@ class _DashboardState extends State<Dashboard> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Image.asset('assets/images/tdg_logo.png', height: 32),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => SOPSearch()),
+                      );
+                    },
+                    child: Image.asset(
+                      'assets/images/tdg_logo.png',
+                      height: 32,
+                    ),
+                  ),
                   SizedBox(
                     key: _searchBoxKey,
-                    width: _searchFieldWidth,
-                    height: 36,
+                    width: MediaQuery.sizeOf(context).width >= 600
+                        ? _searchFieldWidth
+                        : 200,
+                    height: 38,
                     child: TextField(
                       controller: _searchController,
                       cursorColor: _searchFieldText,
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 15,
                         color: _searchFieldText,
                       ),
                       decoration: InputDecoration(
                         hintText: 'Search projects...',
                         hintStyle: const TextStyle(
                           color: _searchFieldText,
-                          fontSize: 14,
+                          fontSize: 15,
                         ),
                         filled: true,
                         fillColor: _searchFieldBg,
@@ -883,7 +942,7 @@ class _DashboardState extends State<Dashboard> {
                               _searchProjects(value);
                             }
                           });
-                        } else {
+                        } else if (isSearching || searchSuggestion.isNotEmpty) {
                           setState(() {
                             isSearching = false;
                             searchSuggestion = [];
@@ -893,7 +952,14 @@ class _DashboardState extends State<Dashboard> {
                       },
                     ),
                   ),
-                  _buildPaginationBar(),
+                  if (MediaQuery.sizeOf(context).width >= 600 &&
+                      _totalPages > 1)
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: _buildPaginationBar(),
+                    )
+                  else
+                    const SizedBox(width: 1),
                 ],
               ),
             ),
@@ -905,23 +971,19 @@ class _DashboardState extends State<Dashboard> {
               ? const Center(child: Text('No projects found'))
               : ColoredBox(
                   color: const Color(0xFFF5F5F5),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (var i = 0; i < _pageSize; i++)
-                          Expanded(
-                            child: i < projects.length
-                                ? Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: _buildProjectCardSlot(projects[i]),
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
-                      ],
-                    ),
-                  ),
+                  child: MediaQuery.sizeOf(context).width >= 600
+                      ? _buildProjectsBody()
+                      : Column(
+                          children: [
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.bottomCenter,
+                                child: _buildProjectsBody(),
+                              ),
+                            ),
+                            if (_totalPages > 1) _buildMobilePaginationFooter(),
+                          ],
+                        ),
                 ),
         ),
         if (isSearching || searchSuggestion.isNotEmpty)
@@ -1011,9 +1073,10 @@ Widget _dashboardDataRow({
   Color statusColor = Colors.transparent,
   bool doubleIcon = false,
   bool compact = false,
+  bool tabletLayout = false,
 }) {
   final labelSize = compact ? 10.0 : 11.0;
-  final valueSize = compact ? 13.0 : 15.0;
+  final valueSize = compact ? 13.0 : (tabletLayout ? 14.0 : 15.0);
 
   return Padding(
     padding: EdgeInsets.symmetric(
@@ -1075,6 +1138,7 @@ Widget buildInfoRow(
   bool doubleIcon = false,
   int index = 0,
   bool compact = false,
+  bool tabletLayout = false,
 }) {
   return _dashboardDataRow(
     title: title,
@@ -1083,6 +1147,7 @@ Widget buildInfoRow(
     statusColor: statusColor,
     doubleIcon: doubleIcon,
     compact: compact,
+    tabletLayout: tabletLayout,
   );
 }
 
@@ -1092,12 +1157,14 @@ Widget buildDateRow(
   Color statusColor = Colors.yellow,
   int index = 0,
   bool compact = false,
+  bool tabletLayout = false,
 }) {
   return _dashboardDataRow(
     title: title,
     value: date,
     statusColor: statusColor,
     compact: compact,
+    tabletLayout: tabletLayout,
   );
 }
 
@@ -1180,16 +1247,19 @@ Widget buildProjectCard(
   Function(FileObject?) onSclFileSelected,
   Function(FileObject?) onProPlanFileSelected, {
   bool compact = false,
+  bool mobileLayout = false,
+  bool tabletLayout = false,
   bool fillAvailableHeight = false,
 }) {
-  final titleSize = compact ? 11.0 : 14.0;
+  final titleSize =
+      (mobileLayout || tabletLayout) ? 12.0 : (compact ? 11.0 : 14.0);
   final imageHeight = compact ? 140.0 : 180.0;
   final headerLogoHeight = compact ? 36.0 : 44.0;
   final headerLogoWidth = compact ? 64.0 : 80.0;
   final headerHeight = compact ? 52.0 : 64.0;
   final overlayLogoHeight = compact ? 32.0 : 40.0;
   final overlayLogoWidth = compact ? 56.0 : 72.0;
-  final rowCompact = compact;
+  final rowCompact = compact && !mobileLayout && !tabletLayout;
 
   Widget buildImageSection() {
     return Stack(
@@ -1330,6 +1400,7 @@ Widget buildProjectCard(
           "${project.cont_del_rem} / ${project.cont_del_total}",
           getStatusColor(project.cont_del_sts),
           compact: rowCompact,
+          tabletLayout: tabletLayout,
         ),
         _dashboardRowDivider,
         buildDateRow(
@@ -1337,6 +1408,7 @@ Widget buildProjectCard(
           project.risk_status.toLocal().toString().split(' ')[0],
           statusColor: getStatusColor(project.risk_sts),
           compact: rowCompact,
+          tabletLayout: tabletLayout,
         ),
         _dashboardRowDivider,
         buildInfoRow(
@@ -1345,6 +1417,7 @@ Widget buildProjectCard(
           "${project.comp_drawing_rem} / ${project.comp_drawing_total}",
           getStatusColor(project.comp_drawing_sts),
           compact: rowCompact,
+          tabletLayout: tabletLayout,
         ),
         _dashboardRowDivider,
         buildInfoRow(
@@ -1353,6 +1426,7 @@ Widget buildProjectCard(
           "${project.parts_to_buy_rem} / ${project.parts_to_buy_total}",
           getStatusColor(project.parts_to_buy_sts),
           compact: rowCompact,
+          tabletLayout: tabletLayout,
         ),
         _dashboardRowDivider,
         buildInfoRow(
@@ -1361,6 +1435,7 @@ Widget buildProjectCard(
           "${project.pro_readiness_rem} / ${project.pro_readiness_total}",
           getStatusColor(project.pro_readiness_sts),
           compact: rowCompact,
+          tabletLayout: tabletLayout,
         ),
         _dashboardRowDivider,
         buildInfoRow(
@@ -1369,6 +1444,7 @@ Widget buildProjectCard(
           "${project.cont_deliverable_rem} / ${project.cont_deliverable_total}",
           getStatusColor(project.cont_deliverable_sts),
           compact: rowCompact,
+          tabletLayout: tabletLayout,
         ),
         _dashboardRowDivider,
         buildInfoRow(
@@ -1378,6 +1454,7 @@ Widget buildProjectCard(
           getStatusColor(project.amount_sts),
           doubleIcon: project.amount_sts == 5,
           compact: rowCompact,
+          tabletLayout: tabletLayout,
         ),
         _dashboardRowDivider,
         Padding(

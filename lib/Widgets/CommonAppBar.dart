@@ -37,7 +37,12 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
               width: constraints.maxWidth,
               child: Row(
                 children: [
-                  Image.asset('assets/images/tdg_logo.png', height: 35),
+                  Image.asset(
+                    'assets/images/tdg_logo.png',
+                    height: 35,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
+                  ),
                   const Spacer(),
                   TextButton(
                     onPressed: () {
@@ -150,7 +155,12 @@ class _CommonDrawerState extends State<CommonDrawer> {
               child: Column(
                 children: [
                   // Logo
-                  Image.asset('assets/images/tdg_logo.png', height: 52),
+                  Image.asset(
+                    'assets/images/tdg_logo.png',
+                    height: 52,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
+                  ),
 
                   const SizedBox(height: 16),
 

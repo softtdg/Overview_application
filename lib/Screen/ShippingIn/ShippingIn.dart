@@ -196,11 +196,7 @@ class _ShippingInState extends State<ShippingIn> {
     );
   }
 
-  Widget _bodyTextCell(
-    String text,
-    double width, {
-    bool wrap = false,
-  }) {
+  Widget _bodyTextCell(String text, double width, {bool wrap = false}) {
     return Container(
       width: width,
       constraints: const BoxConstraints(minHeight: 56),
@@ -230,10 +226,7 @@ class _ShippingInState extends State<ShippingIn> {
     );
   }
 
-  Widget _buildTableDataRow(
-    Map<String, dynamic> item,
-    List<double> widths,
-  ) {
+  Widget _buildTableDataRow(Map<String, dynamic> item, List<double> widths) {
     final values = [
       item['sopNum']?.toString() ?? '',
       item['poNum']?.toString() ?? '',
@@ -383,7 +376,10 @@ class _ShippingInState extends State<ShippingIn> {
             if (isTablet)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   border: Border.all(color: const Color(0xFFD1D5DB)),
                 ),
@@ -409,10 +405,7 @@ class _ShippingInState extends State<ShippingIn> {
                 children: [
                   const Text(
                     'Update SOP Shipping In Date',
-                    style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 12),
                   sopField,

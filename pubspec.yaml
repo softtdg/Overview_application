@@ -48,6 +48,16 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^3.0.0
   flutter_native_splash: ^2.4.7
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/images/tdg_logo_icon.png"
+  adaptive_icon_foreground: "assets/images/tdg_logo_icon.png"
+  # Match app bar / splash so only the logo art shows (no extra ring).
+  adaptive_icon_background: "#39495F"
+  adaptive_icon_foreground_inset: 0
 
 # Configuration for flutter_native_splash
 flutter_native_splash:
