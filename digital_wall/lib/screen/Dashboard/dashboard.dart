@@ -6,7 +6,7 @@ import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:excel/excel.dart' hide Border;
 import 'package:overview_app/Screen/SOPSearch/sopSearch.dart';
 // import '../Landing/landing.dart';
 
@@ -1005,22 +1005,90 @@ class _DashboardState extends State<Dashboard> {
   }
 }
 
+bool _isSpreadsheetBytes(Uint8List? bytes) {
+  if (bytes == null || bytes.length < 4) return false;
+  // .xlsx / .xlsm (ZIP)
+  if (bytes[0] == 0x50 && bytes[1] == 0x4B) return true;
+  // .xls (OLE)
+  if (bytes[0] == 0xD0 && bytes[1] == 0xCF) return true;
+  return false;
+}
+
+bool _isPdfBytes(Uint8List? bytes) {
+  if (bytes == null || bytes.length < 4) return false;
+  return bytes[0] == 0x25 &&
+      bytes[1] == 0x50 &&
+      bytes[2] == 0x44 &&
+      bytes[3] == 0x46;
+}
+
+bool _looksLikeHtmlPage(Uint8List bytes) {
+  if (bytes.isEmpty) return false;
+  final head = utf8
+      .decode(bytes.sublist(0, bytes.length < 32 ? bytes.length : 32), allowMalformed: true)
+      .trimLeft()
+      .toLowerCase();
+  return head.startsWith('<!doctype') || head.startsWith('<html');
+}
+
+Uint8List? _decodeBase64FileField(Map map) {
+  for (final key in ['data', 'file', 'content', 'buffer', 'base64']) {
+    final value = map[key];
+    if (value is String && value.isNotEmpty) {
+      try {
+        return base64Decode(value);
+      } catch (_) {}
+    }
+  }
+  return null;
+}
+
+Uint8List? _fileBytesFromHttpResponse(http.Response response) {
+  if (response.statusCode != 200) return null;
+  final bytes = response.bodyBytes;
+  if (bytes.isEmpty || _looksLikeHtmlPage(bytes)) return null;
+  if (_isSpreadsheetBytes(bytes) || _isPdfBytes(bytes)) return bytes;
+
+  try {
+    final text = utf8.decode(bytes);
+    if (text.trimLeft().startsWith('{')) {
+      final map = jsonDecode(text);
+      if (map is Map) {
+        final decoded = _decodeBase64FileField(map);
+        if (decoded != null &&
+            decoded.isNotEmpty &&
+            !_looksLikeHtmlPage(decoded)) {
+          return decoded;
+        }
+      }
+    }
+  } catch (_) {}
+
+  // Images and other binaries from API
+  if (bytes.isNotEmpty && !textStartsWithJson(bytes)) return bytes;
+  return null;
+}
+
+bool textStartsWithJson(Uint8List bytes) {
+  try {
+    return utf8.decode(bytes.sublist(0, bytes.length < 8 ? bytes.length : 8)).trimLeft().startsWith('{');
+  } catch (_) {
+    return false;
+  }
+}
+
 Future<Uint8List?> _fetchFileFromAPI(String filename) async {
   try {
     final ociUrl = buildOciObjectUrl(filename);
     if (ociUrl.isNotEmpty) {
       final ociResponse = await http.get(Uri.parse(ociUrl));
-      if (ociResponse.statusCode == 200 && ociResponse.bodyBytes.isNotEmpty) {
-        return ociResponse.bodyBytes;
-      }
+      final ociBytes = _fileBytesFromHttpResponse(ociResponse);
+      if (ociBytes != null) return ociBytes;
     }
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken');
-
-    if (token == null) {
-      return null;
-    }
+    if (token == null) return null;
 
     final response = await http.post(
       Uri.parse("http://192.168.1.22:8000/api/projects/file"),
@@ -1031,14 +1099,25 @@ Future<Uint8List?> _fetchFileFromAPI(String filename) async {
       body: jsonEncode({'filePath': filename, 'image': filename}),
     );
 
-    if (response.statusCode == 200) {
-      return response.bodyBytes;
-    } else {
-      return null;
-    }
+    return _fileBytesFromHttpResponse(response);
   } catch (e) {
     return null;
   }
+}
+
+Future<Uint8List?> _fetchProjectFile(FileObject file) async {
+  for (final path in {file.filename, file.originalname}) {
+    if (path.trim().isEmpty) continue;
+    final bytes = await _fetchFileFromAPI(path);
+    if (bytes != null && bytes.isNotEmpty) return bytes;
+  }
+  return null;
+}
+
+Future<Uint8List?> _fetchSpreadsheetFile(FileObject file) async {
+  final bytes = await _fetchProjectFile(file);
+  if (_isSpreadsheetBytes(bytes)) return bytes;
+  return null;
 }
 
 const Color _dashboardBorder = Color(0xFFD1D5DB);
@@ -1565,76 +1644,100 @@ Widget buildFileDropdown(
   );
 }
 
-/// In-app spreadsheet preview using a public HTTPS object URL (same bucket as images).
-/// Embeds the file in a [WebView] via Microsoft Office Online viewer.
 class _ExcelPreviewPanel extends StatefulWidget {
-  final String objectPath;
+  final FileObject file;
 
-  const _ExcelPreviewPanel({required this.objectPath});
+  const _ExcelPreviewPanel({required this.file});
 
   @override
   State<_ExcelPreviewPanel> createState() => _ExcelPreviewPanelState();
 }
 
 class _ExcelPreviewPanelState extends State<_ExcelPreviewPanel> {
-  late final WebViewController _webViewController;
-  bool _pageLoading = true;
+  static const _fontSize = 10.0;
+  static const _rowHeight = 36.0;
+
+  late final Future<Sheet?> _sheetFuture;
 
   @override
   void initState() {
     super.initState();
-    _webViewController = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (_) {
-            if (mounted) setState(() => _pageLoading = true);
-          },
-          onPageFinished: (_) {
-            if (mounted) setState(() => _pageLoading = false);
-          },
-          onWebResourceError: (_) {
-            if (mounted) setState(() => _pageLoading = false);
-          },
-        ),
-      );
-    _loadEmbeddedViewer();
+    _sheetFuture = _loadSheet();
   }
 
-  String get _objectUrl => buildOciObjectUrl(widget.objectPath);
-
-  void _loadEmbeddedViewer() {
-    final src = _objectUrl;
-    if (src.isEmpty) {
-      setState(() => _pageLoading = false);
-      return;
+  Future<Sheet?> _loadSheet() async {
+    final bytes = await _fetchSpreadsheetFile(widget.file);
+    if (bytes == null) return null;
+    // Old .xls cannot be parsed by the excel package.
+    if (bytes[0] == 0xD0 && bytes[1] == 0xCF) return null;
+    try {
+      final book = Excel.decodeBytes(bytes);
+      if (book.tables.isEmpty) return null;
+      return book.tables[book.tables.keys.first];
+    } catch (_) {
+      return null;
     }
-    final embedUrl =
-        'https://view.officeapps.live.com/op/embed.aspx?src=${Uri.encodeComponent(src)}';
-    _webViewController.loadRequest(Uri.parse(embedUrl));
   }
 
   @override
   Widget build(BuildContext context) {
-    final src = _objectUrl;
-    if (src.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Text(
-            'No public file URL could be built for this object.',
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
-    }
+    return FutureBuilder<Sheet?>(
+      future: _sheetFuture,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        if (_pageLoading) const LinearProgressIndicator(minHeight: 2),
-        Expanded(child: WebViewWidget(controller: _webViewController)),
-      ],
+        final sheet = snap.data;
+        if (sheet == null) {
+          return const Center(child: Text('Could not open spreadsheet'));
+        }
+        final colCount = sheet.maxColumns;
+        final rows = sheet.rows;
+        if (colCount == 0) {
+          return const Center(child: Text('Empty spreadsheet'));
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(8),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Table(
+              border: TableBorder.all(color: const Color(0xFFD1D5DB)),
+              defaultColumnWidth: const IntrinsicColumnWidth(),
+              children: List.generate(sheet.maxRows, (r) {
+                final row = r < rows.length ? rows[r] : <Data?>[];
+                return TableRow(
+                  children: List.generate(colCount, (c) {
+                    final cell = c < row.length ? row[c] : null;
+                    return SizedBox(
+                      height: _rowHeight,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            cell?.value?.toString() ?? '',
+                            style: TextStyle(
+                              fontSize: _fontSize,
+                              fontWeight: cell?.cellStyle?.isBold == true
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                );
+              }),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1704,9 +1807,9 @@ void _showFilePreview(
               // Content area
               Expanded(
                 child: isExcel
-                    ? _ExcelPreviewPanel(objectPath: file.filename)
+                    ? _ExcelPreviewPanel(file: file)
                     : FutureBuilder<Uint8List?>(
-                        future: fetchFile(file.filename),
+                        future: _fetchProjectFile(file),
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
@@ -1750,8 +1853,7 @@ void _showFilePreview(
                                   ),
                                 ),
                               );
-                            } else if (isPdf) {
-                              // Display actual PDF content
+                            } else if (isPdf && _isPdfBytes(snapshot.data)) {
                               return _PdfViewerWidget(pdfData: snapshot.data!);
                             } else {
                               // Display other file types
