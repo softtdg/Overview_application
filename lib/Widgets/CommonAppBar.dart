@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:overview_app/Screen/InventoryPickedLog/InventoryPickedLog.dart';
+import 'package:overview_app/Screen/MPF/MPFRequest.dart';
 import 'package:overview_app/Screen/OpenItems/CriticalItems.dart';
 import 'package:overview_app/Screen/OpenItems/OpenItems.dart';
 import 'package:overview_app/Screen/OpenItems/SearchOpenItems.dart';
@@ -355,6 +356,14 @@ class _CommonDrawerState extends State<CommonDrawer> {
                       final nav = Navigator.of(context);
                       nav.pop();
                       nav.push(MaterialPageRoute(builder: (_) => QAEdit()));
+                    },
+                  ),
+                  ListTile(
+                    title: const Text("MPF"),
+                    onTap: () {
+                      final nav = Navigator.of(context);
+                      nav.pop();
+                      nav.push(MaterialPageRoute(builder: (_) => MPFRequest()));
                     },
                   ),
                 ],
