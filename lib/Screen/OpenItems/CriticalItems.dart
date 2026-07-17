@@ -452,8 +452,6 @@ class _CriticalItemsState extends State<CriticalItems> {
     return bg is Color ? bg : Colors.transparent;
   }
 
-  /// Per Response sub-row: stripe when there is text; when empty, light red vs
-  /// dark red (same rules as before). Production stripes stay pink if empty.
   Color _responseRowBackground(
     Map<String, dynamic> row,
     Map<String, dynamic> notice,
@@ -1250,16 +1248,16 @@ class _CriticalItemsState extends State<CriticalItems> {
                         ),
                         ClipRRect(
                           child: DecoratedBox(
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               border: Border(
                                 left: BorderSide(
-                                  color: const Color(0xFF9AA8B8),
+                                  color: Color(0xFF9AA8B8),
                                 ),
                                 right: BorderSide(
-                                  color: const Color(0xFF9AA8B8),
+                                  color: Color(0xFF9AA8B8),
                                 ),
                                 bottom: BorderSide(
-                                  color: const Color(0xFF9AA8B8),
+                                  color: Color(0xFF9AA8B8),
                                 ),
                               ),
                             ),
