@@ -22,6 +22,7 @@ class _BackordersTableState extends State<Backorders> {
   String _searchQuery = "";
   int _currentPage = 1;
   static const int _rowsPerPage = 50;
+  bool _isLoading = false;
 
   String _text(dynamic v) {
     if (v == null) return '-';
@@ -109,6 +110,7 @@ class _BackordersTableState extends State<Backorders> {
             "BgColor": backorderColor,
             "NoticeType": "backorder",
             "SOPBackorderEntryId": bo["SOPBackorderEntryId"],
+            "TDGPN": bo["TDGPN"],
             "OriginalReceived": recv.toInt(),
             "Qty (Backordered)": _text(bo["Quantity"]),
             "Qty (Received)": _text(bo["Received"]),
@@ -140,6 +142,7 @@ class _BackordersTableState extends State<Backorders> {
   }
 
   Future<void> _getCriticalItemList() async {
+    setState(() => _isLoading = true);
     try {
       await Dioservices.setToken();
       final response = await _backorderService.criticalItemList();
@@ -158,9 +161,12 @@ class _BackordersTableState extends State<Backorders> {
         if (_searchQuery.isNotEmpty) {
           _rows.addAll(_allRows.where((row) => _rowMatches(row, _searchQuery)));
         }
+        _isLoading = false;
       });
     } catch (e) {
       print('Error in _getCriticalItemList: $e');
+      if (!mounted) return;
+      setState(() => _isLoading = false);
     }
   }
 
@@ -338,7 +344,6 @@ class _BackordersTableState extends State<Backorders> {
   Widget _receivedQtyField(Map<String, dynamic> row) {
     final raw = _text(row["Qty (Received)"]);
     final value = raw == '-' ? '0' : raw;
-    final boId = row["SOPBackorderEntryId"];
 
     return Center(
       child: Padding(
@@ -347,7 +352,7 @@ class _BackordersTableState extends State<Backorders> {
           width: 64,
           height: 34,
           child: TextFormField(
-            key: ValueKey('received-$boId'),
+            key: ValueKey('received-${row["SOPBackorderEntryId"]}'),
             initialValue: value,
             keyboardType: TextInputType.number,
             style: const TextStyle(fontSize: 13),
@@ -372,7 +377,9 @@ class _BackordersTableState extends State<Backorders> {
                 borderSide: const BorderSide(color: Color(0xFF607D99)),
               ),
             ),
-            onChanged: (v) => row["Qty (Received)"] = v,
+            onChanged: (v) {
+              row["Qty (Received)"] = v.trim().isEmpty ? '0' : v.trim();
+            },
           ),
         ),
       ),
@@ -492,8 +499,14 @@ class _BackordersTableState extends State<Backorders> {
     _filterRows('');
   }
 
-  Map<String, dynamic> _buildSavePayload() {
-    final grouped = <int, List<Map<String, dynamic>>>{};
+  int _receivedValue(Map<String, dynamic> row) {
+    final raw = '${row["Qty (Received)"]}'.trim();
+    if (raw.isEmpty || raw == '-' || raw == 'null') return 0;
+    return int.tryParse(raw) ?? 0;
+  }
+
+  Future<void> _saveChanges() async {
+    final byTdgpn = <String, Map<int, List<Map<String, dynamic>>>>{};
 
     for (final row in _allRows) {
       if (row["NoticeType"] != "backorder") continue;
@@ -502,37 +515,23 @@ class _BackordersTableState extends State<Backorders> {
       final boId = int.tryParse('${row["SOPBackorderEntryId"]}');
       if (leadId == null || boId == null) continue;
 
-      final received = int.tryParse(_text(row["Qty (Received)"])) ?? 0;
+      final received = _receivedValue(row);
       final original = row["OriginalReceived"];
       final originalReceived = original is num
           ? original.toInt()
           : int.tryParse('$original') ?? 0;
-
-      // Only send rows the user actually changed.
       if (received == originalReceived) continue;
 
-      grouped.putIfAbsent(leadId, () => []).add({
+      final tdgpn = '${row["TDGPN"] ?? ''}'.trim();
+      if (tdgpn.isEmpty) continue;
+
+      byTdgpn.putIfAbsent(tdgpn, () => {}).putIfAbsent(leadId, () => []).add({
         "SOPBackorderEntryId": boId,
         "Received": received,
       });
     }
 
-    return {
-      "entries": grouped.entries
-          .map(
-            (e) => {
-              "SOPLeadHandEntryId": e.key,
-              "backorders": e.value,
-            },
-          )
-          .toList(),
-    };
-  }
-
-  Future<void> _saveChanges() async {
-    final payload = _buildSavePayload();
-    final entries = payload["entries"] as List;
-    if (entries.isEmpty) {
+    if (byTdgpn.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("No received qty changes to save")),
@@ -540,38 +539,41 @@ class _BackordersTableState extends State<Backorders> {
       return;
     }
 
-    print("SAVE PAYLOAD: $payload");
-
     try {
       await Dioservices.setToken();
-      final response = await _backorderService.backOrderUpdate(payload);
-      print("RESPONSE FROM SAVE CHANGES API: ${response.data}");
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Saved successfully")),
-      );
-      // Keep local originals in sync so the same values aren't resent.
-      for (final row in _allRows) {
-        if (row["NoticeType"] != "backorder") continue;
-        final received = int.tryParse(_text(row["Qty (Received)"])) ?? 0;
-        row["OriginalReceived"] = received;
+
+      for (final entry in byTdgpn.entries) {
+        final payload = {
+          "TDGPN": entry.key,
+          "entries": entry.value.entries
+              .map((e) => {"SOPLeadHandEntryId": e.key, "backorders": e.value})
+              .toList(),
+        };
+        print("SAVE PAYLOAD: $payload");
+        final response = await _backorderService.backOrderUpdate(payload);
+        print("RESPONSE FROM SAVE CHANGES API: ${response.data}");
       }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Saved successfully")));
+
+      await _getCriticalItemList();
     } on DioException catch (e) {
       final serverMessage = e.response?.data;
       print("ERROR SAVING CHANGES: ${e.message}");
       print("SERVER RESPONSE: $serverMessage");
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Save failed: ${serverMessage ?? e.message}"),
-        ),
+        SnackBar(content: Text("Save failed: ${serverMessage ?? e.message}")),
       );
     } catch (e) {
       print("ERROR SAVING CHANGES: $e");
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Save failed: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Save failed: $e")));
     }
   }
 
@@ -718,32 +720,36 @@ class _BackordersTableState extends State<Backorders> {
               if (_searchQuery.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Expanded(
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: const Color(0xFF9AA8B8)),
-                          ),
-                          child: ClipRRect(
-                            child: DataTable2(
-                              fixedTopRows: 1,
-                              showCheckboxColumn: false,
-                              headingRowColor: MaterialStateProperty.all(
-                                const Color(0xFF344963),
-                              ),
-                              dataRowColor: MaterialStateProperty.all(
-                                Colors.white,
-                              ),
-                              headingRowHeight: 52,
-                              dataRowHeight: 52,
-                              columnSpacing: 0,
-                              horizontalMargin: 0,
-                              dividerThickness: 1,
-                              minWidth: 2200,
-                              border: tableBorder,
-                              columns: _columns(),
-                              rows: _pagedRows.map((row) {
+                  child: _isLoading || _rows.isEmpty
+                      ? const Center(child: CircularProgressIndicator(color: Color(0xFF607D99)))
+                      : Column(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: const Color(0xFF9AA8B8),
+                                  ),
+                                ),
+                                child: ClipRRect(
+                                  child: DataTable2(
+                                    fixedTopRows: 1,
+                                    showCheckboxColumn: false,
+                                    headingRowColor: MaterialStateProperty.all(
+                                      const Color(0xFF344963),
+                                    ),
+                                    dataRowColor: MaterialStateProperty.all(
+                                      Colors.white,
+                                    ),
+                                    headingRowHeight: 52,
+                                    dataRowHeight: 52,
+                                    columnSpacing: 0,
+                                    horizontalMargin: 0,
+                                    dividerThickness: 1,
+                                    minWidth: 2200,
+                                    border: tableBorder,
+                                    columns: _columns(),
+                                    rows: _pagedRows.map((row) {
                                 return DataRow2(
                                   specificRowHeight: _rowHeightFor(row),
                                   cells: [
