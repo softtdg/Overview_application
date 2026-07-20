@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:overview_app/Screen/MPF/Components/picklist.dart';
 import 'package:overview_app/Screen/MPF/Services/MPFServices.dart';
@@ -138,6 +139,25 @@ class _MPFRequestState extends State<MPFRequest> {
     }
   }
 
+  void _openLivePdmPickList() {
+    final sop = _newCustomSopController.text.trim();
+    final fixture = _fixtureController.text.trim();
+    if (sop.isEmpty || fixture.isEmpty) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PickList(
+          fixtureNumber: fixture,
+          sopNumber: sop,
+          mpf: "true",
+          customMpf: true,
+          livePdmMpf: true,
+        ),
+      ),
+    );
+  }
+
   Future<void> _searchPartNumber(int index, String partNumber) async {
     if (partNumber.trim().isEmpty) {
       if (!mounted) return;
@@ -199,7 +219,7 @@ class _MPFRequestState extends State<MPFRequest> {
           "Size": partDetail["Size"] ?? 0,
           "TDGPN": item.partController.text.trim(),
           "TotalQtyNeeded": 0,
-          "UnitOfMeasure": partDetail["UOM"] ?? "PCS",
+          "UnitOfMeasure": item.unitOfMeasure ?? "PCS",
           "UnitPrice": "0",
           "Vendor": partDetail["Vendor"] ?? "",
           "VendorPN": partDetail["VendorPN"] ?? "",
@@ -442,6 +462,63 @@ class _MPFRequestState extends State<MPFRequest> {
                         ),
                         enabledBorder: fieldBorder(),
                         focusedBorder: fieldBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _requiredLabel('Unit of Measure'),
+                    const SizedBox(height: 8),
+
+                    DropdownButtonFormField<String>(
+                      value: item.unitOfMeasure,
+                      isExpanded: true,
+                      dropdownColor: Colors.white,
+
+                      items: const [
+                        DropdownMenuItem(
+                          value: "Select...",
+                          child: Text("Select..."),
+                        ),
+                        DropdownMenuItem(value: "MM", child: Text("MM")),
+                        DropdownMenuItem(value: "CM", child: Text("CM")),
+                        DropdownMenuItem(value: "M", child: Text("M")),
+                        DropdownMenuItem(value: "LBS", child: Text("LBS")),
+                        DropdownMenuItem(value: "G", child: Text("G")),
+                        DropdownMenuItem(value: "KG", child: Text("KG")),
+                        DropdownMenuItem(value: "ML", child: Text("ML")),
+                        DropdownMenuItem(value: "L", child: Text("L")),
+                        DropdownMenuItem(value: "PCS", child: Text("PCS")),
+                      ],
+
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() {
+                            item.unitOfMeasure = value;
+                          });
+                        }
+                      },
+
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        enabledBorder: fieldBorder(),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF1976D2),
+                            width: 1.5,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -1121,7 +1198,8 @@ class _MPFRequestState extends State<MPFRequest> {
                         ElevatedButton(
                           onPressed: () {
                             setState(() {
-                              _customSopController.text = _sopController.text;
+                              _newCustomSopController.text = _sopController.text
+                                  .trim();
                               _showCustomSop = true;
                             });
                           },
@@ -1334,8 +1412,18 @@ class _MPFRequestState extends State<MPFRequest> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF1976D2),
                                 foregroundColor: Colors.white,
-                                disabledBackgroundColor: const Color.fromARGB(255, 222, 227, 233),
-                                disabledForegroundColor: const Color.fromARGB(255, 131, 129, 129),
+                                disabledBackgroundColor: const Color.fromARGB(
+                                  255,
+                                  222,
+                                  227,
+                                  233,
+                                ),
+                                disabledForegroundColor: const Color.fromARGB(
+                                  255,
+                                  131,
+                                  129,
+                                  129,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(4),
                                 ),
@@ -1345,17 +1433,7 @@ class _MPFRequestState extends State<MPFRequest> {
                             if (fixtureInvalid) ...[
                               const SizedBox(width: 12),
                               OutlinedButton.icon(
-                                onPressed: () {
-                                  // Navigator.push(
-                                  // context,
-                                  // MaterialPageRoute(
-                                  //   builder: (_) => Publicsearch(
-                                  //     fixtureNumber:
-                                  //         _fixtureController.text.trim(),
-                                  //   ),
-                                  // ),
-                                  // );
-                                },
+                                onPressed: _openLivePdmPickList,
                                 icon: const Icon(Icons.open_in_new, size: 16),
                                 label: const Text("Search from Live PDM"),
                                 style: OutlinedButton.styleFrom(
@@ -1596,6 +1674,7 @@ class _PartItem {
   final TextEditingController qtyController = TextEditingController();
   final TextEditingController commentController = TextEditingController();
   String? comment;
+  String unitOfMeasure = "PCS";
   Timer? searchDebounce;
   bool suppressSearch = false;
   bool isSearching = false;

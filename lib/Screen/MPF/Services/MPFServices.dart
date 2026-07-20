@@ -112,4 +112,30 @@ class MPFServices {
       rethrow;
     }
   }
+
+  Future<Response<dynamic>> getFixtureDataFromLivePdm({
+    required String sopNumber,
+    required String fixtureNumber,
+    required String user,
+    String lhrEntryId = '',
+  }) async {
+    try {
+      final response = await Dioservices.dio.get(
+        '/sopSearch/mpfFixtureDataGetFromLivePdm',
+        queryParameters: {
+          'sopNumber': sopNumber,
+          'fixtureNumber': fixtureNumber,
+          'user': user,
+          'lhrEntryId': lhrEntryId,
+        },
+      );
+      return response;
+    } on DioException catch (e) {
+      print("STATUS CODE: ${e.response?.statusCode}");
+      print("RESPONSE DATA: ${e.response?.data}");
+      print("REQUEST URL: ${e.requestOptions.uri}");
+      print("REQUEST HEADERS: ${e.requestOptions.headers}");
+      rethrow;
+    }
+  }
 }
