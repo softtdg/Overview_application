@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
@@ -17,17 +19,12 @@ class ExpediteReport extends StatefulWidget {
 class _ExpediteReportState extends State<ExpediteReport> {
   /// React Expedite Report running on your PC.
   static const String reportUrl = 'http://192.168.1.5:3000/expedite-report';
-  static const String reactOrigin = 'http://192.168.1.5:3000/expedite-report';
 
   late final WebViewController _controller;
-  final WebViewCookieManager _cookieManager = WebViewCookieManager();
-
   bool _isLoading = true;
-  bool _openedReport = false;
+  bool _openedReportAfterLogin = false;
   String? _errorMessage;
   String? _failedUrl;
-  String _token = '';
-  String _userName = '';
 
   @override
   void initState() {
@@ -48,11 +45,17 @@ class _ExpediteReportState extends State<ExpediteReport> {
     return url;
   }
 
-  Future<void> _initWebView() async {
-    final prefs = await SharedPreferences.getInstance();
-    _token = (prefs.getString('token') ?? '').trim();
-    _userName = (prefs.getString('UserName') ?? '').trim();
+  bool _isLoginUrl(String url) {
+    final path = (Uri.tryParse(url)?.path ?? '').toLowerCase();
+    return path.contains('login');
+  }
 
+  bool _isReportUrl(String url) {
+    final path = (Uri.tryParse(url)?.path ?? '').toLowerCase();
+    return path.contains('expedite-report');
+  }
+
+  Future<void> _initWebView() async {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.white)
@@ -75,19 +78,16 @@ class _ExpediteReportState extends State<ExpediteReport> {
             });
           },
           onPageFinished: (url) async {
-            await _injectAuthIntoPage();
-            await _disablePasswordAutofillHints();
-            await _hideReactTopHeader();
+            await _interceptBlobDownloads();
 
-            // First load origin only to seed storage, then open report.
-            final isOriginOnly =
-                url == reactOrigin ||
-                url == 'http://192.168.1.5:3000' ||
-                url.startsWith('http://192.168.1.5:3000/?');
-
-            if (!_openedReport && isOriginOnly) {
-              _openedReport = true;
-              await _controller.loadRequest(Uri.parse(_reportUrlWithToken()));
+            // After React login succeeds, it often lands on `/` (blank).
+            // Send the user to the actual report page once.
+            if (!_isLoginUrl(url) &&
+                !_isReportUrl(url) &&
+                !_openedReportAfterLogin) {
+              _openedReportAfterLogin = true;
+              await _controller.loadRequest(Uri.parse(reportUrl));
+              return;
             }
 
             if (!mounted) return;
@@ -118,252 +118,177 @@ class _ExpediteReportState extends State<ExpediteReport> {
         ),
       );
 
-    _configureAndroidWebView();
+    _controller.addJavaScriptChannel(
+      'FlutterDownload',
+      onMessageReceived: _handleBlobDownload,
+    );
+
+    await _configureAndroidWebView();
     await _loadReport();
   }
 
-  String _reportUrlWithToken() {
-    if (_token.isEmpty) return reportUrl;
-    final uri = Uri.parse(reportUrl);
-    return uri
-        .replace(
-          queryParameters: {
-            ...uri.queryParameters,
-            'token': _token,
-            'authentication': _token,
-            if (_userName.isNotEmpty) 'username': _userName,
-          },
-        )
-        .toString();
+  Future<void> _handleBlobDownload(JavaScriptMessage message) async {
+    try {
+      final json = jsonDecode(message.message);
+      final base64Data = json['data'] as String;
+      var fileName = (json['fileName'] as String?)?.trim();
+      if (fileName == null || fileName.isEmpty) {
+        fileName = 'Expedite_Report.xlsx';
+      }
+
+      final bytes = base64Decode(base64Data);
+      if (bytes.isEmpty) {
+        throw Exception('Downloaded file is empty');
+      }
+
+      final dir = await _downloadDirectory();
+      final filePath = '${dir.path}${Platform.pathSeparator}$fileName';
+      await File(filePath).writeAsBytes(bytes, flush: true);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Saved to Downloads/$fileName')),
+      );
+    } catch (e) {
+      debugPrint('Blob download error: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Download failed: $e')),
+      );
+    }
   }
 
-  void _configureAndroidWebView() {
+  Future<Directory> _downloadDirectory() async {
+    if (Platform.isAndroid) {
+      final publicDownloads = Directory('/storage/emulated/0/Download');
+      if (await publicDownloads.exists()) {
+        return publicDownloads;
+      }
+    }
+    return getApplicationDocumentsDirectory();
+  }
+
+  static const MethodChannel _filePickerChannel =
+      MethodChannel('overview_app/file_picker');
+
+  Future<void> _configureAndroidWebView() async {
     final platform = _controller.platform;
-    if (platform is AndroidWebViewController) {
-      AndroidWebViewController.enableDebugging(false);
-      platform.setMediaPlaybackRequiresUserGesture(false);
+    if (platform is! AndroidWebViewController) return;
+
+    AndroidWebViewController.enableDebugging(false);
+    platform.setMediaPlaybackRequiresUserGesture(false);
+
+    // Without this, React <input type="file"> cannot open Android file picker.
+    await platform.setOnShowFileSelector(_androidFilePicker);
+  }
+
+  Future<List<String>> _androidFilePicker(FileSelectorParams params) async {
+    try {
+      // Verify native channel is registered (requires full app reinstall after Kotlin changes).
+      try {
+        final ping = await _filePickerChannel.invokeMethod<String>('ping');
+        if (ping != 'ok') {
+          throw Exception('Native file picker not ready');
+        }
+      } on MissingPluginException {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'App needs full reinstall for file upload.\n'
+                'Stop the app, then run: flutter run',
+              ),
+              duration: Duration(seconds: 6),
+            ),
+          );
+        }
+        return <String>[];
+      }
+
+      final allowMultiple = params.mode == FileSelectorMode.openMultiple;
+      final picked = await _filePickerChannel.invokeMethod<List<dynamic>>(
+        'pickFiles',
+        {'allowMultiple': allowMultiple},
+      );
+
+      if (picked == null || picked.isEmpty) {
+        return <String>[];
+      }
+
+      final uris =
+          picked.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+      debugPrint('WebView file picker selected: $uris');
+      return uris;
+    } catch (e, st) {
+      debugPrint('Android file picker error: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('File picker failed: $e')),
+        );
+      }
+      return <String>[];
     }
   }
 
-  Future<void> _setAuthCookies() async {
-    if (_token.isEmpty) return;
-
-    final cookies = <WebViewCookie>[
-      WebViewCookie(
-        name: 'token',
-        value: _token,
-        domain: '192.168.1.5',
-        path: '/',
-      ),
-      WebViewCookie(
-        name: 'authentication',
-        value: _token,
-        domain: '192.168.1.5',
-        path: '/',
-      ),
-      WebViewCookie(
-        name: 'Authorization',
-        value: 'Bearer $_token',
-        domain: '192.168.1.5',
-        path: '/',
-      ),
-      WebViewCookie(
-        name: 'authToken',
-        value: _token,
-        domain: '192.168.1.5',
-        path: '/',
-      ),
-    ];
-
-    if (_userName.isNotEmpty) {
-      cookies.add(
-        WebViewCookie(
-          name: 'UserName',
-          value: _userName,
-          domain: '192.168.1.5',
-          path: '/',
-        ),
-      );
-      cookies.add(
-        WebViewCookie(
-          name: 'username',
-          value: _userName,
-          domain: '192.168.1.5',
-          path: '/',
-        ),
-      );
-    }
-
-    for (final cookie in cookies) {
-      await _cookieManager.setCookie(cookie);
-    }
-  }
-
-  Future<void> _injectAuthIntoPage() async {
-    if (_token.isEmpty) return;
-
+  Future<void> _interceptBlobDownloads() async {
     try {
       await _controller.runJavaScript('''
-        (function () {
-          var token = ${jsonEncode(_token)};
-          var userName = ${jsonEncode(_userName)};
-          var keys = [
-            'token',
-            'authentication',
-            'authToken',
-            'accessToken',
-            'access_token',
-            'jwt',
-            'jwtToken',
-            'Authorization'
-          ];
+        (function() {
+          if (window.__flutterBlobIntercepted) return;
+          window.__flutterBlobIntercepted = true;
 
-          keys.forEach(function (key) {
-            try {
-              if (key === 'Authorization') {
-                localStorage.setItem(key, 'Bearer ' + token);
-                sessionStorage.setItem(key, 'Bearer ' + token);
-              } else {
-                localStorage.setItem(key, token);
-                sessionStorage.setItem(key, token);
+          var origCreateObjectURL = URL.createObjectURL;
+          URL.createObjectURL = function(blob) {
+            var url = origCreateObjectURL.call(URL, blob);
+            window.__lastBlobUrl = url;
+            window.__lastBlob = blob;
+            return url;
+          };
+
+          var origOpen = window.open;
+          window.open = function(url) {
+            if (url && url.toString().startsWith('blob:')) {
+              var blob = window.__lastBlob;
+              if (blob) {
+                var reader = new FileReader();
+                reader.onloadend = function() {
+                  var base64 = reader.result.split(',')[1];
+                  FlutterDownload.postMessage(JSON.stringify({
+                    data: base64,
+                    fileName: 'expedite_report.xlsx'
+                  }));
+                };
+                reader.readAsDataURL(blob);
+                return null;
               }
-            } catch (e) {}
-          });
-
-          if (userName) {
-            try {
-              localStorage.setItem('UserName', userName);
-              localStorage.setItem('username', userName);
-              localStorage.setItem('user', userName);
-              sessionStorage.setItem('UserName', userName);
-              sessionStorage.setItem('username', userName);
-            } catch (e) {}
-          }
-
-          try {
-            document.cookie = 'token=' + encodeURIComponent(token) + '; path=/';
-            document.cookie = 'authentication=' + encodeURIComponent(token) + '; path=/';
-            document.cookie = 'Authorization=' + encodeURIComponent('Bearer ' + token) + '; path=/';
-            if (userName) {
-              document.cookie = 'UserName=' + encodeURIComponent(userName) + '; path=/';
-              document.cookie = 'username=' + encodeURIComponent(userName) + '; path=/';
             }
-          } catch (e) {}
-        })();
-      ''');
-    } catch (_) {}
-  }
+            return origOpen.apply(window, arguments);
+          };
 
-  Future<void> _hideReactTopHeader() async {
-    try {
-      await _controller.runJavaScript('''
-        (function () {
-          function hideTopHeader() {
-            if (!document.getElementById('flutter-hide-top-header-style')) {
-              var style = document.createElement('style');
-              style.id = 'flutter-hide-top-header-style';
-              style.textContent = [
-                'header,',
-                'nav,',
-                '.navbar,',
-                '.MuiAppBar-root,',
-                '.MuiToolbar-root,',
-                '[class*="AppBar"],',
-                '[class*="Navbar"],',
-                '[class*="TopBar"],',
-                '[class*="top-bar"],',
-                '[class*="topbar"],',
-                '[class*="HeaderBar"],',
-                '[class*="site-header"] {',
-                '  display: none !important;',
-                '}'
-              ].join('\\n');
-              document.head.appendChild(style);
+          var origClick = HTMLAnchorElement.prototype.click;
+          HTMLAnchorElement.prototype.click = function() {
+            if (this.href && this.href.startsWith('blob:')) {
+              var fileName = this.download || 'expedite_report.xlsx';
+              var blobUrl = this.href;
+              var xhr = new XMLHttpRequest();
+              xhr.open('GET', blobUrl, true);
+              xhr.responseType = 'blob';
+              xhr.onload = function() {
+                var reader = new FileReader();
+                reader.onloadend = function() {
+                  var base64 = reader.result.split(',')[1];
+                  FlutterDownload.postMessage(JSON.stringify({
+                    data: base64,
+                    fileName: fileName
+                  }));
+                };
+                reader.readAsDataURL(xhr.response);
+              };
+              xhr.send();
+              return;
             }
-
-            var markers = [
-              'TEST OVERVIEW',
-              'Production report',
-              'Logout'
-            ];
-
-            document.querySelectorAll('div, header, nav, section, aside').forEach(function (el) {
-              if (!el || el.dataset.flutterHeaderHidden === '1') return;
-
-              var text = (el.innerText || '').replace(/\\s+/g, ' ').trim();
-              if (!text || text.length > 280) return;
-
-              var rect = el.getBoundingClientRect();
-              if (rect.top > 140) return;
-              if (rect.height < 28 || rect.height > 140) return;
-              if (rect.width < (window.innerWidth * 0.55)) return;
-
-              var hasMarker = markers.some(function (marker) {
-                return text.indexOf(marker) !== -1;
-              });
-              if (!hasMarker) return;
-
-              // Prefer hiding a header-like container that includes overview/logout actions.
-              var looksLikeHeader =
-                (text.indexOf('TEST OVERVIEW') !== -1) ||
-                (text.indexOf('Logout') !== -1 &&
-                  (text.indexOf('Production report') !== -1 || text.indexOf('Om') !== -1));
-
-              if (!looksLikeHeader) return;
-
-              el.style.setProperty('display', 'none', 'important');
-              el.style.setProperty('visibility', 'hidden', 'important');
-              el.style.setProperty('height', '0', 'important');
-              el.style.setProperty('overflow', 'hidden', 'important');
-              el.dataset.flutterHeaderHidden = '1';
-            });
-          }
-
-          hideTopHeader();
-
-          if (!window.__flutterHideHeaderObserver) {
-            window.__flutterHideHeaderObserver = new MutationObserver(function () {
-              hideTopHeader();
-            });
-            window.__flutterHideHeaderObserver.observe(document.documentElement, {
-              childList: true,
-              subtree: true
-            });
-          }
-        })();
-      ''');
-    } catch (_) {}
-  }
-
-  Future<void> _disablePasswordAutofillHints() async {
-    try {
-      await _controller.runJavaScript('''
-        (function () {
-          function patchPasswordFields(root) {
-            (root || document).querySelectorAll('input[type="password"]').forEach(function (el) {
-              el.setAttribute('type', 'text');
-              el.setAttribute('autocomplete', 'off');
-              el.setAttribute('autocapitalize', 'off');
-              el.setAttribute('autocorrect', 'off');
-              el.setAttribute('spellcheck', 'false');
-              el.setAttribute('data-lpignore', 'true');
-              el.style.webkitTextSecurity = 'disc';
-            });
-          }
-
-          patchPasswordFields(document);
-
-          if (!window.__passwordPatchObserver) {
-            window.__passwordPatchObserver = new MutationObserver(function () {
-              patchPasswordFields(document);
-            });
-            window.__passwordPatchObserver.observe(document.documentElement, {
-              childList: true,
-              subtree: true,
-              attributes: true,
-              attributeFilter: ['type']
-            });
-          }
+            return origClick.apply(this, arguments);
+          };
         })();
       ''');
     } catch (_) {}
@@ -374,14 +299,10 @@ class _ExpediteReportState extends State<ExpediteReport> {
       _isLoading = true;
       _errorMessage = null;
       _failedUrl = null;
-      _openedReport = false;
+      _openedReportAfterLogin = false;
     });
 
-    await _setAuthCookies();
-
-    // Load React origin first so localStorage/cookies belong to that domain,
-    // then navigate to /expedite-report after auth injection.
-    await _controller.loadRequest(Uri.parse(reactOrigin));
+    await _controller.loadRequest(Uri.parse(reportUrl));
   }
 
   Future<void> _loadViaHttpFallback(String url) async {
@@ -434,7 +355,6 @@ class _ExpediteReportState extends State<ExpediteReport> {
       resizeToAvoidBottomInset: false,
       appBar: const CommonAppBar(),
       drawer: const CommonDrawer(),
-      // Hide Flutter grey header (Digital Wall + menu) on this WebView page.
       body: SafeArea(
         child: kIsWeb ? _buildWebUnsupported() : _buildMobileWebView(),
       ),
