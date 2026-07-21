@@ -296,8 +296,9 @@ class _PickListState extends State<PickList> {
 
         final row = Map<String, dynamic>.from(item);
         final totalQty = row['TotalQtyNeeded'] ?? row['totalQtyNeeded'] ?? 0;
-        final controllerQty =
-            i < _mpfControllers.length ? _mpfControllers[i].text.trim() : '';
+        final controllerQty = i < _mpfControllers.length
+            ? _mpfControllers[i].text.trim()
+            : '';
         final mpfQty = controllerQty.isNotEmpty
             ? controllerQty
             : (row['mpfQty'] ?? '');
@@ -340,7 +341,9 @@ class _PickListState extends State<PickList> {
       if (sheetData.isEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No editable (non-gray) rows to download')),
+          const SnackBar(
+            content: Text('No editable (non-gray) rows to download'),
+          ),
         );
         return;
       }
@@ -574,7 +577,6 @@ class _PickListState extends State<PickList> {
       );
 
       debugPrint('LIVE PDM URL: ${response.requestOptions.uri}');
-      debugPrint('LIVE PDM RESPONSE: ${response.data}');
 
       // Match web: response.data.data.listData
       final root = response.data;
@@ -769,6 +771,7 @@ class _PickListState extends State<PickList> {
               controller: _verticalScrollController,
               thumbVisibility: true,
               trackVisibility: true,
+              interactive: true,
               child: SingleChildScrollView(
                 controller: _verticalScrollController,
                 padding: const EdgeInsets.all(16),
@@ -1253,7 +1256,8 @@ class _PickListState extends State<PickList> {
           r.isGray ? r : r.copyWith(comments: comment),
       ];
       for (var i = 0; i < _rawSheetData.length; i++) {
-        final isGray = _rawSheetData[i]['isGray'] == true ||
+        final isGray =
+            _rawSheetData[i]['isGray'] == true ||
             _rawSheetData[i]['isGrayRow'] == true;
         if (isGray) continue;
         _rawSheetData[i]['InventoryComments'] = comment;
@@ -1270,8 +1274,8 @@ class _PickListState extends State<PickList> {
       ];
       for (var i = 0; i < _rawSheetData.length && i < _sheetRows.length; i++) {
         if (_sheetRows[i].isGray) continue;
-        final total = _rawSheetData[i]['TotalQtyNeeded'] ??
-            _sheetRows[i].totalQtyNeeded;
+        final total =
+            _rawSheetData[i]['TotalQtyNeeded'] ?? _sheetRows[i].totalQtyNeeded;
         _rawSheetData[i]['mpfQty'] = total;
         if (i < _mpfControllers.length) {
           _mpfControllers[i].text = total.toString();
@@ -1571,7 +1575,10 @@ class _PickListState extends State<PickList> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(2),
-              borderSide: const BorderSide(color: Color(0xFF1B5E20), width: 1.5),
+              borderSide: const BorderSide(
+                color: Color(0xFF1B5E20),
+                width: 1.5,
+              ),
             ),
           ),
         ),
@@ -1751,9 +1758,7 @@ class _PickListState extends State<PickList> {
                 r.comments,
               ];
               final isPlaceholder = _sheetRows.isEmpty;
-              final rowBg = r.isGray
-                  ? const Color(0xFFE9ECEF)
-                  : Colors.white;
+              final rowBg = r.isGray ? const Color(0xFFE9ECEF) : Colors.white;
               return SizedBox(
                 width: tableW,
                 height: rowH,
@@ -1962,7 +1967,8 @@ class _SheetRow {
     }
 
     final uom = p('UnitOfMeasure').toUpperCase();
-    final isGray = row['isGray'] == true ||
+    final isGray =
+        row['isGray'] == true ||
         row['isGrayRow'] == true ||
         row['isGrey'] == true;
 
