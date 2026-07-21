@@ -164,6 +164,9 @@ class _LoginPageState extends State<LoginPage> {
                         SizedBox(height: isTablet ? 36 : 30),
                         TextField(
                           controller: unameController,
+                          enableSuggestions: false,
+                          autocorrect: false,
+                          autofillHints: const [],
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: Colors.white,
@@ -196,6 +199,12 @@ class _LoginPageState extends State<LoginPage> {
                         TextField(
                           controller: passwordController,
                           obscureText: true,
+                          enableSuggestions: false,
+                          autocorrect: false,
+                          // Disable Android Autofill/Password Manager.
+                          // It can pause/minimize the activity while typing.
+                          autofillHints: const [],
+                          keyboardType: TextInputType.visiblePassword,
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: Colors.white,
@@ -223,6 +232,9 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                           textInputAction: TextInputAction.done,
+                          onSubmitted: (_) {
+                            if (!_isLoggingIn) handleLogin();
+                          },
                         ),
                         const SizedBox(height: 16),
                         SizedBox(

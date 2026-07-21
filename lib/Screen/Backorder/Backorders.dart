@@ -251,13 +251,47 @@ class _BackordersTableState extends State<Backorders> {
     );
   }
 
-  DataColumn2 _column(String text, {required double minWidth}) {
+  DataColumn2 _fixedColumn(String text, {required double width}) {
+    return DataColumn2(
+      headingRowAlignment: MainAxisAlignment.center,
+      fixedWidth: width,
+      label: SizedBox(width: width, child: _heading(text)),
+    );
+  }
+
+  DataColumn2 _scrollColumn(String text, {required double minWidth}) {
     return DataColumn2(
       headingRowAlignment: MainAxisAlignment.center,
       minWidth: minWidth,
-      label: SizedBox(width: minWidth, child: _heading(text)),
+      size: ColumnSize.S,
+      label: _heading(text),
     );
   }
+
+  /// SOP / ODD / Fixture keep fixed widths and stay sticky.
+  /// Other columns use minWidth only (not fixedWidth) so DataTable2 can
+  /// scroll horizontally without asserting.
+  static const double _sopW = 56;
+  static const double _oddW = 90;
+  static const double _fixtureW = 96;
+  static const List<double> _otherPreferred = [
+    70, // Lead Hand
+    72, // Assembler
+    140, // Desc
+    36, // Qty
+    64, // Time To Build/Per Unit
+    68, // Total Time To Build
+    55, // Amount
+    110, // Inventory Comment
+    48, // Picked
+    72, // Date Sent
+    64, // Dept
+    130, // Notice
+    130, // Response
+    44, // UOM
+    72, // Qty Backordered
+    72, // Qty Received
+  ];
 
   Widget _tableTextCell(
     String text, {
@@ -399,38 +433,44 @@ class _BackordersTableState extends State<Backorders> {
     }
 
     final lines = [
-      estimateLines(_text(row["InventoryComments"]), 220),
-      estimateLines(_text(row["FixtureDescription"]), 280),
-      estimateLines(_text(row["Notice"]), 280),
-      estimateLines(_text(row["Response"]), 280),
+      estimateLines(_text(row["InventoryComments"]), 120),
+      estimateLines(_text(row["FixtureDescription"]), 140),
+      estimateLines(_text(row["Notice"]), 120),
+      estimateLines(_text(row["Response"]), 120),
     ].reduce(max);
 
     return max(minHeight, lines * lineHeight + verticalPadding);
   }
 
   List<DataColumn2> _columns() {
+    final other = _otherPreferred;
     return [
-      _column("SOP", minWidth: 56),
-      _column("ODD", minWidth: 90),
-      _column("Lead\nHand", minWidth: 82),
-      _column("Assembler", minWidth: 90),
-      _column("Fixture", minWidth: 96),
-      _column("Desc", minWidth: 280),
-      _column("Qty", minWidth: 40),
-      _column("Time To\nBuild/Per\nUnit", minWidth: 88),
-      _column("Total\nTime To\nBuild", minWidth: 92),
-      _column("Amount", minWidth: 70),
-      _column("Inventory\nComment", minWidth: 220),
-      _column("Picked", minWidth: 58),
-      _column("Date Sent", minWidth: 90),
-      _column("Dept", minWidth: 88),
-      _column("Notice", minWidth: 200),
-      _column("Response", minWidth: 200),
-      _column("UOM", minWidth: 60),
-      _column("Qty\nBackordered", minWidth: 90),
-      _column("Qty\nReceived", minWidth: 90),
-      // _column("Status", minWidth: 70),
+      _fixedColumn("SOP", width: _sopW),
+      _fixedColumn("ODD", width: _oddW),
+      _fixedColumn("Fixture", width: _fixtureW),
+      _scrollColumn("Lead\nHand", minWidth: other[0]),
+      _scrollColumn("Assembler", minWidth: other[1]),
+      _scrollColumn("Desc", minWidth: other[2]),
+      _scrollColumn("Qty", minWidth: other[3]),
+      _scrollColumn("Time To\nBuild/Per\nUnit", minWidth: other[4]),
+      _scrollColumn("Total\nTime To\nBuild", minWidth: other[5]),
+      _scrollColumn("Amount", minWidth: other[6]),
+      _scrollColumn("Inventory\nComment", minWidth: other[7]),
+      _scrollColumn("Picked", minWidth: other[8]),
+      _scrollColumn("Date Sent", minWidth: other[9]),
+      _scrollColumn("Dept", minWidth: other[10]),
+      _scrollColumn("Notice", minWidth: other[11]),
+      _scrollColumn("Response", minWidth: other[12]),
+      _scrollColumn("UOM", minWidth: other[13]),
+      _scrollColumn("Qty\nBackordered", minWidth: other[14]),
+      _scrollColumn("Qty\nReceived", minWidth: other[15]),
     ];
+  }
+
+  double get _tableMinWidth {
+    const sticky = _sopW + _oddW + _fixtureW;
+    final preferredOthers = _otherPreferred.fold<double>(0, (a, b) => a + b);
+    return sticky + preferredOthers;
   }
 
   bool isNotProduced(dynamic productionDateOut) {
@@ -721,7 +761,11 @@ class _BackordersTableState extends State<Backorders> {
                 const SizedBox(height: 12),
                 Expanded(
                   child: _isLoading || _rows.isEmpty
-                      ? const Center(child: CircularProgressIndicator(color: Color(0xFF607D99)))
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF607D99),
+                          ),
+                        )
                       : Column(
                           children: [
                             Expanded(
@@ -734,6 +778,9 @@ class _BackordersTableState extends State<Backorders> {
                                 child: ClipRRect(
                                   child: DataTable2(
                                     fixedTopRows: 1,
+                                    fixedLeftColumns: 3,
+                                    fixedColumnsColor: Colors.white,
+                                    fixedCornerColor: const Color(0xFF344963),
                                     showCheckboxColumn: false,
                                     headingRowColor: MaterialStateProperty.all(
                                       const Color(0xFF344963),
@@ -746,200 +793,208 @@ class _BackordersTableState extends State<Backorders> {
                                     columnSpacing: 0,
                                     horizontalMargin: 0,
                                     dividerThickness: 1,
-                                    minWidth: 2200,
+                                    minWidth: _tableMinWidth,
                                     border: tableBorder,
                                     columns: _columns(),
                                     rows: _pagedRows.map((row) {
-                                return DataRow2(
-                                  specificRowHeight: _rowHeightFor(row),
-                                  cells: [
-                                    DataCell(
-                                      _tableTextCell(
-                                        _text(row["SOP"]["SOPNum"].toString()),
-                                        width: 56,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _tableTextCell(
-                                        _formatDate(
-                                          row["SOP"]["ODD"].toString(),
-                                        ),
-                                        width: 90,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _tableTextCell(
-                                        _text(
-                                          row["SOP"]["ProductionLogEntry"]["LeadHand"]["LeadHandName"]
-                                              .toString(),
-                                        ),
-                                        width: 82,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _tableTextCell(
-                                        _text(
-                                          row["Assembler"]["Name"].toString(),
-                                        ),
-                                        width: 90,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _tableTextCell(
-                                        _text(row["FixtureNumber"].toString()),
-                                        width: 96,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _tableTextCell(
-                                        _text(row["FixtureDescription"]),
-                                        width: 280,
-                                        maxLines: 4,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _tableTextCell(
-                                        _text(row["Quantity"].toString()),
-                                        width: 40,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _tableTextCell(
-                                        _text(row["Hours"].toString()),
-                                        width: 88,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _tableTextCell(
-                                        _text(
-                                          "${((((row["Quantity"] as num?) ?? 0) * ((row["Hours"] as num?) ?? 0)).ceil())}h",
-                                        ),
-                                        width: 92,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _tableTextCell(
-                                        _text(row["Amount"].toString()),
-                                        width: 70,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _tableTextCell(
-                                        _text(row["InventoryComments"]),
-                                        width: 220,
-                                        maxLines: 4,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _fillBgCell(
-                                        row["Picked"] == true ? "Yes" : "No",
-                                        getPickedColor(row),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _fillBgCell(
-                                        _text(row["DateSent"]),
-                                        row["BgColor"] as Color?,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _fillBgCell(
-                                        _text(row["Dept"]),
-                                        row["BgColor"] as Color?,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _fillBgCell(
-                                        _text(row["Notice"]),
-                                        row["BgColor"] as Color?,
-                                        maxLines: 4,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _fillBgCell(
-                                        _text(row["Response"]),
-                                        getResponseColor(row),
-                                        maxLines: 4,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _tableTextCell(
-                                        _text(row["UOM"].toString()),
-                                        width: 60,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      _tableTextCell(
-                                        _text(
-                                          row["Qty (Backordered)"].toString(),
-                                        ),
-                                        width: 90,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      row["NoticeType"] == "backorder"
-                                          ? _receivedQtyField(row)
-                                          : _tableTextCell("-", width: 90),
-                                    ),
-                                    // DataCell(
-                                    //   Padding(
-                                    //     padding: const EdgeInsets.symmetric(
-                                    //       horizontal: 8,
-                                    //     ),
-                                    //     child: OutlinedButton(
-                                    //       onPressed: () {},
-                                    //       style: OutlinedButton.styleFrom(
-                                    //         minimumSize: const Size(80, 38),
-                                    //         backgroundColor: const Color(0xFF1E88E5),
-                                    //         side: const BorderSide(
-                                    //           color: Color(0xFF344963),
-                                    //         ),
-                                    //         shape: RoundedRectangleBorder(
-                                    //           borderRadius: BorderRadius.circular(3),
-                                    //         ),
-                                    //       ),
-                                    //       child: Text(
-                                    //         row["Status"].toString(),
-                                    //         style: const TextStyle(
-                                    //           fontSize: 13,
-                                    //           color: Color(0xFFF0F1F3),
-                                    //           fontWeight: FontWeight.w600,
-                                    //         ),
-                                    //       ),
-                                    //     ),
-                                    //   ),
-                                    // ),
-                                  ],
-                                );
-                              }).toList(),
+                                      final sop = row["SOP"];
+                                      final log = sop is Map
+                                          ? sop["ProductionLogEntry"]
+                                          : null;
+                                      final leadHand = log is Map
+                                          ? log["LeadHand"]
+                                          : null;
+                                      final assembler = row["Assembler"];
+
+                                      return DataRow2(
+                                        specificRowHeight: _rowHeightFor(row),
+                                        cells: [
+                                              DataCell(
+                                                _tableTextCell(
+                                                  _text(
+                                                    sop is Map
+                                                        ? sop["SOPNum"]
+                                                        : null,
+                                                  ),
+                                                  width: _sopW,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _tableTextCell(
+                                                  _formatDate(
+                                                    _text(
+                                                      sop is Map
+                                                          ? sop["ODD"]
+                                                          : null,
+                                                    ),
+                                                  ),
+                                                  width: _oddW,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _tableTextCell(
+                                                  _text(row["FixtureNumber"]),
+                                                  width: _fixtureW,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _tableTextCell(
+                                                  _text(
+                                                    leadHand is Map
+                                                        ? leadHand[
+                                                            "LeadHandName"]
+                                                        : null,
+                                                  ),
+                                                  width: null,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _tableTextCell(
+                                                  _text(
+                                                    assembler is Map
+                                                        ? assembler["Name"]
+                                                        : null,
+                                                  ),
+                                                  width: null,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _tableTextCell(
+                                                  _text(
+                                                    row["FixtureDescription"],
+                                                  ),
+                                                  width: null,
+                                                  maxLines: 4,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _tableTextCell(
+                                                  _text(row["Quantity"]),
+                                                  width: null,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _tableTextCell(
+                                                  _text(row["Hours"]),
+                                                  width: null,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _tableTextCell(
+                                                  _text(
+                                                    "${((((row["Quantity"] as num?) ?? 0) * ((row["Hours"] as num?) ?? 0)).ceil())}h",
+                                                  ),
+                                                  width: null,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _tableTextCell(
+                                                  _text(row["Amount"]),
+                                                  width: null,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _tableTextCell(
+                                                  _text(
+                                                    row["InventoryComments"],
+                                                  ),
+                                                  width: null,
+                                                  maxLines: 4,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _fillBgCell(
+                                                  row["Picked"] == true
+                                                      ? "Yes"
+                                                      : "No",
+                                                  getPickedColor(row),
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _fillBgCell(
+                                                  _text(row["DateSent"]),
+                                                  row["BgColor"] as Color?,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _fillBgCell(
+                                                  _text(row["Dept"]),
+                                                  row["BgColor"] as Color?,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _fillBgCell(
+                                                  _text(row["Notice"]),
+                                                  row["BgColor"] as Color?,
+                                                  maxLines: 4,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _fillBgCell(
+                                                  _text(row["Response"]),
+                                                  getResponseColor(row),
+                                                  maxLines: 4,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _tableTextCell(
+                                                  _text(row["UOM"]),
+                                                  width: null,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _tableTextCell(
+                                                  _text(
+                                                    row["Qty (Backordered)"],
+                                                  ),
+                                                  width: null,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                row["NoticeType"] ==
+                                                        "backorder"
+                                                    ? _receivedQtyField(row)
+                                                    : _tableTextCell(
+                                                        "-",
+                                                        width: null,
+                                                      ),
+                                              ),
+                                        ],
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
+                            if (_rows.isNotEmpty)
+                              Container(
+                                width: double.infinity,
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    left: BorderSide(color: Color(0xFF9AA8B8)),
+                                    right: BorderSide(color: Color(0xFF9AA8B8)),
+                                    bottom: BorderSide(
+                                      color: Color(0xFF9AA8B8),
+                                    ),
+                                  ),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                child: PaginationBar(
+                                  currentPage: _currentPage.clamp(
+                                    1,
+                                    _totalPages,
+                                  ),
+                                  totalPages: _totalPages,
+                                  onPageChanged: (page) {
+                                    setState(() => _currentPage = page);
+                                  },
+                                ),
+                              ),
+                          ],
                         ),
-                      ),
-                      if (_rows.isNotEmpty)
-                        Container(
-                          width: double.infinity,
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              left: BorderSide(color: Color(0xFF9AA8B8)),
-                              right: BorderSide(color: Color(0xFF9AA8B8)),
-                              bottom: BorderSide(color: Color(0xFF9AA8B8)),
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          child: PaginationBar(
-                            currentPage: _currentPage.clamp(1, _totalPages),
-                            totalPages: _totalPages,
-                            onPageChanged: (page) {
-                              setState(() => _currentPage = page);
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
                 ),
               ],
             ],
