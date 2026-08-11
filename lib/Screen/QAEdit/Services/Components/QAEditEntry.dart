@@ -604,7 +604,7 @@ class _QAEditEntryState extends State<QAEditEntry> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: const CommonAppBar(),
+      appBar: const CommonAppBar(showBackButton: true),
       drawer: const CommonDrawer(),
       body: Container(
         child: SingleChildScrollView(

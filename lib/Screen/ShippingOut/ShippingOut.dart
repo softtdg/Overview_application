@@ -13,9 +13,14 @@ class ShippingOut extends StatefulWidget {
 class _ShippingOutState extends State<ShippingOut> {
   final TextEditingController SOPController = TextEditingController();
   final ShippingOutService _service = ShippingOutService();
-  final ScrollController _headerHorizontalScroll = ScrollController();
-  final ScrollController _bodyHorizontalScroll = ScrollController();
+  final ScrollController _historyLeftVerticalScroll = ScrollController();
+  final ScrollController _historyMiddleVerticalScroll = ScrollController();
+  final ScrollController _historyActionsVerticalScroll = ScrollController();
+  final ScrollController _historyMiddleHorizontalScroll = ScrollController();
+  final ScrollController _searchMiddleHorizontalScroll = ScrollController();
   List<Map<String, dynamic>> ShippingOutHistory = [];
+  List<Map<String, dynamic>> searchedShippingOutHistory = [];
+  bool hasSearched = false;
   bool isLoading = false;
 
   Future<void> GetShippingOutHistory() async {
@@ -30,66 +35,111 @@ class _ShippingOutState extends State<ShippingOut> {
         ShippingOutHistory = List<Map<String, dynamic>>.from(data);
         isLoading = false;
       });
-      // debugPrint("SHIPPING OUT DATA $data");
     } catch (e) {
       print("Error while feth data for shipping out $e");
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
+  void _runSearch() {
+    final rawInput = SOPController.text.trim();
+    final sopTokens = rawInput
+        .split(RegExp(r'[\s,]+'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+
+    setState(() {
+      hasSearched = true;
+      searchedShippingOutHistory = sopTokens.isEmpty
+          ? <Map<String, dynamic>>[]
+          : ShippingOutHistory.where((item) {
+              final sop = item['SOPNum']?.toString() ?? '';
+              return sopTokens.contains(sop);
+            }).toList();
+    });
+  }
+
   void handleSOPs() async {
+    final sop = SOPController.text.trim();
+    if (sop.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Enter SOP Number")));
+      return;
+    }
+
     try {
       setState(() {
         isLoading = true;
       });
-      await _service.EditSOPNums(SOPController.text);
+      await _service.EditSOPNums(sop);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("ShippingOut Date Updated Successfully")),
+        const SnackBar(content: Text("ShippingOut Date Updated Successfully")),
       );
       await GetShippingOutHistory();
+      if (!mounted) return;
+      _runSearch();
     } catch (e) {
       print("Error in shipping out while update shipping out date");
+      if (!mounted) return;
       setState(() {
         isLoading = false;
       });
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("Something went wrong")));
+      ).showSnackBar(const SnackBar(content: Text("Something went wrong")));
     }
   }
 
   @override
   void initState() {
     super.initState();
-    _headerHorizontalScroll.addListener(_syncBodyHorizontalScroll);
-    _bodyHorizontalScroll.addListener(_syncHeaderHorizontalScroll);
+    _historyLeftVerticalScroll.addListener(
+      () => _syncScroll(
+        _historyLeftVerticalScroll,
+        [_historyMiddleVerticalScroll, _historyActionsVerticalScroll],
+      ),
+    );
+    _historyMiddleVerticalScroll.addListener(
+      () => _syncScroll(
+        _historyMiddleVerticalScroll,
+        [_historyLeftVerticalScroll, _historyActionsVerticalScroll],
+      ),
+    );
+    _historyActionsVerticalScroll.addListener(
+      () => _syncScroll(
+        _historyActionsVerticalScroll,
+        [_historyLeftVerticalScroll, _historyMiddleVerticalScroll],
+      ),
+    );
     GetShippingOutHistory();
   }
 
   @override
   void dispose() {
-    _headerHorizontalScroll.removeListener(_syncBodyHorizontalScroll);
-    _bodyHorizontalScroll.removeListener(_syncHeaderHorizontalScroll);
-    _headerHorizontalScroll.dispose();
-    _bodyHorizontalScroll.dispose();
+    _historyLeftVerticalScroll.dispose();
+    _historyMiddleVerticalScroll.dispose();
+    _historyActionsVerticalScroll.dispose();
+    _historyMiddleHorizontalScroll.dispose();
+    _searchMiddleHorizontalScroll.dispose();
     SOPController.dispose();
     super.dispose();
   }
 
-  void _syncBodyHorizontalScroll() {
-    if (!_bodyHorizontalScroll.hasClients) {
-      return;
-    }
-    if (_bodyHorizontalScroll.offset != _headerHorizontalScroll.offset) {
-      _bodyHorizontalScroll.jumpTo(_headerHorizontalScroll.offset);
-    }
-  }
-
-  void _syncHeaderHorizontalScroll() {
-    if (!_headerHorizontalScroll.hasClients) {
-      return;
-    }
-    if (_headerHorizontalScroll.offset != _bodyHorizontalScroll.offset) {
-      _headerHorizontalScroll.jumpTo(_bodyHorizontalScroll.offset);
+  void _syncScroll(
+    ScrollController source,
+    List<ScrollController> targets,
+  ) {
+    for (final target in targets) {
+      if (!target.hasClients) continue;
+      if (target.offset != source.offset) {
+        target.jumpTo(source.offset);
+      }
     }
   }
 
@@ -123,11 +173,58 @@ class _ShippingOutState extends State<ShippingOut> {
   }
 
   static const Color _tableHeaderColor = Color.fromARGB(255, 57, 73, 95);
+  static const double _rowHeight = 56;
+
+  // SOP, PO Num, ODD | Customer..New Comments | Last Edited | Action
+  static const List<double> _baseColWidths = [
+    90, // SOP
+    170, // PO Num
+    100, // ODD
+    280, // Customer
+    120, // Prgm
+    80, // Loc.
+    110, // SOP Entry
+    110, // SOP Out
+    90, // PROD MGR
+    110, // Delivery Date
+    200, // New Comments
+    150, // Last Edited On
+    72, // Action
+  ];
+
+  List<BoxShadow> get _leftStickyShadow => [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.12),
+          blurRadius: 6,
+          offset: const Offset(2, 0),
+        ),
+      ];
+
+  List<BoxShadow> get _rightStickyShadow => [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.12),
+          blurRadius: 6,
+          offset: const Offset(-2, 0),
+        ),
+      ];
+
+  List<double> _scaledMiddleWidths({
+    required bool showLastEditedAndAction,
+    required double availableMiddleWidth,
+  }) {
+    final middle = showLastEditedAndAction
+        ? _baseColWidths.sublist(3, 12) // Customer .. Last Edited
+        : _baseColWidths.sublist(3, 11); // Customer .. New Comments
+    final total = middle.fold<double>(0, (sum, w) => sum + w);
+    if (availableMiddleWidth <= total) return middle;
+    final scale = availableMiddleWidth / total;
+    return middle.map((w) => w * scale).toList();
+  }
 
   Widget _headerCell(String text, double width) {
     return SizedBox(
       width: width,
-      height: 56,
+      height: _rowHeight,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: _tableHeaderColor,
@@ -159,141 +256,335 @@ class _ShippingOutState extends State<ShippingOut> {
   }) {
     return Container(
       width: width,
-      constraints: const BoxConstraints(minHeight: 56),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      height: _rowHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       alignment: Alignment.center,
       decoration: BoxDecoration(
+        color: Colors.white,
         border: Border.all(color: Colors.grey, width: 0.5),
       ),
       child: Text(
         text,
         textAlign: TextAlign.center,
         softWrap: wrap,
-        maxLines: wrap ? null : 1,
-        overflow: wrap ? TextOverflow.visible : TextOverflow.ellipsis,
+        maxLines: wrap ? 2 : 1,
+        overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontSize: 12),
       ),
     );
   }
 
-  Widget _buildTableHeaderRow() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _headerCell('SOP', 60),
-        _headerCell('PO Num', 80),
-        _headerCell('ODD', 90),
-        _headerCell('Customer', 260),
-        _headerCell('Prgm', 100),
-        _headerCell('Loc.', 90),
-        _headerCell('SOP Entry', 140),
-        _headerCell('SOP Out', 75),
-        _headerCell('PROD MGR', 70),
-        _headerCell('Delivery Date', 100),
-        _headerCell('New Comments', 110),
-        _headerCell('Last Edited On', 100),
-        _headerCell('Action', 90),
-      ],
+  Widget _leftHeader(List<double> leftWidths) {
+    return DecoratedBox(
+      decoration: BoxDecoration(boxShadow: _leftStickyShadow),
+      child: Row(
+        children: [
+          _headerCell('SOP', leftWidths[0]),
+          _headerCell('PO Num', leftWidths[1]),
+          _headerCell('ODD', leftWidths[2]),
+        ],
+      ),
     );
   }
 
-  Widget _buildTableDataRow(Map<String, dynamic> item) {
-    return IntrinsicHeight(
+  Widget _leftDataRow(Map<String, dynamic> item, List<double> leftWidths) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: _leftStickyShadow,
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _bodyTextCell(item['SOPNum']?.toString() ?? '-', 60),
-          _bodyTextCell(item['PONum']?.toString() ?? '-', 80),
-          _bodyTextCell(formatDate(item['ODD']?.toString() ?? '-'), 90),
-          _bodyTextCell(item['customer']?.toString() ?? '-', 260, wrap: true),
-          _bodyTextCell(item['program']?.toString() ?? '-', 100),
-          _bodyTextCell(item['Location']?.toString() ?? '-', 90),
+          _bodyTextCell(item['SOPNum']?.toString() ?? '-', leftWidths[0]),
+          _bodyTextCell(item['PONum']?.toString() ?? '-', leftWidths[1]),
           _bodyTextCell(
-            formatDate(item['SOPEntryDateIn']?.toString() ?? '-'),
-            140,
-          ),
-          _bodyTextCell(
-            formatDate(item['SOPOrderEntryOut']?.toString() ?? '-'),
-            75,
-          ),
-          _bodyTextCell(item['prodMgr']?.toString() ?? '-', 70),
-          _bodyTextCell(
-            formatDate(item['FinalDeliveryDate']?.toString() ?? '-'),
-            100,
-          ),
-          _bodyTextCell(item['OrderEntryComments']?.toString() ?? '-', 110),
-          _bodyTextCell(
-            formatDateTime(item['LastEdit']?.toString() ?? '-'),
-            100,
-          ),
-          Container(
-            width: 90,
-            constraints: const BoxConstraints(minHeight: 56),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey, width: 0.5),
-            ),
-            child: OutlinedButton.icon(
-              onPressed: () async {
-                final SOPId = item['SOPId']?.toString() ?? '-';
-                print("PASSING SOPId: $SOPId");
-                final updated = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => EditShippingOutEntry(SOPId: SOPId),
-                  ),
-                );
-                if (updated == true) {
-                  await GetShippingOutHistory();
-                }
-              },
-              icon: const Icon(
-                Icons.edit,
-                size: 20,
-                color: Colors.black,
-              ),
-              label: const Text(''),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.black),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 6,
-                ),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ),
+            formatDate(item['ODD']?.toString() ?? '-'),
+            leftWidths[2],
           ),
         ],
       ),
     );
   }
 
-  Widget buildTable() {
-    return Column(
+  Widget _middleHeader(
+    List<double> middleWidths, {
+    required bool showLastEdited,
+  }) {
+    return Row(
       children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          controller: _headerHorizontalScroll,
-          child: _buildTableHeaderRow(),
+        _headerCell('Customer', middleWidths[0]),
+        _headerCell('Prgm', middleWidths[1]),
+        _headerCell('Loc.', middleWidths[2]),
+        _headerCell('SOP Entry', middleWidths[3]),
+        _headerCell('SOP Out', middleWidths[4]),
+        _headerCell('PROD MGR', middleWidths[5]),
+        _headerCell('Delivery Date', middleWidths[6]),
+        _headerCell('New Comments', middleWidths[7]),
+        if (showLastEdited) _headerCell('Last Edited On', middleWidths[8]),
+      ],
+    );
+  }
+
+  Widget _middleDataRow(
+    Map<String, dynamic> item,
+    List<double> middleWidths, {
+    required bool showLastEdited,
+  }) {
+    return Row(
+      children: [
+        _bodyTextCell(
+          item['customer']?.toString() ?? '-',
+          middleWidths[0],
+          wrap: true,
         ),
-        Expanded(
-          child: SingleChildScrollView(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              controller: _bodyHorizontalScroll,
-              child: Column(
-                children: ShippingOutHistory
-                    .map(_buildTableDataRow)
-                    .toList(growable: false),
-              ),
+        _bodyTextCell(item['program']?.toString() ?? '-', middleWidths[1]),
+        _bodyTextCell(item['Location']?.toString() ?? '-', middleWidths[2]),
+        _bodyTextCell(
+          formatDate(item['SOPEntryDateIn']?.toString() ?? '-'),
+          middleWidths[3],
+        ),
+        _bodyTextCell(
+          formatDate(item['SOPOrderEntryOut']?.toString() ?? '-'),
+          middleWidths[4],
+        ),
+        _bodyTextCell(item['prodMgr']?.toString() ?? '-', middleWidths[5]),
+        _bodyTextCell(
+          formatDate(item['FinalDeliveryDate']?.toString() ?? '-'),
+          middleWidths[6],
+        ),
+        _bodyTextCell(
+          item['OrderEntryComments']?.toString() ?? '-',
+          middleWidths[7],
+        ),
+        if (showLastEdited)
+          _bodyTextCell(
+            formatDateTime(item['LastEdit']?.toString() ?? '-'),
+            middleWidths[8],
+          ),
+      ],
+    );
+  }
+
+  Future<void> _openEdit(Map<String, dynamic> item) async {
+    final SOPId = item['SOPId']?.toString() ?? '-';
+    print("PASSING SOPId: $SOPId");
+    final updated = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditShippingOutEntry(SOPId: SOPId),
+      ),
+    );
+    if (updated == true) {
+      await GetShippingOutHistory();
+      if (hasSearched) {
+        _runSearch();
+      }
+    }
+  }
+
+  Widget _actionHeader(double width) {
+    return DecoratedBox(
+      decoration: BoxDecoration(boxShadow: _rightStickyShadow),
+      child: _headerCell('Action', width),
+    );
+  }
+
+  Widget _actionDataCell(Map<String, dynamic> item, double width) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: _rightStickyShadow,
+      ),
+      child: Container(
+        width: width,
+        height: _rowHeight,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.grey, width: 0.5),
+        ),
+        child: IconButton(
+          onPressed: () => _openEdit(item),
+          tooltip: 'Edit',
+          icon: const Icon(Icons.edit, size: 18, color: Colors.black),
+          style: IconButton.styleFrom(
+            minimumSize: const Size(32, 32),
+            padding: const EdgeInsets.all(4),
+            side: const BorderSide(color: Colors.black),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
             ),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
           ),
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget buildTable(
+    List<Map<String, dynamic>> rowsData, {
+    bool showLastEditedAndAction = true,
+    bool isSearchTable = false,
+    bool shrinkWrap = false,
+  }) {
+    final leftWidths = _baseColWidths.take(3).toList();
+    final leftWidth = leftWidths.fold<double>(0, (sum, w) => sum + w);
+    final actionWidth = _baseColWidths[12];
+    final showAction = showLastEditedAndAction;
+    final showLastEdited = showLastEditedAndAction;
+    final horizontalScroll = isSearchTable
+        ? _searchMiddleHorizontalScroll
+        : _historyMiddleHorizontalScroll;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final reserved =
+            leftWidth + (showAction ? actionWidth : 0);
+        final middleAvailable =
+            (constraints.maxWidth - reserved).clamp(0.0, double.infinity);
+        final middleWidths = _scaledMiddleWidths(
+          showLastEditedAndAction: showLastEdited,
+          availableMiddleWidth: middleAvailable,
+        );
+        final middleWidth =
+            middleWidths.fold<double>(0, (sum, w) => sum + w);
+
+        final leftHeader = _leftHeader(leftWidths);
+        final middleHeader = _middleHeader(
+          middleWidths,
+          showLastEdited: showLastEdited,
+        );
+        final actionHeader =
+            showAction ? _actionHeader(actionWidth) : const SizedBox.shrink();
+
+        if (shrinkWrap) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: leftWidth,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    leftHeader,
+                    ...rowsData.map((item) => _leftDataRow(item, leftWidths)),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  controller: horizontalScroll,
+                  child: SizedBox(
+                    width: middleWidth,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        middleHeader,
+                        ...rowsData.map(
+                          (item) => _middleDataRow(
+                            item,
+                            middleWidths,
+                            showLastEdited: showLastEdited,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (showAction)
+                SizedBox(
+                  width: actionWidth,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      actionHeader,
+                      ...rowsData.map(
+                        (item) => _actionDataCell(item, actionWidth),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: leftWidth,
+              child: Column(
+                children: [
+                  leftHeader,
+                  Expanded(
+                    child: ListView.builder(
+                      controller: _historyLeftVerticalScroll,
+                      itemCount: rowsData.length,
+                      itemExtent: _rowHeight,
+                      itemBuilder: (context, index) {
+                        return _leftDataRow(rowsData[index], leftWidths);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                controller: horizontalScroll,
+                child: SizedBox(
+                  width: middleWidth,
+                  child: Column(
+                    children: [
+                      middleHeader,
+                      Expanded(
+                        child: ListView.builder(
+                          controller: _historyMiddleVerticalScroll,
+                          itemCount: rowsData.length,
+                          itemExtent: _rowHeight,
+                          itemBuilder: (context, index) {
+                            return _middleDataRow(
+                              rowsData[index],
+                              middleWidths,
+                              showLastEdited: showLastEdited,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (showAction)
+              SizedBox(
+                width: actionWidth,
+                child: Column(
+                  children: [
+                    actionHeader,
+                    Expanded(
+                      child: ListView.builder(
+                        controller: _historyActionsVerticalScroll,
+                        itemCount: rowsData.length,
+                        itemExtent: _rowHeight,
+                        itemBuilder: (context, index) {
+                          return _actionDataCell(
+                            rowsData[index],
+                            actionWidth,
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -321,9 +612,12 @@ class _ShippingOutState extends State<ShippingOut> {
         ),
       ),
       textInputAction: TextInputAction.search,
+      onSubmitted: (_) => _runSearch(),
     );
-    final updateButton = ElevatedButton(
-      onPressed: handleSOPs,
+    final searchButton = ElevatedButton.icon(
+      onPressed: _runSearch,
+      icon: const Icon(Icons.search, size: 20),
+      label: const Text('Search SOP'),
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF1E88E5),
         foregroundColor: Colors.white,
@@ -332,9 +626,21 @@ class _ShippingOutState extends State<ShippingOut> {
           borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
         ),
       ),
-      child: const Text(
+    );
+    final updateButton = ElevatedButton.icon(
+      onPressed: handleSOPs,
+      icon: const Icon(Icons.save, size: 20),
+      label: const Text(
         'Update SOP Shipping Out Date',
         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF1E88E5),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+        ),
       ),
     );
 
@@ -350,7 +656,10 @@ class _ShippingOutState extends State<ShippingOut> {
             if (isTablet)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   border: Border.all(color: const Color(0xFFD1D5DB)),
                 ),
@@ -366,7 +675,7 @@ class _ShippingOutState extends State<ShippingOut> {
                     const SizedBox(width: 16),
                     SizedBox(width: 360, child: sopField),
                     const SizedBox(width: 16),
-                    updateButton,
+                    searchButton,
                   ],
                 ),
               )
@@ -384,10 +693,52 @@ class _ShippingOutState extends State<ShippingOut> {
                   const SizedBox(height: 12),
                   sopField,
                   const SizedBox(height: 12),
-                  updateButton,
+                  searchButton,
                 ],
               ),
             const SizedBox(height: 12),
+            if (hasSearched) ...[
+              if (searchedShippingOutHistory.isNotEmpty) ...[
+                buildTable(
+                  searchedShippingOutHistory,
+                  showLastEditedAndAction: false,
+                  isSearchTable: true,
+                  shrinkWrap: true,
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: updateButton,
+                ),
+                const SizedBox(height: 12),
+              ] else
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFDECEC),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: const Color(0xFFE57373)),
+                  ),
+                  child: const Text(
+                    'Invalid or cancelled SOP number. Please enter a valid SOP.',
+                    style: TextStyle(
+                      color: Color(0xFFC62828),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+            ],
+            const Text(
+              'SOP History',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
             Expanded(
               child: isLoading
                   ? const Center(
@@ -395,7 +746,7 @@ class _ShippingOutState extends State<ShippingOut> {
                         color: Color.fromARGB(255, 57, 73, 95),
                       ),
                     )
-                  : buildTable(),
+                  : buildTable(ShippingOutHistory),
             ),
           ],
         ),

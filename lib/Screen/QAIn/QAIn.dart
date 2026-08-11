@@ -17,10 +17,12 @@ class _QAInState extends State<QAIn> {
   List<Map<String, dynamic>> searchedQaInHistory = [];
   bool hasSearched = false;
   bool isLoading = false;
-  final ScrollController _headerHorizontalScroll = ScrollController();
-  final ScrollController _bodyHorizontalScroll = ScrollController();
-  final ScrollController _searchHeaderHorizontalScroll = ScrollController();
-  final ScrollController _searchBodyHorizontalScroll = ScrollController();
+
+  final ScrollController _historyLeftVerticalScroll = ScrollController();
+  final ScrollController _historyMiddleVerticalScroll = ScrollController();
+  final ScrollController _historyActionsVerticalScroll = ScrollController();
+  final ScrollController _historyMiddleHorizontalScroll = ScrollController();
+  final ScrollController _searchMiddleHorizontalScroll = ScrollController();
 
   Future<void> GetQAInHistory() async {
     await Dioservices.setToken();
@@ -32,107 +34,133 @@ class _QAInState extends State<QAIn> {
       setState(() {
         QaInHistory = List<Map<String, dynamic>>.from(response.data['data']);
       });
-      // print("QAIN HISTORY: ${response.data}");
     } catch (e) {
       print("Error fetching QA In history: $e");
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
-  Future<void> FetchQAInSearch() async {
+  void _runSearch() {
+    final rawInput = SOPController.text.trim();
+    final sopTokens = rawInput
+        .split(RegExp(r'[\s,]+'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+
     setState(() {
       hasSearched = true;
-      isLoading = true;
+      searchedQaInHistory = sopTokens.isEmpty
+          ? <Map<String, dynamic>>[]
+          : QaInHistory.where((item) {
+              final sop = item['SOPNum']?.toString() ?? '';
+              return sopTokens.contains(sop);
+            }).toList();
     });
-    try {
-      final response = await _service.QAInSearch(SOPController.text.trim());
-      setState(() {
-        searchedQaInHistory = List<Map<String, dynamic>>.from(
-          response.data['data'],
-        );
-      });
-      // print("QA IN SEARCH RESULTS: ${response.data}");
-    } catch (e) {
-      print("Error fetching QA In search results: $e");
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
-    }
   }
 
   Future<void> HandleUpdateQAInDate() async {
+    final sop = SOPController.text.trim();
+    if (sop.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Enter SOP Number')));
+      return;
+    }
+
     setState(() {
       isLoading = true;
     });
     try {
-      final response = await _service.UpdateQAInDate(SOPController.text.trim());
+      final response = await _service.UpdateQAInDate(sop);
       print("Update QA In Response: ${response.data}");
       await GetQAInHistory();
+      if (!mounted) return;
+      if (hasSearched) {
+        _refreshSearchResults();
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('QA In date updated successfully')),
+        const SnackBar(content: Text('QA In date updated successfully')),
       );
     } catch (e) {
       print("Error updating QA In date: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Something went wrong')));
+      }
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
+  }
+
+  void _refreshSearchResults() {
+    final rawInput = SOPController.text.trim();
+    final sopTokens = rawInput
+        .split(RegExp(r'[\s,]+'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    setState(() {
+      searchedQaInHistory = sopTokens.isEmpty
+          ? <Map<String, dynamic>>[]
+          : QaInHistory.where((item) {
+              final sop = item['SOPNum']?.toString() ?? '';
+              return sopTokens.contains(sop);
+            }).toList();
+    });
   }
 
   @override
   void initState() {
     super.initState();
-    _headerHorizontalScroll.addListener(
-      () => _syncHorizontalScroll(
-        _headerHorizontalScroll,
-        _bodyHorizontalScroll,
-      ),
+    _historyLeftVerticalScroll.addListener(
+      () => _syncScroll(_historyLeftVerticalScroll, [
+        _historyMiddleVerticalScroll,
+        _historyActionsVerticalScroll,
+      ]),
     );
-    _bodyHorizontalScroll.addListener(
-      () => _syncHorizontalScroll(
-        _bodyHorizontalScroll,
-        _headerHorizontalScroll,
-      ),
+    _historyMiddleVerticalScroll.addListener(
+      () => _syncScroll(_historyMiddleVerticalScroll, [
+        _historyLeftVerticalScroll,
+        _historyActionsVerticalScroll,
+      ]),
     );
-    _searchHeaderHorizontalScroll.addListener(
-      () => _syncHorizontalScroll(
-        _searchHeaderHorizontalScroll,
-        _searchBodyHorizontalScroll,
-      ),
-    );
-    _searchBodyHorizontalScroll.addListener(
-      () => _syncHorizontalScroll(
-        _searchBodyHorizontalScroll,
-        _searchHeaderHorizontalScroll,
-      ),
+    _historyActionsVerticalScroll.addListener(
+      () => _syncScroll(_historyActionsVerticalScroll, [
+        _historyLeftVerticalScroll,
+        _historyMiddleVerticalScroll,
+      ]),
     );
     GetQAInHistory();
   }
 
   @override
   void dispose() {
-    _headerHorizontalScroll.dispose();
-    _bodyHorizontalScroll.dispose();
-    _searchHeaderHorizontalScroll.dispose();
-    _searchBodyHorizontalScroll.dispose();
+    _historyLeftVerticalScroll.dispose();
+    _historyMiddleVerticalScroll.dispose();
+    _historyActionsVerticalScroll.dispose();
+    _historyMiddleHorizontalScroll.dispose();
+    _searchMiddleHorizontalScroll.dispose();
     SOPController.dispose();
     super.dispose();
   }
 
-  void _syncHorizontalScroll(
-    ScrollController source,
-    ScrollController target,
-  ) {
-    if (!target.hasClients) {
-      return;
-    }
-    if (target.offset != source.offset) {
-      target.jumpTo(source.offset);
+  void _syncScroll(ScrollController source, List<ScrollController> targets) {
+    for (final target in targets) {
+      if (!target.hasClients) continue;
+      if (target.offset != source.offset) {
+        target.jumpTo(source.offset);
+      }
     }
   }
 
@@ -146,7 +174,6 @@ class _QAInState extends State<QAIn> {
       DateTime parsedDate = DateTime.parse(dateStr);
       return DateFormat('dd/MM/yyyy').format(parsedDate);
     } catch (e) {
-      // print("Date parse error: $e");
       return "-";
     }
   }
@@ -161,17 +188,70 @@ class _QAInState extends State<QAIn> {
       DateTime parsedDate = DateTime.parse(dateStr);
       return DateFormat('dd/MM/yyyy hh:mm a').format(parsedDate);
     } catch (e) {
-      // print("DateTime parse error: $e");
       return "-";
     }
   }
 
   static const Color _tableHeaderColor = Color.fromARGB(255, 57, 73, 95);
+  static const double _rowHeight = 56;
+
+  // SOP, PO Num, ODD | middle cols | Last Edited | Action
+  static const List<double> _baseColWidths = [
+    90, // SOP
+    170, // PO Num
+    100, // ODD
+    260, // Customer
+    120, // Prgm
+    80, // Loc.
+    100, // QC In
+    100, // RW QC Out
+    130, // Final Date Received In QC
+    100, // QC Out
+    160, // Comments
+    150, // Last Edited On
+    72, // Action
+  ];
+
+  List<BoxShadow> get _leftStickyShadow => [
+    BoxShadow(
+      color: Colors.black.withOpacity(0.12),
+      blurRadius: 6,
+      offset: const Offset(2, 0),
+    ),
+  ];
+
+  List<BoxShadow> get _rightStickyShadow => [
+    BoxShadow(
+      color: Colors.black.withOpacity(0.12),
+      blurRadius: 6,
+      offset: const Offset(-2, 0),
+    ),
+  ];
+
+  List<double> _scaledMiddleWidths({
+    required bool showLastEdited,
+    required double availableMiddleWidth,
+  }) {
+    final middle = showLastEdited
+        ? _baseColWidths.sublist(3, 12)
+        : _baseColWidths.sublist(3, 11);
+    final total = middle.fold<double>(0, (sum, w) => sum + w);
+    if (availableMiddleWidth <= total) return middle;
+    final scale = availableMiddleWidth / total;
+    return middle.map((w) => w * scale).toList();
+  }
+
+  String _wrapFriendly(String text) {
+    return text
+        .replaceAll('-', '-\u200B')
+        .replaceAll('_', '_\u200B')
+        .replaceAll('#', '#\u200B');
+  }
 
   Widget _headerCell(String text, double width) {
     return SizedBox(
       width: width,
-      height: 56,
+      height: _rowHeight,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: _tableHeaderColor,
@@ -196,170 +276,414 @@ class _QAInState extends State<QAIn> {
     );
   }
 
-  Widget _bodyTextCell(
-    String text,
-    double width, {
-    bool wrap = false,
-  }) {
+  Widget _bodyTextCell(String text, double width, {bool wrap = false}) {
+    final displayText = wrap ? _wrapFriendly(text) : text;
     return Container(
       width: width,
-      constraints: const BoxConstraints(minHeight: 56),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      height: _rowHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       alignment: Alignment.center,
       decoration: BoxDecoration(
+        color: Colors.white,
         border: Border.all(color: Colors.grey, width: 0.5),
       ),
       child: Text(
-        text,
+        displayText,
         textAlign: TextAlign.center,
         softWrap: wrap,
-        maxLines: wrap ? null : 1,
-        overflow: wrap ? TextOverflow.visible : TextOverflow.ellipsis,
+        maxLines: wrap ? 3 : 1,
+        overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontSize: 12),
       ),
     );
   }
 
-  Widget _buildTableHeaderRow({required bool showLastEditedAndAction}) {
+  Widget _leftHeader(List<double> leftWidths) {
+    return DecoratedBox(
+      decoration: BoxDecoration(boxShadow: _leftStickyShadow),
+      child: Row(
+        children: [
+          _headerCell('SOP', leftWidths[0]),
+          _headerCell('PO Num', leftWidths[1]),
+          _headerCell('ODD', leftWidths[2]),
+        ],
+      ),
+    );
+  }
+
+  Widget _leftDataRow(Map<String, dynamic> item, List<double> leftWidths) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: _leftStickyShadow,
+      ),
+      child: Row(
+        children: [
+          _bodyTextCell(
+            item['SOPNum']?.toString() ?? '',
+            leftWidths[0],
+            wrap: true,
+          ),
+          _bodyTextCell(
+            item['PONum']?.toString() ?? '',
+            leftWidths[1],
+            wrap: true,
+          ),
+          _bodyTextCell(formatDate(item['ODD']?.toString()), leftWidths[2]),
+        ],
+      ),
+    );
+  }
+
+  Widget _middleHeader(
+    List<double> middleWidths, {
+    required bool showLastEdited,
+  }) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _headerCell('SOP', 60),
-        _headerCell('PO Num', 70),
-        _headerCell('ODD', 90),
-        _headerCell('Customer', 260),
-        _headerCell('Prgm', 100),
-        _headerCell('Loc.', 90),
-        _headerCell('QC In', 90),
-        _headerCell('RW QC Out', 90),
-        _headerCell('Final Date Received In QC', 120),
-        _headerCell('QC Out', 90),
-        _headerCell('Comments', 140),
-        if (showLastEditedAndAction) _headerCell('Last Edited On', 170),
-        if (showLastEditedAndAction) _headerCell('Action', 90),
+        _headerCell('Customer', middleWidths[0]),
+        _headerCell('Prgm', middleWidths[1]),
+        _headerCell('Loc.', middleWidths[2]),
+        _headerCell('QC In', middleWidths[3]),
+        _headerCell('RW QC Out', middleWidths[4]),
+        _headerCell('Final Date Received In QC', middleWidths[5]),
+        _headerCell('QC Out', middleWidths[6]),
+        _headerCell('Comments', middleWidths[7]),
+        if (showLastEdited) _headerCell('Last Edited On', middleWidths[8]),
       ],
     );
   }
 
-  Widget _buildTableDataRow(
-    Map<String, dynamic> item, {
-    required bool showLastEditedAndAction,
+  Widget _middleDataRow(
+    Map<String, dynamic> item,
+    List<double> middleWidths, {
+    required bool showLastEdited,
   }) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _bodyTextCell(item['SOPNum']?.toString() ?? '', 60),
-          _bodyTextCell(item['PONum']?.toString() ?? '', 70),
-          _bodyTextCell(formatDate(item['ODD']?.toString()), 90),
+    return Row(
+      children: [
+        _bodyTextCell(
+          item['CustomerName']?.toString() ?? '',
+          middleWidths[0],
+          wrap: true,
+        ),
+        _bodyTextCell(
+          item['ProgramName']?.toString() ?? '',
+          middleWidths[1],
+          wrap: true,
+        ),
+        _bodyTextCell(item['Location']?.toString() ?? '', middleWidths[2]),
+        _bodyTextCell(
+          formatDate(item['QCDateIn']?.toString() ?? ''),
+          middleWidths[3],
+        ),
+        _bodyTextCell(
+          formatDate(item['ReworkDateOut']?.toString() ?? ''),
+          middleWidths[4],
+        ),
+        _bodyTextCell(
+          formatDate(item['FinalDateReceivedInQC']?.toString() ?? ''),
+          middleWidths[5],
+        ),
+        _bodyTextCell(
+          formatDate(item['QCOut']?.toString() ?? ''),
+          middleWidths[6],
+        ),
+        _bodyTextCell(
+          item['QAComments']?.toString() ?? '',
+          middleWidths[7],
+          wrap: true,
+        ),
+        if (showLastEdited)
           _bodyTextCell(
-            item['CustomerName']?.toString() ?? '',
-            260,
+            formatDateTime(item['QALastEdit']?.toString()),
+            middleWidths[8],
             wrap: true,
           ),
-          _bodyTextCell(item['ProgramName']?.toString() ?? '', 100),
-          _bodyTextCell(item['Location']?.toString() ?? '', 90),
-          _bodyTextCell(formatDate(item['QCDateIn']?.toString() ?? ''), 90),
-          _bodyTextCell(
-            formatDate(item['ReworkDateOut']?.toString() ?? ''),
-            90,
-          ),
-          _bodyTextCell(
-            formatDate(item['FinalDateReceivedInQC']?.toString() ?? ''),
-            120,
-          ),
-          _bodyTextCell(formatDate(item['QCOut']?.toString() ?? ''), 90),
-          _bodyTextCell(item['QAComments']?.toString() ?? '', 140, wrap: true),
-          if (showLastEditedAndAction)
-            _bodyTextCell(
-              formatDateTime(item['QALastEdit']?.toString()),
-              170,
+      ],
+    );
+  }
+
+  Future<void> _openEdit(Map<String, dynamic> item) async {
+    final SOPId = item['SOPId']?.toString() ?? '';
+    print("PASSING SOP: $SOPId");
+    final updated = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => QAInEditEntry(SOPId: SOPId)),
+    );
+    if (updated == true) {
+      await GetQAInHistory();
+      if (hasSearched) {
+        _refreshSearchResults();
+      }
+    }
+  }
+
+  Widget _actionHeader(double width) {
+    return DecoratedBox(
+      decoration: BoxDecoration(boxShadow: _rightStickyShadow),
+      child: _headerCell('Action', width),
+    );
+  }
+
+  Widget _actionDataCell(Map<String, dynamic> item, double width) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: _rightStickyShadow,
+      ),
+      child: Container(
+        width: width,
+        height: _rowHeight,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.grey, width: 0.5),
+        ),
+        child: IconButton(
+          onPressed: () => _openEdit(item),
+          tooltip: 'Edit',
+          icon: const Icon(Icons.edit, size: 18, color: Colors.black),
+          style: IconButton.styleFrom(
+            minimumSize: const Size(32, 32),
+            padding: const EdgeInsets.all(4),
+            side: const BorderSide(color: Colors.black),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
             ),
-          if (showLastEditedAndAction)
-            Container(
-              width: 90,
-              constraints: const BoxConstraints(minHeight: 56),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey, width: 0.5),
-              ),
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  final SOPId = item['SOPId']?.toString() ?? '';
-                  // print("PASSING SOP: $SOPId");
-                  final updated = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => QAInEditEntry(SOPId: SOPId),
-                    ),
-                  );
-                  if (updated == true) {
-                    await GetQAInHistory();
-                  }
-                },
-                icon: const Icon(Icons.edit, size: 20, color: Colors.black),
-                label: const Text(''),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.black),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
-                  ),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ),
-            ),
-        ],
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
       ),
     );
+  }
+
+  Widget _buildPlainHeaderRow(
+    List<double> widths, {
+    required bool showLastEdited,
+  }) {
+    return Row(
+      children: [
+        _headerCell('SOP', widths[0]),
+        _headerCell('PO Num', widths[1]),
+        _headerCell('ODD', widths[2]),
+        _headerCell('Customer', widths[3]),
+        _headerCell('Prgm', widths[4]),
+        _headerCell('Loc.', widths[5]),
+        _headerCell('QC In', widths[6]),
+        _headerCell('RW QC Out', widths[7]),
+        _headerCell('Final Date Received In QC', widths[8]),
+        _headerCell('QC Out', widths[9]),
+        _headerCell('Comments', widths[10]),
+        if (showLastEdited) _headerCell('Last Edited On', widths[11]),
+      ],
+    );
+  }
+
+  Widget _buildPlainDataRow(
+    Map<String, dynamic> item,
+    List<double> widths, {
+    required bool showLastEdited,
+  }) {
+    return Row(
+      children: [
+        _bodyTextCell(item['SOPNum']?.toString() ?? '', widths[0], wrap: true),
+        _bodyTextCell(item['PONum']?.toString() ?? '', widths[1], wrap: true),
+        _bodyTextCell(formatDate(item['ODD']?.toString()), widths[2]),
+        _bodyTextCell(
+          item['CustomerName']?.toString() ?? '',
+          widths[3],
+          wrap: true,
+        ),
+        _bodyTextCell(
+          item['ProgramName']?.toString() ?? '',
+          widths[4],
+          wrap: true,
+        ),
+        _bodyTextCell(item['Location']?.toString() ?? '', widths[5]),
+        _bodyTextCell(
+          formatDate(item['QCDateIn']?.toString() ?? ''),
+          widths[6],
+        ),
+        _bodyTextCell(
+          formatDate(item['ReworkDateOut']?.toString() ?? ''),
+          widths[7],
+        ),
+        _bodyTextCell(
+          formatDate(item['FinalDateReceivedInQC']?.toString() ?? ''),
+          widths[8],
+        ),
+        _bodyTextCell(formatDate(item['QCOut']?.toString() ?? ''), widths[9]),
+        _bodyTextCell(
+          item['QAComments']?.toString() ?? '',
+          widths[10],
+          wrap: true,
+        ),
+        if (showLastEdited)
+          _bodyTextCell(
+            formatDateTime(item['QALastEdit']?.toString()),
+            widths[11],
+            wrap: true,
+          ),
+      ],
+    );
+  }
+
+  List<double> _plainTableWidths({
+    required bool showLastEdited,
+    required double availableWidth,
+  }) {
+    final base = showLastEdited
+        ? _baseColWidths.take(12).toList()
+        : _baseColWidths.take(11).toList();
+    final total = base.fold<double>(0, (sum, w) => sum + w);
+    if (availableWidth <= total) return base;
+    final scale = availableWidth / total;
+    return base.map((w) => w * scale).toList();
   }
 
   Widget buildTable(
     List<Map<String, dynamic>> rowsData, {
     bool showLastEditedAndAction = true,
     bool isSearchTable = false,
+    bool shrinkWrap = false,
   }) {
-    final headerScroll = isSearchTable
-        ? _searchHeaderHorizontalScroll
-        : _headerHorizontalScroll;
-    final bodyScroll =
-        isSearchTable ? _searchBodyHorizontalScroll : _bodyHorizontalScroll;
+    final leftWidths = _baseColWidths.take(3).toList();
+    final leftWidth = leftWidths.fold<double>(0, (sum, w) => sum + w);
+    final actionWidth = _baseColWidths[12];
+    final showAction = showLastEditedAndAction;
+    final showLastEdited = showLastEditedAndAction;
+    final horizontalScroll = isSearchTable
+        ? _searchMiddleHorizontalScroll
+        : _historyMiddleHorizontalScroll;
 
-    return Column(
-      children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          controller: headerScroll,
-          child: _buildTableHeaderRow(
-            showLastEditedAndAction: showLastEditedAndAction,
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              controller: bodyScroll,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Search/first table: normal scrollable table, no sticky columns.
+        if (shrinkWrap || isSearchTable) {
+          final widths = _plainTableWidths(
+            showLastEdited: showLastEdited,
+            availableWidth: constraints.maxWidth,
+          );
+          final tableWidth = widths.fold<double>(0, (sum, w) => sum + w);
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            controller: horizontalScroll,
+            child: SizedBox(
+              width: tableWidth,
               child: Column(
-                children: rowsData
-                    .map(
-                      (item) => _buildTableDataRow(
-                        item,
-                        showLastEditedAndAction: showLastEditedAndAction,
-                      ),
-                    )
-                    .toList(growable: false),
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildPlainHeaderRow(widths, showLastEdited: showLastEdited),
+                  ...rowsData.map(
+                    (item) => _buildPlainDataRow(
+                      item,
+                      widths,
+                      showLastEdited: showLastEdited,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ),
-      ],
+          );
+        }
+
+        final reserved = leftWidth + (showAction ? actionWidth : 0);
+        final middleAvailable = (constraints.maxWidth - reserved).clamp(
+          0.0,
+          double.infinity,
+        );
+        final middleWidths = _scaledMiddleWidths(
+          showLastEdited: showLastEdited,
+          availableMiddleWidth: middleAvailable,
+        );
+        final middleWidth = middleWidths.fold<double>(0, (sum, w) => sum + w);
+
+        final leftHeader = _leftHeader(leftWidths);
+        final middleHeader = _middleHeader(
+          middleWidths,
+          showLastEdited: showLastEdited,
+        );
+        final actionHeader = showAction
+            ? _actionHeader(actionWidth)
+            : const SizedBox.shrink();
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: leftWidth,
+              child: Column(
+                children: [
+                  leftHeader,
+                  Expanded(
+                    child: ListView.builder(
+                      controller: _historyLeftVerticalScroll,
+                      itemCount: rowsData.length,
+                      itemExtent: _rowHeight,
+                      itemBuilder: (context, index) {
+                        return _leftDataRow(rowsData[index], leftWidths);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                controller: horizontalScroll,
+                child: SizedBox(
+                  width: middleWidth,
+                  child: Column(
+                    children: [
+                      middleHeader,
+                      Expanded(
+                        child: ListView.builder(
+                          controller: _historyMiddleVerticalScroll,
+                          itemCount: rowsData.length,
+                          itemExtent: _rowHeight,
+                          itemBuilder: (context, index) {
+                            return _middleDataRow(
+                              rowsData[index],
+                              middleWidths,
+                              showLastEdited: showLastEdited,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (showAction)
+              SizedBox(
+                width: actionWidth,
+                child: Column(
+                  children: [
+                    actionHeader,
+                    Expanded(
+                      child: ListView.builder(
+                        controller: _historyActionsVerticalScroll,
+                        itemCount: rowsData.length,
+                        itemExtent: _rowHeight,
+                        itemBuilder: (context, index) {
+                          return _actionDataCell(rowsData[index], actionWidth);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
+  @override
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.sizeOf(context).width >= 700;
     final sopField = TextField(
@@ -383,29 +707,28 @@ class _QAInState extends State<QAIn> {
         ),
       ),
       textInputAction: TextInputAction.search,
+      onSubmitted: (_) => _runSearch(),
     );
     final searchButton = ElevatedButton.icon(
-      onPressed: () {
-        final rawInput = SOPController.text.trim();
-        final sopTokens = rawInput
-            .split(RegExp(r'[\s,]+'))
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toSet();
-
-        setState(() {
-          hasSearched = true;
-          searchedQaInHistory = sopTokens.isEmpty
-              ? <Map<String, dynamic>>[]
-              : QaInHistory.where((item) {
-                  final sop = item['SOPNum']?.toString() ?? '';
-                  return sopTokens.contains(sop);
-                }).toList();
-        });
-        HandleUpdateQAInDate();
-      },
+      onPressed: _runSearch,
       icon: const Icon(Icons.search, size: 20),
       label: const Text('Search for Entry'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF1E88E5),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+        ),
+      ),
+    );
+    final updateButton = ElevatedButton.icon(
+      onPressed: HandleUpdateQAInDate,
+      icon: const Icon(Icons.save, size: 20),
+      label: const Text(
+        'Update QA Received In Date',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF1E88E5),
         foregroundColor: Colors.white,
@@ -457,10 +780,7 @@ class _QAInState extends State<QAIn> {
                 children: [
                   const Text(
                     'Update QA Received In Date',
-                    style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 12),
                   sopField,
@@ -468,37 +788,46 @@ class _QAInState extends State<QAIn> {
                   searchButton,
                 ],
               ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             if (hasSearched) ...[
-              const Text(
-                'Searched SOP Data',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              if (searchedQaInHistory.isNotEmpty)
-                SizedBox(
-                  height: 220,
-                  child: buildTable(
-                    searchedQaInHistory,
-                    showLastEditedAndAction: false,
-                    isSearchTable: true,
+              if (searchedQaInHistory.isNotEmpty) ...[
+                buildTable(
+                  searchedQaInHistory,
+                  showLastEditedAndAction: false,
+                  isSearchTable: true,
+                  shrinkWrap: true,
+                ),
+                const SizedBox(height: 8),
+                Align(alignment: Alignment.centerLeft, child: updateButton),
+                const SizedBox(height: 8),
+              ] else
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
                   ),
-                )
-              else
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Text(
-                    'No data found for searched SOP',
-                    style: TextStyle(fontSize: 14, color: Colors.black54),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFDECEC),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: const Color(0xFFE57373)),
+                  ),
+                  child: const Text(
+                    'Invalid or cancelled SOP number. Please enter a valid SOP.',
+                    style: TextStyle(
+                      color: Color(0xFFC62828),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-              const SizedBox(height: 16),
             ],
             const Text(
               'SOP History',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Expanded(
               child: isLoading
                   ? const Center(

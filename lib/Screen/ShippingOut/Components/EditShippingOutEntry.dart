@@ -878,7 +878,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: const CommonAppBar(),
+      appBar: const CommonAppBar(showBackButton: true),
       drawer: const CommonDrawer(),
       body: Container(
         child: SingleChildScrollView(

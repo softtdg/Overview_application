@@ -24,14 +24,17 @@ class CriticalItems extends StatefulWidget {
 
 class _CriticalItemsState extends State<CriticalItems> {
   static const double _noticeColumnWidth = 150;
+  static const double _actionColumnWidth = 56;
   static const int _pickedColumnIndex = 11;
   static const int _sopColumnIndex = 0;
   static const int _oddColumnIndex = 1;
-  static const int _leadHandColumnIndex = 2;
-  static const int _fixtureColumnIndex = 4;
+  static const int _fixtureColumnIndex = 2;
+  static const int _leadHandColumnIndex = 3;
   static const int _deptColumnIndex = 13;
   final String username = 'John Doe';
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _tableVerticalScroll = ScrollController();
+  final ScrollController _actionsVerticalScroll = ScrollController();
   List<Map<String, dynamic>> _rows = [];
   List<Map<String, dynamic>> _filteredData = [];
   String _pickedFilter = 'All';
@@ -200,9 +203,69 @@ class _CriticalItemsState extends State<CriticalItems> {
     return grouped.values.toList();
   }
 
+  String _searchableRowText(Map<String, dynamic> row) {
+    final qtyText = _pick(row, ['Quantity']);
+    final hoursText = _pick(row, ['Hours']);
+    final qty = int.tryParse(qtyText) ?? 0;
+    final hours = double.tryParse(hoursText) ?? 0;
+    final parts = <String>[
+      _pickSopNum(row),
+      _formatDate(_pickPath(row, ['SOP', 'ODD'])),
+      _pick(row, ['FixtureNumber']),
+      _pickPath(row, [
+        'SOP',
+        'ProductionLogEntry',
+        'LeadHand',
+        'LeadHandName',
+      ]),
+      _pickPath(row, ['Assembler', 'Name']),
+      _pick(row, ['FixtureDescription']),
+      qtyText,
+      hoursText,
+      (qty * hours).toStringAsFixed(2),
+      _pick(row, ['Amount']),
+      _pick(row, ['InventoryCommentsForProduction']),
+      row['Picked'] == true ? 'Yes' : 'No',
+      _pick(row, ['LeadHandCommentsForPurchasing']),
+      _pick(row, [
+        'PurchasingComments',
+        'PurchasingResponse',
+        'LeadHandPurchasingResponse',
+      ]),
+      _pick(row, ['LeadHandCommentsForProduction']),
+      _pick(row, [
+        'ProductionComments',
+        'ProductionResponse',
+        'LeadHandProductionResponse',
+      ]),
+    ];
+
+    for (final notice in _buildNotices(row)) {
+      parts.add(_valueText(notice['date']));
+      parts.add(_valueText(notice['dept']));
+      parts.add(_valueText(notice['notice']));
+      parts.add(_valueText(notice['response']));
+    }
+
+    final backorders = row['Backorders'];
+    if (backorders is List) {
+      for (final item in backorders) {
+        if (item is! Map) continue;
+        parts.add(_valueText(item['TDGPN']));
+        parts.add(_valueText(item['Quantity']));
+        parts.add(_valueText(item['UOM']));
+        parts.add(_valueText(item['Response']));
+        parts.add(_valueText(item['NoticeDate']));
+        parts.add(_valueText(item['ClosedDate']));
+      }
+    }
+
+    return parts.where((p) => p.trim().isNotEmpty && p != '-').join(' ');
+  }
+
   bool _matchesSearch(Map<String, dynamic> row, String query) {
     if (query.isEmpty) return true;
-    return _pickSopNum(row).toLowerCase().contains(query.toLowerCase());
+    return _searchableRowText(row).toLowerCase().contains(query.toLowerCase());
   }
 
   List<Map<String, dynamic>> get _filteredRows {
@@ -614,9 +677,9 @@ class _CriticalItemsState extends State<CriticalItems> {
     return [
       _column('SOP', minWidth: 56, sortKey: 0, onSort: _onSort),
       _column('ODD', minWidth: 90, sortKey: 1, onSort: _onSort),
-      _column('Lead\nHand', minWidth: 82, sortKey: 2, onSort: _onSort),
+      _column('Fixture', minWidth: 96, sortKey: 2, onSort: _onSort),
+      _column('Lead\nHand', minWidth: 82, sortKey: 3, onSort: _onSort),
       _column('Assembler', minWidth: 90),
-      _column('Fixture', minWidth: 96, sortKey: 4, onSort: _onSort),
       _column('Desc', minWidth: 150),
       _column('Qty', minWidth: 40),
       _column('Time To\nBuild/Per\nUnit', minWidth: 88),
@@ -628,8 +691,141 @@ class _CriticalItemsState extends State<CriticalItems> {
       _column('Dept', minWidth: 88, sortKey: 13, onSort: _onSort),
       _column('Notice', minWidth: _noticeColumnWidth),
       _column('Response', minWidth: 180),
-      _column('Action', minWidth: 120),
     ];
+  }
+
+  Widget _buildFixtureCell(Map<String, dynamic> row) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: GestureDetector(
+        onTap: () {
+          final f = _pick(row, ['FixtureNumber']).trim();
+          if (f.isEmpty) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => Publicsearch(fixtureNumber: f),
+            ),
+          );
+        },
+        child: Container(
+          width: 76,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFF39495F)),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            _pick(row, ['FixtureNumber']),
+            textAlign: TextAlign.center,
+            softWrap: true,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Color.fromARGB(255, 90, 106, 131),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton(Map<String, dynamic> row, {required bool isDisabled}) {
+    return IconButton(
+      onPressed: () {
+        final sopLeadHandEntryId = _pick(row, ['SOPLeadHandEntryId']);
+        if (sopLeadHandEntryId.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('SOP Lead Hand Entry Id not found for this row.'),
+            ),
+          );
+          return;
+        }
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => Query(
+              sopLeadHandEntryId: sopLeadHandEntryId,
+              showRemovedFromSop: isDisabled,
+            ),
+          ),
+        );
+      },
+      tooltip: 'Edit',
+      icon: const Icon(Icons.edit, size: 18, color: Colors.black),
+      style: IconButton.styleFrom(
+        minimumSize: const Size(36, 36),
+        padding: const EdgeInsets.all(6),
+        side: const BorderSide(color: Colors.black, width: 1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+      ),
+    );
+  }
+
+  Widget _buildStickyActionsPane(List<Map<String, dynamic>> groupedRows) {
+    const borderColor = Color(0xFFD1D5DB);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 6,
+            offset: const Offset(-2, 0),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        width: _actionColumnWidth,
+        child: Column(
+          children: [
+            Container(
+              height: 52,
+              width: _actionColumnWidth,
+              alignment: Alignment.center,
+              color: const Color(0xFF344963),
+              child: const Text(
+                'Action',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                controller: _actionsVerticalScroll,
+                itemCount: groupedRows.length,
+                itemBuilder: (context, index) {
+                  final group = groupedRows[index];
+                  final row = group['row'] as Map<String, dynamic>;
+                  final isDisabled = row['Disabled'] == true;
+                  return Container(
+                    height: _dataRowHeightForGroup(group, context),
+                    width: _actionColumnWidth,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: isDisabled
+                          ? const Color(0xFFB5B5B5)
+                          : const Color(0xFFF0F1F3),
+                      border: const Border(
+                        left: BorderSide(color: borderColor),
+                        bottom: BorderSide(color: borderColor),
+                      ),
+                    ),
+                    child: _buildActionButton(row, isDisabled: isDisabled),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   double _dataRowHeightForGroup(
@@ -668,9 +864,24 @@ class _CriticalItemsState extends State<CriticalItems> {
     );
   }
 
+  void _syncVerticalScroll(ScrollController source, ScrollController target) {
+    if (!target.hasClients) return;
+    final maxExtent = target.position.maxScrollExtent;
+    final nextOffset = source.offset.clamp(0.0, maxExtent);
+    if ((target.offset - nextOffset).abs() > 0.5) {
+      target.jumpTo(nextOffset);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _tableVerticalScroll.addListener(
+      () => _syncVerticalScroll(_tableVerticalScroll, _actionsVerticalScroll),
+    );
+    _actionsVerticalScroll.addListener(
+      () => _syncVerticalScroll(_actionsVerticalScroll, _tableVerticalScroll),
+    );
     _fetchCriticalItems();
   }
 
@@ -730,6 +941,8 @@ class _CriticalItemsState extends State<CriticalItems> {
 
   @override
   void dispose() {
+    _tableVerticalScroll.dispose();
+    _actionsVerticalScroll.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -739,7 +952,8 @@ class _CriticalItemsState extends State<CriticalItems> {
     final isTablet = MediaQuery.sizeOf(context).width >= 700;
     final searchField = TextField(
       controller: _searchController,
-      onChanged: (_) => _runSearch(),
+      textInputAction: TextInputAction.search,
+      onSubmitted: (_) => _runSearch(),
       decoration: InputDecoration(
         hintText: 'Search in table...',
         contentPadding: EdgeInsets.symmetric(
@@ -803,7 +1017,7 @@ class _CriticalItemsState extends State<CriticalItems> {
                     SizedBox(width: 360, child: searchField),
                     const SizedBox(width: 16),
                     ElevatedButton.icon(
-                      onPressed: () {},
+                      onPressed: _runSearch,
                       icon: const Icon(Icons.search, size: 20),
                       label: const Text('Search'),
                       style: ElevatedButton.styleFrom(
@@ -878,28 +1092,36 @@ class _CriticalItemsState extends State<CriticalItems> {
                               ),
                             ),
                             child: ClipRRect(
-                              child: DataTable2(
-                                fixedTopRows: 1,
-                                showCheckboxColumn: false,
-                                sortColumnIndex: _sortColumnIndex,
-                                sortAscending: _sortAscending,
-                                sortArrowBuilder: (_, __) =>
-                                    const SizedBox.shrink(),
-                                headingRowColor: MaterialStateProperty.all(
-                                  const Color(0xFF344963),
-                                ),
-                                dataRowColor: MaterialStateProperty.all(
-                                  const Color(0xFFF0F1F3),
-                                ),
-                                headingRowHeight: 52,
-                                dataRowHeight: 52,
-                                columnSpacing: 0,
-                                horizontalMargin: 0,
-                                dividerThickness: 1,
-                                minWidth: 1670,
-                                border: tableBorder,
-                                columns: tableColumns,
-                                rows: groupedRows.map((group) {
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    child: DataTable2(
+                                      fixedTopRows: 1,
+                                      fixedLeftColumns: 3,
+                                      scrollController: _tableVerticalScroll,
+                                      showCheckboxColumn: false,
+                                      sortColumnIndex: _sortColumnIndex,
+                                      sortAscending: _sortAscending,
+                                      sortArrowBuilder: (_, __) =>
+                                          const SizedBox.shrink(),
+                                      headingRowColor:
+                                          MaterialStateProperty.all(
+                                        const Color(0xFF344963),
+                                      ),
+                                      dataRowColor: MaterialStateProperty.all(
+                                        const Color(0xFFF0F1F3),
+                                      ),
+                                      fixedCornerColor: const Color(0xFF344963),
+                                      headingRowHeight: 52,
+                                      dataRowHeight: 52,
+                                      columnSpacing: 0,
+                                      horizontalMargin: 0,
+                                      dividerThickness: 1,
+                                      minWidth: 1550,
+                                      border: tableBorder,
+                                      columns: tableColumns,
+                                      rows: groupedRows.map((group) {
                                   final row =
                                       group['row'] as Map<String, dynamic>;
                                   final notices =
@@ -971,6 +1193,7 @@ class _CriticalItemsState extends State<CriticalItems> {
                                           width: 90,
                                         ),
                                       ),
+                                      DataCell(_buildFixtureCell(row)),
                                       DataCell(
                                         _tableTextCell(
                                           _pickPath(row, [
@@ -986,62 +1209,6 @@ class _CriticalItemsState extends State<CriticalItems> {
                                         _tableTextCell(
                                           _pickPath(row, ['Assembler', 'Name']),
                                           width: 90,
-                                        ),
-                                      ),
-                                      DataCell(
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                          ),
-                                          child: GestureDetector(
-                                            onTap: () {
-                                              final f = _pick(
-                                                row,
-                                                ['FixtureNumber'],
-                                              ).trim();
-                                              if (f.isEmpty) return;
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (_) => Publicsearch(
-                                                    fixtureNumber: f,
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                            child: Container(
-                                              width: 76,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 6,
-                                                vertical: 8,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                border: Border.all(
-                                                  color: const Color(
-                                                    0xFF39495F,
-                                                  ),
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                              child: Text(
-                                                _pick(row, ['FixtureNumber']),
-                                                textAlign: TextAlign.center,
-                                                softWrap: true,
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Color.fromARGB(
-                                                    255,
-                                                    90,
-                                                    106,
-                                                    131,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
                                         ),
                                       ),
                                       DataCell(
@@ -1168,80 +1335,13 @@ class _CriticalItemsState extends State<CriticalItems> {
                                           rowHeights: noticeRowHeights,
                                         ),
                                       ),
-                                      DataCell(
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                          ),
-                                          child: OutlinedButton.icon(
-                                            onPressed: () {
-                                              final sopLeadHandEntryId = _pick(
-                                                row,
-                                                ['SOPLeadHandEntryId'],
-                                              );
-                                              if (sopLeadHandEntryId.isEmpty) {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text(
-                                                      'SOP Lead Hand Entry Id not found for this row.',
-                                                    ),
-                                                  ),
-                                                );
-                                                return;
-                                              }
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (_) => Query(
-                                                    sopLeadHandEntryId:
-                                                        sopLeadHandEntryId,
-                                                    showRemovedFromSop:
-                                                        isDisabled,
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                            style: OutlinedButton.styleFrom(
-                                              minimumSize: const Size(86, 45),
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 6,
-                                                    vertical: 6,
-                                                  ),
-                                              side: const BorderSide(
-                                                color: Colors.black,
-                                                width: 1,
-                                              ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                              foregroundColor: Colors.black,
-                                              tapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                            ),
-                                            icon: const Icon(
-                                              Icons.edit,
-                                              size: 13,
-                                            ),
-                                            label: const Text(
-                                              'Edit',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
                                     ],
                                   );
                                 }).toList(),
+                                    ),
+                                  ),
+                                  _buildStickyActionsPane(groupedRows),
+                                ],
                               ),
                             ),
                           ),
@@ -1272,6 +1372,16 @@ class _CriticalItemsState extends State<CriticalItems> {
                                 onPageChanged: (page) {
                                   setState(() {
                                     _currentPage = page;
+                                  });
+                                  WidgetsBinding.instance.addPostFrameCallback((
+                                    _,
+                                  ) {
+                                    if (_tableVerticalScroll.hasClients) {
+                                      _tableVerticalScroll.jumpTo(0);
+                                    }
+                                    if (_actionsVerticalScroll.hasClients) {
+                                      _actionsVerticalScroll.jumpTo(0);
+                                    }
                                   });
                                 },
                               ),

@@ -22,7 +22,7 @@ class _QueryState extends State<Query> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: CommonAppBar(),
+      appBar: const CommonAppBar(showBackButton: true),
       drawer: CommonDrawer(),
       body: SafeArea(
         child: SingleChildScrollView(

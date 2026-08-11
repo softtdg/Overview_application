@@ -249,7 +249,16 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
     final searchButtonWidth = isTablet ? 200.0 : double.infinity;
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: const CommonAppBar(),
+      appBar: CommonAppBar(
+        showBackButton: true,
+        onBackPressed: selectedOpenItem != null
+            ? () {
+                setState(() {
+                  selectedOpenItem = null;
+                });
+              }
+            : null,
+      ),
       drawer: CommonDrawer(),
       body: LayoutBuilder(
         builder: (context, constraints) {

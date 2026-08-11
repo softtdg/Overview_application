@@ -140,15 +140,15 @@ class _ShippingInState extends State<ShippingIn> {
     'Action',
   ];
   static const List<double> _minColumnWidths = [
-    60,
-    70,
-    90,
-    260,
-    100,
-    90,
-    140,
-    170,
-    90,
+    90, // SOP
+    170, // PO Num
+    100, // ODD
+    280, // Customer
+    120, // Prgm
+    80, // Loc.
+    110, // Ship In
+    160, // Last Edited On
+    72, // Action
   ];
 
   double get _minTableWidth =>
@@ -158,11 +158,8 @@ class _ShippingInState extends State<ShippingIn> {
     if (availableWidth <= _minTableWidth) {
       return _minColumnWidths;
     }
-    final extra = availableWidth - _minTableWidth;
-    return [
-      for (var i = 0; i < _minColumnWidths.length; i++)
-        _minColumnWidths[i] + (i == 3 ? extra : 0),
-    ];
+    final scale = availableWidth / _minTableWidth;
+    return _minColumnWidths.map((w) => w * scale).toList();
   }
 
   double _tableContentWidth(double availableWidth) =>
@@ -197,6 +194,12 @@ class _ShippingInState extends State<ShippingIn> {
   }
 
   Widget _bodyTextCell(String text, double width, {bool wrap = false}) {
+    final displayText = wrap
+        ? text
+            .replaceAll('-', '-\u200B')
+            .replaceAll('_', '_\u200B')
+            .replaceAll('#', '#\u200B')
+        : text;
     return Container(
       width: width,
       constraints: const BoxConstraints(minHeight: 56),
@@ -206,7 +209,7 @@ class _ShippingInState extends State<ShippingIn> {
         border: Border.all(color: Colors.grey, width: 0.5),
       ),
       child: Text(
-        text,
+        displayText,
         textAlign: TextAlign.center,
         softWrap: wrap,
         maxLines: wrap ? null : 1,
@@ -243,7 +246,12 @@ class _ShippingInState extends State<ShippingIn> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (var i = 0; i < values.length; i++)
-            _bodyTextCell(values[i], widths[i], wrap: i == 3),
+            _bodyTextCell(
+              values[i],
+              widths[i],
+              // SOP, PO Num, Customer, Prgm — wrap long values instead of "..."
+              wrap: i == 0 || i == 1 || i == 3 || i == 4,
+            ),
           Container(
             width: widths.last,
             constraints: const BoxConstraints(minHeight: 56),

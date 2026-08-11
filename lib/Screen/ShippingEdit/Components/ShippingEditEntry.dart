@@ -411,7 +411,7 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: const CommonAppBar(),
+      appBar: const CommonAppBar(showBackButton: true),
       drawer: const CommonDrawer(),
       body: Padding(
         padding: const EdgeInsets.all(16),

@@ -639,7 +639,7 @@ class _BackordersTableState extends State<Backorders> {
       controller: _searchController,
       onChanged: _filterRows,
       decoration: InputDecoration(
-        hintText: "Search in table...",
+        hintText: "Search",
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,

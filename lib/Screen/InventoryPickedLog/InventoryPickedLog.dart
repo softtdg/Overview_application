@@ -41,6 +41,9 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
   final InventoryPickedLogService _service = InventoryPickedLogService();
   final TextEditingController _pickListSearchController =
       TextEditingController();
+  final ScrollController _leftVerticalScroll = ScrollController();
+  final ScrollController _bodyVerticalScroll = ScrollController();
+  final ScrollController _actionsVerticalScroll = ScrollController();
   String username = "";
   bool isLoading = false;
   List<ItemModel> items = [];
@@ -190,14 +193,47 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
     }
   }
 
+  void _syncVerticalScroll(
+    ScrollController source,
+    List<ScrollController> targets,
+  ) {
+    for (final target in targets) {
+      if (!target.hasClients) continue;
+      if (target.offset != source.offset) {
+        target.jumpTo(source.offset);
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _leftVerticalScroll.addListener(
+      () => _syncVerticalScroll(_leftVerticalScroll, [
+        _bodyVerticalScroll,
+        _actionsVerticalScroll,
+      ]),
+    );
+    _bodyVerticalScroll.addListener(
+      () => _syncVerticalScroll(_bodyVerticalScroll, [
+        _leftVerticalScroll,
+        _actionsVerticalScroll,
+      ]),
+    );
+    _actionsVerticalScroll.addListener(
+      () => _syncVerticalScroll(_actionsVerticalScroll, [
+        _leftVerticalScroll,
+        _bodyVerticalScroll,
+      ]),
+    );
     fetchInvetoryPickedData();
   }
 
   @override
   void dispose() {
+    _leftVerticalScroll.dispose();
+    _bodyVerticalScroll.dispose();
+    _actionsVerticalScroll.dispose();
     _pickListSearchController.dispose();
     super.dispose();
   }
@@ -267,26 +303,243 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
     80, // RMA
     160, // MPF Requested By
     170, // Created At
-    130, // Actions
+    90, // Actions
   ];
 
-  double get _tableWidth => _colWidths.reduce((sum, w) => sum + w);
+  double get _leftStickyWidth =>
+      _colWidths.take(3).fold<double>(0, (sum, w) => sum + w);
 
-  Widget _buildHeaderRow() {
+  double get _actionsColWidth => _colWidths[9];
+
+  double get _scrollableTableWidth =>
+      _colWidths.skip(3).take(6).fold<double>(0, (sum, w) => sum + w);
+
+  List<BoxShadow> get _leftStickyShadow => [
+    BoxShadow(
+      color: Colors.black.withOpacity(0.12),
+      blurRadius: 6,
+      offset: const Offset(2, 0),
+    ),
+  ];
+
+  List<BoxShadow> get _rightStickyShadow => [
+    BoxShadow(
+      color: Colors.black.withOpacity(0.12),
+      blurRadius: 6,
+      offset: const Offset(-2, 0),
+    ),
+  ];
+
+  Widget _buildLeftStickyHeaderRow() {
+    return DecoratedBox(
+      decoration: BoxDecoration(boxShadow: _leftStickyShadow),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _bomHeaderCell("Pick list Number", _colWidths[0]),
+          _bomHeaderCell("SOP", _colWidths[1]),
+          _bomHeaderCell("Fixture", _colWidths[2]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeftStickyDataRow(ItemModel item) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: _leftStickyShadow,
+      ),
+      child: ColoredBox(
+        color: Colors.white,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _bomDataCell(_orDash(item.pickListNumber), _colWidths[0]),
+            _bomDataCell(_orDash(item.sopNum), _colWidths[1]),
+            _bomDataCell(_orDash(item.fixture), _colWidths[2]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScrollableHeaderRow() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _bomHeaderCell("Pick list Number", _colWidths[0]),
-        _bomHeaderCell("SOP", _colWidths[1]),
-        _bomHeaderCell("Fixture", _colWidths[2]),
         _bomHeaderCell("Description", _colWidths[3]),
         _bomHeaderCell("Project", _colWidths[4]),
         _bomHeaderCell("Quantity", _colWidths[5]),
         _bomHeaderCell("RMA", _colWidths[6]),
         _bomHeaderCell("MPF Requested By", _colWidths[7]),
         _bomHeaderCell("Created At", _colWidths[8]),
-        _bomHeaderCell("Actions", _colWidths[9]),
       ],
+    );
+  }
+
+  Widget _buildScrollableDataRow(ItemModel item) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _bomDataCell(_orDash(item.description), _colWidths[3]),
+        _bomDataCell(_orDash(item.project), _colWidths[4]),
+        _bomDataCell(_orDash(item.tempQuantity), _colWidths[5]),
+        _bomDataCell(_orDash(item.RMA), _colWidths[6]),
+        _bomDataCell(_orDash(item.MPFRequestedBy), _colWidths[7]),
+        _bomDataCell(_formatDateValue(item.createdAt), _colWidths[8]),
+      ],
+    );
+  }
+
+  Widget _buildActionsHeaderCell() {
+    return DecoratedBox(
+      decoration: BoxDecoration(boxShadow: _rightStickyShadow),
+      child: _bomHeaderCell("Actions", _actionsColWidth),
+    );
+  }
+
+  Widget _buildActionsDataCell(ItemModel item) {
+    final borderColor = Colors.grey.shade300;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: _rightStickyShadow,
+      ),
+      child: SizedBox(
+        width: _actionsColWidth,
+        child: Container(
+          height: 56,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              left: BorderSide(color: borderColor),
+              bottom: BorderSide(color: borderColor),
+            ),
+          ),
+          child: ElevatedButton.icon(
+            onPressed: () {
+              debugPrint('View clicked - passed pickedLogId: ${item.id}');
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => ViewPickedLog(id: item.id)),
+              );
+            },
+            icon: const Icon(Icons.remove_red_eye_outlined, size: 16),
+            label: const Text("View"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1565C0),
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: const Color(0xFF1565C0),
+              disabledForegroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 8,
+              shadowColor: Colors.black.withOpacity(0.35),
+              surfaceTintColor: Colors.transparent,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              minimumSize: const Size(0, 34),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStickyColumnPane({
+    required double width,
+    required Widget header,
+    required ScrollController controller,
+    required Widget Function(ItemModel item) rowBuilder,
+  }) {
+    return SizedBox(
+      width: width,
+      child: Column(
+        children: [
+          header,
+          Expanded(
+            child: ListView.builder(
+              controller: controller,
+              itemCount: items.length,
+              itemBuilder: (context, index) => rowBuilder(items[index]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStickyActionsTable() {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildStickyColumnPane(
+            width: _leftStickyWidth,
+            header: _buildLeftStickyHeaderRow(),
+            controller: _leftVerticalScroll,
+            rowBuilder: _buildLeftStickyDataRow,
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: _scrollableTableWidth,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildScrollableHeaderRow(),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: _bodyVerticalScroll,
+                        itemCount: items.length,
+                        itemBuilder: (context, index) {
+                          return _buildScrollableDataRow(items[index]);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          _buildStickyColumnPane(
+            width: _actionsColWidth,
+            header: _buildActionsHeaderCell(),
+            controller: _actionsVerticalScroll,
+            rowBuilder: _buildActionsDataCell,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyStickyHeader() {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          SizedBox(width: _leftStickyWidth, child: _buildLeftStickyHeaderRow()),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: _scrollableTableWidth,
+                child: _buildScrollableHeaderRow(),
+              ),
+            ),
+          ),
+          SizedBox(width: _actionsColWidth, child: _buildActionsHeaderCell()),
+        ],
+      ),
     );
   }
 
@@ -412,20 +665,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ),
-                                child: SizedBox(
-                                  width: _tableWidth,
-                                  child: _buildHeaderRow(),
-                                ),
-                              ),
-                            ),
+                            _buildEmptyStickyHeader(),
                             const Expanded(
                               child: Center(
                                 child: Padding(
@@ -438,154 +678,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                         )
                       : Padding(
                           padding: const EdgeInsets.all(16),
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: SizedBox(
-                                width: _tableWidth,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildHeaderRow(),
-                                    Expanded(
-                                      child: ListView.builder(
-                                        itemCount: items.length,
-                                        itemBuilder: (context, index) {
-                                          final item = items[index];
-                                          return Row(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              _bomDataCell(
-                                                _orDash(item.pickListNumber),
-                                                _colWidths[0],
-                                              ),
-                                              _bomDataCell(
-                                                _orDash(item.sopNum),
-                                                _colWidths[1],
-                                              ),
-                                              _bomDataCell(
-                                                _orDash(item.fixture),
-                                                _colWidths[2],
-                                              ),
-                                              _bomDataCell(
-                                                _orDash(item.description),
-                                                _colWidths[3],
-                                              ),
-                                              _bomDataCell(
-                                                _orDash(item.project),
-                                                _colWidths[4],
-                                              ),
-                                              _bomDataCell(
-                                                _orDash(item.tempQuantity),
-                                                _colWidths[5],
-                                              ),
-                                              _bomDataCell(
-                                                _orDash(item.RMA),
-                                                _colWidths[6],
-                                              ),
-                                              _bomDataCell(
-                                                _orDash(item.MPFRequestedBy),
-                                                _colWidths[7],
-                                              ),
-                                              _bomDataCell(
-                                                _formatDateValue(item.createdAt),
-                                                _colWidths[8],
-                                              ),
-                                              SizedBox(
-                                                width: _colWidths[9],
-                                                child: Container(
-                                                  height: 56,
-                                                  alignment: Alignment.center,
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 4,
-                                                        vertical: 4,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    border: Border(
-                                                      right: BorderSide(
-                                                        color: Colors
-                                                            .grey.shade300,
-                                                      ),
-                                                      bottom: BorderSide(
-                                                        color: Colors
-                                                            .grey.shade300,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  child: ElevatedButton.icon(
-                                                    onPressed: () {
-                                                      // debugPrint(
-                                                      //   'View clicked - passed pickedLogId: ${item.id}',
-                                                      // );
-                                                      Navigator.of(context).push(
-                                                        MaterialPageRoute(
-                                                          builder: (_) =>
-                                                              ViewPickedLog(
-                                                            id: item.id,
-                                                          ),
-                                                        ),
-                                                      );
-                                                    },
-                                                    icon: const Icon(
-                                                      Icons
-                                                          .remove_red_eye_outlined,
-                                                      size: 16,
-                                                    ),
-                                                    label: const Text("View"),
-                                                    style: ElevatedButton
-                                                        .styleFrom(
-                                                      backgroundColor:
-                                                          const Color(0xFF1565C0),
-                                                      foregroundColor:
-                                                          Colors.white,
-                                                      disabledBackgroundColor:
-                                                          const Color(0xFF1565C0),
-                                                      disabledForegroundColor:
-                                                          Colors.white,
-                                                      shape:
-                                                          RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                          12,
-                                                        ),
-                                                      ),
-                                                      elevation: 8,
-                                                      shadowColor: Colors.black
-                                                          .withOpacity(0.35),
-                                                      surfaceTintColor:
-                                                          Colors.transparent,
-                                                      padding:
-                                                          const EdgeInsets
-                                                              .symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 6,
-                                                      ),
-                                                      minimumSize: const Size(
-                                                        0,
-                                                        34,
-                                                      ),
-                                                      tapTargetSize:
-                                                          MaterialTapTargetSize
-                                                              .shrinkWrap,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
+                          child: _buildStickyActionsTable(),
                         ),
                 ),
             ],

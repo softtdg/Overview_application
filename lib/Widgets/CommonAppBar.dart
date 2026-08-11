@@ -21,9 +21,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // Common AppBar
 class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
+<<<<<<< Updated upstream
   final bool showBack;
   final VoidCallback? onBack;
   const CommonAppBar({super.key, this.showBack = false, this.onBack});
+=======
+  const CommonAppBar({
+    super.key,
+    this.showBackButton = false,
+    this.onBackPressed,
+  });
+
+  final bool showBackButton;
+  final VoidCallback? onBackPressed;
+>>>>>>> Stashed changes
 
   @override
   Widget build(BuildContext context) {
@@ -42,19 +53,27 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
               width: constraints.maxWidth,
               child: Row(
                 children: [
-                  Builder(
-                    builder: (context) {
-                      if (showBack) {
-                        return IconButton(
-                          icon: const Icon(Icons.arrow_back, color: Colors.white),
-                          onPressed: onBack ?? () => Navigator.maybePop(context),
-                        );
-                      }
-                      return IconButton(
-                        icon: const Icon(Icons.menu, color: Colors.white),
-                        onPressed: () => Scaffold.of(context).openDrawer(),
-                      );
-                    },
+                  if (showBackButton) ...[
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      tooltip: 'Back',
+                      onPressed: () {
+                        if (onBackPressed != null) {
+                          onBackPressed!();
+                          return;
+                        }
+                        if (Navigator.of(context).canPop()) {
+                          Navigator.of(context).pop();
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  Image.asset(
+                    'assets/images/tdg_logo.png',
+                    height: 35,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
                   ),
                   TextButton(
                     onPressed: () {
