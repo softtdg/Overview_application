@@ -41,7 +41,7 @@ class _LoginState extends State<Login> {
       return;
     }
 
-    final Uri url = Uri.parse('http://192.168.1.22:8000/auth/login');
+    final Uri url = Uri.parse('http://192.168.1.12:8000/auth/login');
     try {
       print("Making request....");
       final response = await http.post(

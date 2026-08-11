@@ -519,7 +519,7 @@ class _DashboardState extends State<Dashboard> {
       }
 
       final response = await http.post(
-        Uri.parse("http://192.168.1.22:8000/api/projects/file"),
+        Uri.parse("http://192.168.1.12:8000/api/projects/file"),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -551,7 +551,7 @@ class _DashboardState extends State<Dashboard> {
 
       final response = await http.get(
         Uri.parse(
-          'http://192.168.1.22:8000/api/projects/get_projects_by_code/$code',
+          'http://192.168.1.12:8000/api/projects/get_projects_by_code/$code',
         ),
         headers: {
           'Content-Type': 'application/json',
@@ -595,7 +595,7 @@ class _DashboardState extends State<Dashboard> {
     });
     final limit = _pageLimit;
     final Uri url = Uri.parse(
-      'http://192.168.1.22:8000/api/projects/getPaginatedProjects'
+      'http://192.168.1.12:8000/api/projects/getPaginatedProjects'
       '?page=$_currentPage&limit=$limit',
     );
     final prefs = await SharedPreferences.getInstance();
@@ -682,7 +682,7 @@ class _DashboardState extends State<Dashboard> {
     try {
       final response = await http.get(
         Uri.parse(
-          "http://192.168.1.22:8000/api/projects/get_projects_title?search=$query",
+          "http://192.168.1.12:8000/api/projects/get_projects_title?search=$query",
         ),
         headers: {
           'Content-Type': 'application/json',
@@ -1091,7 +1091,7 @@ Future<Uint8List?> _fetchFileFromAPI(String filename) async {
     if (token == null) return null;
 
     final response = await http.post(
-      Uri.parse("http://192.168.1.22:8000/api/projects/file"),
+      Uri.parse("http://192.168.1.12:8000/api/projects/file"),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',

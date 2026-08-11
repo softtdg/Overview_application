@@ -40,13 +40,14 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
               width: constraints.maxWidth,
               child: Row(
                 children: [
-                  Image.asset(
-                    'assets/images/tdg_logo.png',
-                    height: 35,
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.high,
+                  Builder(
+                    builder: (context) {
+                      return IconButton(
+                        icon: const Icon(Icons.menu, color: Colors.white),
+                        onPressed: () => Scaffold.of(context).openDrawer(),
+                      );
+                    },
                   ),
-                  const Spacer(),
                   TextButton(
                     onPressed: () {
                       Navigator.push(
@@ -62,13 +63,49 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
                       ),
                     ),
                   ),
-                  Builder(
-                    builder: (context) {
-                      return IconButton(
-                        icon: const Icon(Icons.menu, color: Colors.white),
-                        onPressed: () => Scaffold.of(context).openDrawer(),
+                  // Image.asset(
+                  //   'assets/images/tdg_logo.png',
+                  //   height: 35,
+                  //   fit: BoxFit.contain,
+                  //   filterQuality: FilterQuality.high,
+                  // ),
+                  const Spacer(),
+                  // TextButton(
+                  //   onPressed: () {
+                  //     Navigator.push(
+                  //       context,
+                  //       MaterialPageRoute(builder: (_) => const Dashboard()),
+                  //     );
+                  //   },
+                  //   child: const Text(
+                  //     'Digital Wall',
+                  //     style: TextStyle(
+                  //       color: Colors.white,
+                  //       fontWeight: FontWeight.w600,
+                  //     ),
+                  //   ),
+                  // ),
+                  // Builder(
+                  //   builder: (context) {
+                  //     return IconButton(
+                  //       icon: const Icon(Icons.menu, color: Colors.white),
+                  //       onPressed: () => Scaffold.of(context).openDrawer(),
+                  //     );
+                  //   },
+                  // ),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => SOPSearch()),
                       );
                     },
+                    child: Image.asset(
+                      'assets/images/tdg_logo.png',
+                      height: 35,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
+                    ),
                   ),
                 ],
               ),
@@ -389,7 +426,9 @@ class _CommonDrawerState extends State<CommonDrawer> {
                     onTap: () {
                       final nav = Navigator.of(context);
                       nav.pop();
-                      nav.push(MaterialPageRoute(builder: (_) => ExpediteReport()));
+                      nav.push(
+                        MaterialPageRoute(builder: (_) => ExpediteReport()),
+                      );
                     },
                   ),
                 ],
