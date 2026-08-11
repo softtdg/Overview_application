@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 
 class ItemModel {
   final String tdgPn;
@@ -192,7 +193,7 @@ class _PublicSearchState extends State<Publicsearch> {
         fixtureNumber: _fixtureNumberInput,
         user: "om",
       );
-      print("Full response: ${response.data}");
+      // print("Full response: ${response.data}");
       final data = response.data["data"];
 
       setState(() {
@@ -419,7 +420,10 @@ class _PublicSearchState extends State<Publicsearch> {
         (bodyViewportHeight - estimatedHeaderPx + 120).clamp(240.0, 680.0);
 
     return Scaffold(
-      appBar: const CommonAppBar(),
+      appBar: CommonAppBar(
+        showBack: hasSearched,
+        onBack: _handleNewSearch,
+      ),
       drawer: const CommonDrawer(),
       backgroundColor: Colors.white,
 
@@ -487,6 +491,12 @@ class _PublicSearchState extends State<Publicsearch> {
                     width: searchFieldWidth,
                     child: TextField(
                       controller: PublicSearchController,
+                      // Show numeric keyboard
+                      keyboardType: TextInputType.number,
+                      // Allow only Number
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9-]')),
+                      ],
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: Colors.white,

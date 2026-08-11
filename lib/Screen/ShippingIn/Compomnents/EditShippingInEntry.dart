@@ -33,7 +33,7 @@ class _EditShippingInEntryState extends State<EditShippingInEntry> {
         searchResults = List<Map<String, dynamic>>.from(data);
         isLoading = false;
       });
-      debugPrint("SEARCH DATA FROM EDIT ENTRY SHIPPING IN $data");
+      // debugPrint("SEARCH DATA FROM EDIT ENTRY SHIPPING IN $data");
     } catch (e) {
       debugPrint("Error occur while edit in Edit ShippingIn Entry $e");
       setState(() {

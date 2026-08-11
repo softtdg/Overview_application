@@ -24,9 +24,9 @@ class BackorderService {
       );
       return response;
     } on DioException catch (e) {
-      print('Error in backOrderUpdate API Call: ${e.message}');
-      print('Status: ${e.response?.statusCode}');
-      print('Server body: ${e.response?.data}');
+      // print('Error in backOrderUpdate API Call: ${e.message}');
+      // print('Status: ${e.response?.statusCode}');
+      // print('Server body: ${e.response?.data}');
       rethrow;
     } catch (e) {
       print('Error in backOrderUpdate API Call: $e');

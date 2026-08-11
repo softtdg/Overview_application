@@ -70,15 +70,15 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
     setState(() {
       isLoading = true;
     });
-    debugPrint("Open Items search clicked. SOP: $SOPNumber");
+    // debugPrint("Open Items search clicked. SOP: $SOPNumber");
 
     try {
       await Dioservices.setToken();
       final response = await OpenItemsServices().SearchOpenItemsSOP(
         SOP: SOPNumber,
       );
-      debugPrint("Open Items API status: ${response.statusCode}");
-      debugPrint("Open Items API raw response: ${response.data}");
+      // debugPrint("Open Items API status: ${response.statusCode}");
+      // debugPrint("Open Items API raw response: ${response.data}");
 
       setState(() {
         SOPData = _rowsFromResponse(response.data);
@@ -89,7 +89,7 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
         context,
       ).showSnackBar(SnackBar(content: Text("SOP found")));
 
-      debugPrint("SOP Data From Open Items Search: $SOPData");
+      // debugPrint("SOP Data From Open Items Search: $SOPData");
     } catch (e) {
       debugPrint("Error in Search Open Items: $e");
       if (!mounted) return;

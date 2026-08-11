@@ -27,7 +27,7 @@ class _LandingState extends State<Landing> {
     final token = prefs.getString('accessToken');
 
     if (token != null && token.isNotEmpty) {
-      print('Auto-login: Found valid token, going to Dashboard');
+      // print('Auto-login: Found valid token, going to Dashboard');
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -35,7 +35,7 @@ class _LandingState extends State<Landing> {
         );
       }
     } else {
-      print('Auto-login: No valid token found, going to Login');
+      // print('Auto-login: No valid token found, going to Login');
       if (mounted) {
         Navigator.pushReplacement(
           context,

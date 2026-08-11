@@ -42,7 +42,7 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
         'qaOutDate': QAInEditData['QCOut']?.toString() ?? '',
         'reworkOutDate': QAInEditData['ReworkDateOut']?.toString() ?? '',
       };
-      print("PAYLOAD OF QAIN EDIT : $payload");
+      // print("PAYLOAD OF QAIN EDIT : $payload");
       final resposne = await _service.UpdateQAInEntry(widget.SOPId, payload);
       print("RESPONSE OF QAIN EDIT : $resposne");
       await GetQAInSOPById();

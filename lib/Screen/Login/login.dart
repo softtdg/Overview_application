@@ -74,7 +74,7 @@ class _LoginPageState extends State<LoginPage> {
       await prefs.setString("token", token);
       await prefs.setString("UserName", uname);
 
-      print("SAVED TOKEN: ${prefs.getString("token")}");
+      // print("SAVED TOKEN: ${prefs.getString("token")}");
       // 3. Success message
       ScaffoldMessenger.of(
         context,

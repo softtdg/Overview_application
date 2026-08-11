@@ -32,7 +32,7 @@ class _LoginState extends State<Login> {
     final String password = _passwordController.text.trim();
     final String role = _selectedRole ?? '';
 
-    print("uname: $username, password: $password, role: $role");
+    // print("uname: $username, password: $password, role: $role");
 
     if (username.isEmpty || password.isEmpty || role.isEmpty) {
       ScaffoldMessenger.of(
@@ -43,7 +43,7 @@ class _LoginState extends State<Login> {
 
     final Uri url = Uri.parse('http://192.168.1.12:8000/auth/login');
     try {
-      print("Making request....");
+      // print("Making request....");
       final response = await http.post(
         url,
         headers: {
@@ -56,8 +56,8 @@ class _LoginState extends State<Login> {
           'role': role,
         }),
       );
-      print('Response status::::::::: ${response.statusCode}');
-      print('Response body::::::::::: ${response.body}');
+      // print('Response status::::::::: ${response.statusCode}');
+      // print('Response body::::::::::: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -74,11 +74,11 @@ class _LoginState extends State<Login> {
         await prefs.setString('uname', userName ?? username); // Use username as fallback
         await prefs.setString('userRole', role);
 
-        print('Saved Token: $token');
-        print('Saved User: $userName');
-        print('Saved Role: $role');
+        // print('Saved Token: $token');
+        // print('Saved User: $userName');
+        // print('Saved Role: $role');
 
-        print('Navigating to Dashboard...');
+        // print('Navigating to Dashboard...');
         try {
           Navigator.pushReplacement(
             context,
@@ -87,9 +87,9 @@ class _LoginState extends State<Login> {
               // builder: (context) => role == 'admin' ? const Admin() : const Modifier(),
             ),
           );
-          print('Navigation completed successfully');
+          // print('Navigation completed successfully');
         } catch (e) {
-          print('Navigation error: $e');
+          // print('Navigation error: $e');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Navigation error: $e')),
           );

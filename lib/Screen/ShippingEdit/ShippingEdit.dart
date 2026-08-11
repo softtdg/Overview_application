@@ -239,7 +239,7 @@ class _ShippingEditState extends State<ShippingEdit> {
             child: OutlinedButton.icon(
               onPressed: () async {
                 final sopNumber = item['sopNum']?.toString() ?? '';
-                print("PASSING SOP: $sopNumber");
+                // print("PASSING SOP: $sopNumber");
                 final updated = await Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -352,7 +352,7 @@ class _ShippingEditState extends State<ShippingEdit> {
           return;
         }
 
-        print("Searching for SOP: $sopNumber");
+        // print("Searching for SOP: $sopNumber");
         final updated = await Navigator.push(
           context,
           MaterialPageRoute(

@@ -27,7 +27,7 @@ class _QAEditEntryState extends State<QAEditEntry> {
       setState(() {
         SOPController.text = QAEditData['SOPNum']?.toString() ?? '';
       });
-      print("QA Edit SOP by ID data: $QAEditData");
+      // print("QA Edit SOP by ID data: $QAEditData");
     } catch (e) {
       print("Error fetching QA Edit SOP by ID: $e");
     } finally {

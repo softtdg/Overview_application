@@ -15,7 +15,7 @@ String _formatDisplayDate(String raw) {
 String _inventoryActionErrorMessage(Object e) {
   if (e is DioException) {
     final data = e.response?.data;
-    debugPrint('inventory action HTTP ${e.response?.statusCode} body: $data');
+    // debugPrint('inventory action HTTP ${e.response?.statusCode} body: $data');
     if (data is Map) {
       for (final key in ['message', 'error', 'msg', 'detail']) {
         final v = data[key];
@@ -143,7 +143,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
       await Dioservices.setToken();
       final response = await _service.ViewInventoryPickListService(widget.id);
       final payload = response.data;
-      debugPrint('ViewInventoryPickListService response: $payload');
+      // debugPrint('ViewInventoryPickListService response: $payload');
 
       Map<String, dynamic> root = <String, dynamic>{};
       List<dynamic> rawRows = <dynamic>[];

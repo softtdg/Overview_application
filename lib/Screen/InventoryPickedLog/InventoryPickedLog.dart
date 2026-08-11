@@ -519,9 +519,9 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                                                   ),
                                                   child: ElevatedButton.icon(
                                                     onPressed: () {
-                                                      debugPrint(
-                                                        'View clicked - passed pickedLogId: ${item.id}',
-                                                      );
+                                                      // debugPrint(
+                                                      //   'View clicked - passed pickedLogId: ${item.id}',
+                                                      // );
                                                       Navigator.of(context).push(
                                                         MaterialPageRoute(
                                                           builder: (_) =>

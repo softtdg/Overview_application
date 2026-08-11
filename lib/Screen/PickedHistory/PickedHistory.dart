@@ -83,8 +83,8 @@ class _PickedHistoryState extends State<PickedHistory> {
         isLoading = false;
       });
 
-      debugPrint("PICKED HISTORY STATUS: ${response.statusCode}");
-      debugPrint("PICKED HISTORY ROW COUNT: ${parsedItems.length}");
+      // debugPrint("PICKED HISTORY STATUS: ${response.statusCode}");
+      // debugPrint("PICKED HISTORY ROW COUNT: ${parsedItems.length}");
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -185,9 +185,9 @@ class _PickedHistoryState extends State<PickedHistory> {
         parsed.first.fixtureNumber == "-") {
       final firstRaw = data.first;
       if (firstRaw is Map) {
-        debugPrint(
-          "PickedHistory: first row keys => ${firstRaw.keys.toList()}",
-        );
+        // debugPrint(
+        //   "PickedHistory: first row keys => ${firstRaw.keys.toList()}",
+        // );
       }
     }
     return parsed;

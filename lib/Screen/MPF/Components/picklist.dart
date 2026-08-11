@@ -536,7 +536,7 @@ class _PickListState extends State<PickList> {
       await Dioservices.setToken();
       final user = await _currentUser();
       final response = await _services.PickListData(user, widget.fixtureNumber);
-      print("PICK LIST DATA [[[[response.data:]]]] ${response.data}");
+      // print("PICK LIST DATA [[[[response.data:]]]] ${response.data}");
       final data = response.data?['data'];
       final Map<String, dynamic>? map = data is Map
           ? Map<String, dynamic>.from(data)
@@ -565,9 +565,9 @@ class _PickListState extends State<PickList> {
         return;
       }
 
-      debugPrint(
-        'LIVE PDM CALL → sop=${widget.sopNumber} fixture=${widget.fixtureNumber} user=$user',
-      );
+      // debugPrint(
+      //   'LIVE PDM CALL → sop=${widget.sopNumber} fixture=${widget.fixtureNumber} user=$user',
+      // );
 
       final response = await _services.getFixtureDataFromLivePdm(
         sopNumber: widget.sopNumber,
@@ -576,7 +576,7 @@ class _PickListState extends State<PickList> {
         lhrEntryId: '',
       );
 
-      debugPrint('LIVE PDM URL: ${response.requestOptions.uri}');
+      // debugPrint('LIVE PDM URL: ${response.requestOptions.uri}');
 
       // Match web: response.data.data.listData
       final root = response.data;

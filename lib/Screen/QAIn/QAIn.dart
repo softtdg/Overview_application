@@ -54,7 +54,7 @@ class _QAInState extends State<QAIn> {
           response.data['data'],
         );
       });
-      print("QA IN SEARCH RESULTS: ${response.data}");
+      // print("QA IN SEARCH RESULTS: ${response.data}");
     } catch (e) {
       print("Error fetching QA In search results: $e");
     } finally {
@@ -286,7 +286,7 @@ class _QAInState extends State<QAIn> {
               child: OutlinedButton.icon(
                 onPressed: () async {
                   final SOPId = item['SOPId']?.toString() ?? '';
-                  print("PASSING SOP: $SOPId");
+                  // print("PASSING SOP: $SOPId");
                   final updated = await Navigator.push(
                     context,
                     MaterialPageRoute(

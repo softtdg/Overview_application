@@ -957,8 +957,7 @@ class _MPFRequestState extends State<MPFRequest> {
   }
 
   bool get _showContinueBox {
-    return _validation == _SopValidation.invalid &&
-        _projectNameController.text.trim().isNotEmpty;
+    return _projectNameController.text.trim().isNotEmpty;
   }
 
   @override
@@ -1101,7 +1100,7 @@ class _MPFRequestState extends State<MPFRequest> {
 
                       const SizedBox(width: 16),
 
-                      // projec name field
+                      // project name field
                       Expanded(
                         flex: 1,
                         child: Column(
@@ -1598,7 +1597,7 @@ class _MPFRequestState extends State<MPFRequest> {
               ),
             ],
 
-            if (!_showContinueBox && _fixtures.isNotEmpty) ...[
+            if (_fixtures.isNotEmpty) ...[
               const SizedBox(height: 20),
 
               Text(

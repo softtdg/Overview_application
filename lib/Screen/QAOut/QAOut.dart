@@ -33,7 +33,7 @@ class _QAOutState extends State<QAOut> {
         QaOutHistory = List<Map<String, dynamic>>.from(response.data['data']);
         isLoading = false;
       });
-      print("QAOut Hisotry ${response.data['data']}");
+      // print("QAOut Hisotry ${response.data['data']}");
     } catch (e) {
       print("Error fetching QA Out history: $e");
       setState(() {
@@ -106,7 +106,7 @@ class _QAOutState extends State<QAOut> {
           response.data['data'],
         );
       });
-      print("QAIN SEARCH RESULT ${response.data['data']}");
+      // print("QAIN SEARCH RESULT ${response.data['data']}");
     } catch (e) {
       print("Error fetching QA Out search: $e");
     } finally {

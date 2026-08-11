@@ -31,7 +31,7 @@ class _ShippingInState extends State<ShippingIn> {
         shippingInHistory = List<Map<String, dynamic>>.from(data);
         isLoading = false;
       });
-      debugPrint("SHIPPING IN HISTORY DATA: $data");
+      // debugPrint("SHIPPING IN HISTORY DATA: $data");
     } catch (e) {
       print("Error while fetch shipping in data $e");
       setState(() {

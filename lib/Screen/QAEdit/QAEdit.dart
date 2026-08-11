@@ -35,7 +35,7 @@ class _QAEditState extends State<QAEdit> {
         isLoading = false;
         _clampCurrentPage();
       });
-      print("QA EDIT DATA $data");
+      // print("QA EDIT DATA $data");
     } catch (e) {
       setState(() {
         isLoading = false;
@@ -324,7 +324,7 @@ class _QAEditState extends State<QAEdit> {
             child: OutlinedButton.icon(
               onPressed: () async {
                 final SOPId = item['SOPId']?.toString() ?? '-';
-                print("PASSING SOPId: $SOPId");
+                // print("PASSING SOPId: $SOPId");
                 final updated = await Navigator.push(
                   context,
                   MaterialPageRoute(

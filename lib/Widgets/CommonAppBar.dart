@@ -21,7 +21,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // Common AppBar
 class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const CommonAppBar({super.key});
+  final bool showBack;
+  final VoidCallback? onBack;
+  const CommonAppBar({super.key, this.showBack = false, this.onBack});
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +44,12 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
                 children: [
                   Builder(
                     builder: (context) {
+                      if (showBack) {
+                        return IconButton(
+                          icon: const Icon(Icons.arrow_back, color: Colors.white),
+                          onPressed: onBack ?? () => Navigator.maybePop(context),
+                        );
+                      }
                       return IconButton(
                         icon: const Icon(Icons.menu, color: Colors.white),
                         onPressed: () => Scaffold.of(context).openDrawer(),

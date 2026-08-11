@@ -1721,7 +1721,7 @@ class _BackOrderState extends State<BackOrder> {
 
   Future<void> _onUpdateEntry() async {
     final payload = _buildPayload();
-    debugPrint('Update payload: $payload');
+    // debugPrint('Update payload: $payload');
     try {
       await OpenItemsServices().CriticalUpdate(payload: payload);
       if (!mounted) return;
@@ -1731,8 +1731,8 @@ class _BackOrderState extends State<BackOrder> {
       (widget.onUpdateEntry ?? () {})();
     } on DioException catch (e) {
       final serverMessage = e.response?.data;
-      debugPrint('CriticalUpdate failed: ${e.message}');
-      debugPrint('CriticalUpdate response: $serverMessage');
+      // debugPrint('CriticalUpdate failed: ${e.message}');
+      // debugPrint('CriticalUpdate response: $serverMessage');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Update failed: ${serverMessage ?? e.message}')),

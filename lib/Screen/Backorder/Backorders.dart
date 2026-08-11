@@ -146,7 +146,7 @@ class _BackordersTableState extends State<Backorders> {
     try {
       await Dioservices.setToken();
       final response = await _backorderService.criticalItemList();
-      print("RESPONSE FROM CRITICAL ITEM LIST API: ${response.data}");
+      // print("RESPONSE FROM CRITICAL ITEM LIST API: ${response.data}");
 
       final payload = response.data;
       final rawData = payload is Map ? payload['data'] : payload;
@@ -589,7 +589,7 @@ class _BackordersTableState extends State<Backorders> {
               .map((e) => {"SOPLeadHandEntryId": e.key, "backorders": e.value})
               .toList(),
         };
-        print("SAVE PAYLOAD: $payload");
+        // print("SAVE PAYLOAD: $payload");
         final response = await _backorderService.backOrderUpdate(payload);
         print("RESPONSE FROM SAVE CHANGES API: ${response.data}");
       }
@@ -602,8 +602,8 @@ class _BackordersTableState extends State<Backorders> {
       await _getCriticalItemList();
     } on DioException catch (e) {
       final serverMessage = e.response?.data;
-      print("ERROR SAVING CHANGES: ${e.message}");
-      print("SERVER RESPONSE: $serverMessage");
+      // print("ERROR SAVING CHANGES: ${e.message}");
+      // print("SERVER RESPONSE: $serverMessage");
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Save failed: ${serverMessage ?? e.message}")),
