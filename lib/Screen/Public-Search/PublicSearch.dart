@@ -210,6 +210,7 @@ class _PublicSearchState extends State<Publicsearch> {
     } catch (e) {
       print("Error fetching SOP Data $e");
       setState(() {
+        sopList = [];
         isSopLoading = false;
       });
     }
@@ -235,8 +236,8 @@ class _PublicSearchState extends State<Publicsearch> {
       final data = response.data;
 
       setState(() {
-        result = data;
-        final components = data["data"]?["Fixture"]?["Components"];
+        result = data is Map ? Map<String, dynamic>.from(data) : {};
+        final components = result["data"]?["Fixture"]?["Components"];
 
         items = components is List
             ? components.map<ItemModel>((e) {
@@ -265,6 +266,8 @@ class _PublicSearchState extends State<Publicsearch> {
     } catch (e) {
       print("Error Public Search Fetch Data $e");
       setState(() {
+        items = [];
+        result = {};
         isTableLoading = false;
       });
     }
@@ -592,7 +595,9 @@ class _PublicSearchState extends State<Publicsearch> {
                     child: !hasSearched
                         ? const SizedBox.shrink()
                         : sopList.isEmpty
-                        ? const Center(child: Text("No SOP Data Found"))
+                        ? const Center(
+                            child: Text("No SOPs available for this fixture"),
+                          )
                         : Scrollbar(
                             controller: _scrollController,
                             thumbVisibility: true,
@@ -623,11 +628,6 @@ class _PublicSearchState extends State<Publicsearch> {
                           color: Color.fromARGB(255, 57, 73, 95),
                         ),
                       ),
-                    )
-                  else if (hasSearched && items.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Center(child: Text("No table data found")),
                     )
                   else if (hasSearched)
                     SizedBox(

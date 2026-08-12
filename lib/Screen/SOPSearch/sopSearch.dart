@@ -209,18 +209,16 @@ class _SOPSearchState extends State<SOPSearch> {
       cells: [
         DataCell(
           GestureDetector(
-            onTap: isDisabled
-                ? null
-                : () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => Publicsearch(
-                          fixtureNumber: fixture["FixtureNumber"],
-                        ),
-                      ),
-                    );
-                  },
+            onTap: () {
+              final f = fixture["FixtureNumber"]?.toString().trim() ?? '';
+              if (f.isEmpty || f == '-') return;
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => Publicsearch(fixtureNumber: f),
+                ),
+              );
+            },
             child: Container(
               constraints: const BoxConstraints(minWidth: 76),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

@@ -63,11 +63,19 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
                     ),
                     const SizedBox(width: 4),
                   ],
-                  Image.asset(
-                    'assets/images/tdg_logo.png',
-                    height: 35,
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.high,
+                  // Image.asset(
+                  //   'assets/images/tdg_logo.png',
+                  //   height: 35,
+                  //   fit: BoxFit.contain,
+                  //   filterQuality: FilterQuality.high,
+                  // ),
+                  Builder(
+                    builder: (context) {
+                      return IconButton(
+                        icon: const Icon(Icons.menu, color: Colors.white),
+                        onPressed: () => Scaffold.of(context).openDrawer(),
+                      );
+                    },
                   ),
                   TextButton(
                     onPressed: () {
