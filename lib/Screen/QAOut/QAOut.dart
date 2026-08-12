@@ -36,7 +36,6 @@ class _QAOutState extends State<QAOut> {
         isLoading = false;
       });
       // print("QAOut Hisotry ${response.data['data']}");
-
     } catch (e) {
       print("Error fetching QA Out history: $e");
       if (mounted) {
@@ -82,24 +81,6 @@ class _QAOutState extends State<QAOut> {
               return sopTokens.contains(sop);
             }).toList();
     });
-<<<<<<< Updated upstream
-    try {
-      final response = await _service.QAOutSearch(SOPController.text.trim());
-      setState(() {
-        searchedQaOutHistory = List<Map<String, dynamic>>.from(
-          response.data['data'],
-        );
-      });
-      // print("QAIN SEARCH RESULT ${response.data['data']}");
-    } catch (e) {
-      print("Error fetching QA Out search: $e");
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
-    }
-=======
->>>>>>> Stashed changes
   }
 
   Future<void> HandleUpdateQCOutDate() async {
@@ -131,22 +112,22 @@ class _QAOutState extends State<QAOut> {
   void initState() {
     super.initState();
     _historyLeftVerticalScroll.addListener(
-      () => _syncScroll(
-        _historyLeftVerticalScroll,
-        [_historyMiddleVerticalScroll, _historyActionsVerticalScroll],
-      ),
+      () => _syncScroll(_historyLeftVerticalScroll, [
+        _historyMiddleVerticalScroll,
+        _historyActionsVerticalScroll,
+      ]),
     );
     _historyMiddleVerticalScroll.addListener(
-      () => _syncScroll(
-        _historyMiddleVerticalScroll,
-        [_historyLeftVerticalScroll, _historyActionsVerticalScroll],
-      ),
+      () => _syncScroll(_historyMiddleVerticalScroll, [
+        _historyLeftVerticalScroll,
+        _historyActionsVerticalScroll,
+      ]),
     );
     _historyActionsVerticalScroll.addListener(
-      () => _syncScroll(
-        _historyActionsVerticalScroll,
-        [_historyLeftVerticalScroll, _historyMiddleVerticalScroll],
-      ),
+      () => _syncScroll(_historyActionsVerticalScroll, [
+        _historyLeftVerticalScroll,
+        _historyMiddleVerticalScroll,
+      ]),
     );
     GetQAOutHistory();
   }
@@ -162,10 +143,7 @@ class _QAOutState extends State<QAOut> {
     super.dispose();
   }
 
-  void _syncScroll(
-    ScrollController source,
-    List<ScrollController> targets,
-  ) {
+  void _syncScroll(ScrollController source, List<ScrollController> targets) {
     for (final target in targets) {
       if (!target.hasClients) continue;
       if (target.offset != source.offset) {
@@ -223,20 +201,20 @@ class _QAOutState extends State<QAOut> {
   ];
 
   List<BoxShadow> get _leftStickyShadow => [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.12),
-          blurRadius: 6,
-          offset: const Offset(2, 0),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withOpacity(0.12),
+      blurRadius: 6,
+      offset: const Offset(2, 0),
+    ),
+  ];
 
   List<BoxShadow> get _rightStickyShadow => [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.12),
-          blurRadius: 6,
-          offset: const Offset(-2, 0),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withOpacity(0.12),
+      blurRadius: 6,
+      offset: const Offset(-2, 0),
+    ),
+  ];
 
   List<double> _scaledMiddleWidths({
     required bool showLastEdited,
@@ -286,11 +264,7 @@ class _QAOutState extends State<QAOut> {
     );
   }
 
-  Widget _bodyTextCell(
-    String text,
-    double width, {
-    bool wrap = false,
-  }) {
+  Widget _bodyTextCell(String text, double width, {bool wrap = false}) {
     final displayText = wrap ? _wrapFriendly(text) : text;
     return Container(
       width: width,
@@ -343,10 +317,7 @@ class _QAOutState extends State<QAOut> {
             leftWidths[1],
             wrap: true,
           ),
-          _bodyTextCell(
-            formatDate(item['ODD']?.toString()),
-            leftWidths[2],
-          ),
+          _bodyTextCell(formatDate(item['ODD']?.toString()), leftWidths[2]),
         ],
       ),
     );
@@ -425,9 +396,7 @@ class _QAOutState extends State<QAOut> {
     print("PASSING SOP: $SOPId");
     final updated = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => QAOutEditEntry(SOPId: SOPId),
-      ),
+      MaterialPageRoute(builder: (_) => QAOutEditEntry(SOPId: SOPId)),
     );
     if (updated == true) {
       await GetQAOutHistory();
@@ -532,10 +501,7 @@ class _QAOutState extends State<QAOut> {
           formatDate(item['FinalDateReceivedInQC']?.toString() ?? ''),
           widths[8],
         ),
-        _bodyTextCell(
-          formatDate(item['QCOut']?.toString() ?? ''),
-          widths[9],
-        ),
+        _bodyTextCell(formatDate(item['QCOut']?.toString() ?? ''), widths[9]),
         _bodyTextCell(
           item['QAComments']?.toString() ?? '',
           widths[10],
@@ -597,10 +563,7 @@ class _QAOutState extends State<QAOut> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildPlainHeaderRow(
-                    widths,
-                    showLastEdited: showLastEdited,
-                  ),
+                  _buildPlainHeaderRow(widths, showLastEdited: showLastEdited),
                   ...rowsData.map(
                     (item) => _buildPlainDataRow(
                       item,
@@ -615,14 +578,15 @@ class _QAOutState extends State<QAOut> {
         }
 
         final reserved = leftWidth + (showAction ? actionWidth : 0);
-        final middleAvailable =
-            (constraints.maxWidth - reserved).clamp(0.0, double.infinity);
+        final middleAvailable = (constraints.maxWidth - reserved).clamp(
+          0.0,
+          double.infinity,
+        );
         final middleWidths = _scaledMiddleWidths(
           showLastEdited: showLastEdited,
           availableMiddleWidth: middleAvailable,
         );
-        final middleWidth =
-            middleWidths.fold<double>(0, (sum, w) => sum + w);
+        final middleWidth = middleWidths.fold<double>(0, (sum, w) => sum + w);
 
         return Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -688,10 +652,7 @@ class _QAOutState extends State<QAOut> {
                         itemCount: rowsData.length,
                         itemExtent: _rowHeight,
                         itemBuilder: (context, index) {
-                          return _actionDataCell(
-                            rowsData[index],
-                            actionWidth,
-                          );
+                          return _actionDataCell(rowsData[index], actionWidth);
                         },
                       ),
                     ),
@@ -785,10 +746,7 @@ class _QAOutState extends State<QAOut> {
                 children: [
                   const Text(
                     'Update QA Out Date',
-                    style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 12),
                   sopField,

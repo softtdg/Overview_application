@@ -64,7 +64,10 @@ class _PublicSearchState extends State<Publicsearch> {
 
   String get _fixtureNumberInput => PublicSearchController.text.trim();
 
-  void _syncTableHorizontalScroll(ScrollController source, ScrollController target) {
+  void _syncTableHorizontalScroll(
+    ScrollController source,
+    ScrollController target,
+  ) {
     if (_syncingTableHorizontalScroll) return;
     if (!source.hasClients || !target.hasClients) return;
     final delta = (target.offset - source.offset).abs();
@@ -113,7 +116,10 @@ class _PublicSearchState extends State<Publicsearch> {
         if (!mounted || !_bodyScrollController.hasClients) return;
         if (!hasSearched || isSopLoading || isTableLoading) return;
         final p = _bodyScrollController.position;
-        final target = _kMaxBodyVerticalScrollPixels.clamp(0.0, p.maxScrollExtent);
+        final target = _kMaxBodyVerticalScrollPixels.clamp(
+          0.0,
+          p.maxScrollExtent,
+        );
         if (target <= 0) return;
         _bodyScrollController.animateTo(
           target,
@@ -416,13 +422,15 @@ class _PublicSearchState extends State<Publicsearch> {
     // Tall enough that header + SOP + table area usually exceeds the viewport,
     // so the outer body scroll view gets scroll extent (not only the inner table).
     const estimatedHeaderPx = 380.0;
-    final tableBoxHeight =
-        (bodyViewportHeight - estimatedHeaderPx + 120).clamp(240.0, 680.0);
+    final tableBoxHeight = (bodyViewportHeight - estimatedHeaderPx + 120).clamp(
+      240.0,
+      680.0,
+    );
 
     return Scaffold(
       appBar: CommonAppBar(
-        showBack: hasSearched,
-        onBack: _handleNewSearch,
+        showBackButton: hasSearched,
+        onBackPressed: _handleNewSearch,
       ),
       drawer: const CommonDrawer(),
       backgroundColor: Colors.white,
@@ -438,177 +446,138 @@ class _PublicSearchState extends State<Publicsearch> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Center(
-                  child: Text(
-                  "Public Search",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 25,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                ),
-                
-              ),
-
-              if (hasSearched) ...[
-                const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: SizedBox(
-                    height: 40,
-                    child: ElevatedButton.icon(
-                      onPressed: _handleNewSearch,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2563EB),
-                        foregroundColor: Colors.white,
-                        elevation: 1,
-                        shadowColor: Colors.black.withOpacity(0.05),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                      ),
-                      icon: const Icon(Icons.search, size: 18),
-                      label: const Text(
-                        "New Search",
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-
-              if (!hasSearched) ...[
-                Center(
-                  child: SizedBox(
-                    width: searchFieldWidth,
-                    child: TextField(
-                      controller: PublicSearchController,
-                      // Show numeric keyboard
-                      keyboardType: TextInputType.number,
-                      // Allow only Number
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9-]')),
-                      ],
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Colors.white,
-                        // prefixIcon: Icon(Icons.lock),
-                        hintText: 'Enter Fixture Number',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color.fromARGB(255, 22, 129, 218),
-                            width: 2,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Colors.blue,
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                      textInputAction: TextInputAction.search,
-                      onSubmitted: (_) => performSearch(),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-
-                Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        height: 45,
-                        width: 200,
-                        child: ElevatedButton(
-                          onPressed: (isSopLoading || isTableLoading)
-                              ? null
-                              : performSearch,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Color.fromARGB(255, 57, 73, 95),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text(
-                            "Search",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-
-              SizedBox(height: 16),
-
-              if (hasSearched)
-                const Text(
-                  "Available SOPs",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-                ),
-
-              const SizedBox(height: 16),
-              if (isSopLoading)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 32),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Align(
+                  alignment: Alignment.centerLeft,
                   child: Center(
-                    child: CircularProgressIndicator(
-                      color: Color.fromARGB(255, 57, 73, 95),
+                    child: Text(
+                      "Public Search",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 25,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                )
-              else ...[
-                SizedBox(
-                  height: 180,
-                  child: !hasSearched
-                      ? const SizedBox.shrink()
-                      : sopList.isEmpty
-                      ? const Center(child: Text("No SOP Data Found"))
-                      : Scrollbar(
-                          controller: _scrollController,
-                          thumbVisibility: true,
-                          trackVisibility: true,
-                          child: ListView.builder(
-                            padding: const EdgeInsets.only(bottom: 24),
-                            controller: _scrollController,
-                            scrollDirection: Axis.horizontal,
-                            itemCount: sopList.length,
-                            itemBuilder: (context, index) {
-                              final item = sopList[index];
+                ),
 
-                              return _buildSOPCard(
-                                item["SOPNum"]?.toString() ?? "-",
-                                formatDate(item["ODD"]),
-                                item["Quantity"]?.toString() ?? "-",
-                              );
-                            },
+                if (hasSearched) ...[
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: SizedBox(
+                      height: 40,
+                      child: ElevatedButton.icon(
+                        onPressed: _handleNewSearch,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2563EB),
+                          foregroundColor: Colors.white,
+                          elevation: 1,
+                          shadowColor: Colors.black.withOpacity(0.05),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
                           ),
                         ),
-                ),
+                        icon: const Icon(Icons.search, size: 18),
+                        label: const Text(
+                          "New Search",
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+
+                if (!hasSearched) ...[
+                  Center(
+                    child: SizedBox(
+                      width: searchFieldWidth,
+                      child: TextField(
+                        controller: PublicSearchController,
+                        // Show numeric keyboard
+                        keyboardType: TextInputType.number,
+                        // Allow only Number
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9-]')),
+                        ],
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          // prefixIcon: Icon(Icons.lock),
+                          hintText: 'Enter Fixture Number',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Color.fromARGB(255, 22, 129, 218),
+                              width: 2,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Colors.blue,
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                        textInputAction: TextInputAction.search,
+                        onSubmitted: (_) => performSearch(),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          height: 45,
+                          width: 200,
+                          child: ElevatedButton(
+                            onPressed: (isSopLoading || isTableLoading)
+                                ? null
+                                : performSearch,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color.fromARGB(255, 57, 73, 95),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              "Search",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                SizedBox(height: 16),
+
+                if (hasSearched)
+                  const Text(
+                    "Available SOPs",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                  ),
+
                 const SizedBox(height: 16),
-                if (isTableLoading)
+                if (isSopLoading)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 32),
                     child: Center(
@@ -617,142 +586,190 @@ class _PublicSearchState extends State<Publicsearch> {
                       ),
                     ),
                   )
-                else if (hasSearched && items.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Center(child: Text("No table data found")),
-                  )
-                else if (hasSearched)
+                else ...[
                   SizedBox(
-                    height: tableBoxHeight,
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final available = constraints.maxWidth;
-                        final colW = _columnWidthsForBomTable(available);
-                        final tableW = _bomTableWidthFor(colW);
+                    height: 180,
+                    child: !hasSearched
+                        ? const SizedBox.shrink()
+                        : sopList.isEmpty
+                        ? const Center(child: Text("No SOP Data Found"))
+                        : Scrollbar(
+                            controller: _scrollController,
+                            thumbVisibility: true,
+                            trackVisibility: true,
+                            child: ListView.builder(
+                              padding: const EdgeInsets.only(bottom: 24),
+                              controller: _scrollController,
+                              scrollDirection: Axis.horizontal,
+                              itemCount: sopList.length,
+                              itemBuilder: (context, index) {
+                                final item = sopList[index];
 
-                        return DecoratedBox(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300),
+                                return _buildSOPCard(
+                                  item["SOPNum"]?.toString() ?? "-",
+                                  formatDate(item["ODD"]),
+                                  item["Quantity"]?.toString() ?? "-",
+                                );
+                              },
+                            ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Material(
-                                color: const Color.fromARGB(255, 57, 73, 95),
-                                elevation: 2,
-                                shadowColor: Colors.black26,
-                                child: SingleChildScrollView(
-                                  controller: _tableHorizontalHeaderController,
-                                  scrollDirection: Axis.horizontal,
-                                  child: SizedBox(
-                                    width: tableW,
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        _bomHeaderCell("TDGPN", colW[0]),
-                                        _bomHeaderCell("Description", colW[1]),
-                                        _bomHeaderCell("Material", colW[2]),
-                                        _bomHeaderCell("Quantity", colW[3]),
-                                        _bomHeaderCell("Size", colW[3]),
-                                        _bomHeaderCell("UOM", colW[3]),
-                                        _bomHeaderCell("State", colW[4]),
-                                        _bomHeaderCell("Vendor", colW[5]),
-                                        _bomHeaderCell("FileName", colW[6]),
-                                      ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (isTableLoading)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Color.fromARGB(255, 57, 73, 95),
+                        ),
+                      ),
+                    )
+                  else if (hasSearched && items.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(child: Text("No table data found")),
+                    )
+                  else if (hasSearched)
+                    SizedBox(
+                      height: tableBoxHeight,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final available = constraints.maxWidth;
+                          final colW = _columnWidthsForBomTable(available);
+                          final tableW = _bomTableWidthFor(colW);
+
+                          return DecoratedBox(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Material(
+                                  color: const Color.fromARGB(255, 57, 73, 95),
+                                  elevation: 2,
+                                  shadowColor: Colors.black26,
+                                  child: SingleChildScrollView(
+                                    controller:
+                                        _tableHorizontalHeaderController,
+                                    scrollDirection: Axis.horizontal,
+                                    child: SizedBox(
+                                      width: tableW,
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          _bomHeaderCell("TDGPN", colW[0]),
+                                          _bomHeaderCell(
+                                            "Description",
+                                            colW[1],
+                                          ),
+                                          _bomHeaderCell("Material", colW[2]),
+                                          _bomHeaderCell("Quantity", colW[3]),
+                                          _bomHeaderCell("Size", colW[3]),
+                                          _bomHeaderCell("UOM", colW[3]),
+                                          _bomHeaderCell("State", colW[4]),
+                                          _bomHeaderCell("Vendor", colW[5]),
+                                          _bomHeaderCell("FileName", colW[6]),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              Expanded(
-                                child: Scrollbar(
-                                  controller: _tableVerticalScrollController,
-                                  thumbVisibility: true,
-                                  trackVisibility: true,
-                                  child: SingleChildScrollView(
+                                Expanded(
+                                  child: Scrollbar(
                                     controller: _tableVerticalScrollController,
-                                    scrollDirection: Axis.vertical,
+                                    thumbVisibility: true,
+                                    trackVisibility: true,
                                     child: SingleChildScrollView(
-                                      controller: _tableHorizontalBodyController,
-                                      scrollDirection: Axis.horizontal,
-                                      child: SizedBox(
-                                        width: tableW,
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            for (final item in items)
-                                              Container(
-                                                color:
-                                                    (item.color.toLowerCase() ==
-                                                            "white")
-                                                        ? Colors.white
-                                                        : Color(
-                                                            int.parse(
-                                                              "0xFF${item.color.replaceAll("#", "")}",
-                                                            ),
+                                      controller:
+                                          _tableVerticalScrollController,
+                                      scrollDirection: Axis.vertical,
+                                      child: SingleChildScrollView(
+                                        controller:
+                                            _tableHorizontalBodyController,
+                                        scrollDirection: Axis.horizontal,
+                                        child: SizedBox(
+                                          width: tableW,
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              for (final item in items)
+                                                Container(
+                                                  color:
+                                                      (item.color
+                                                              .toLowerCase() ==
+                                                          "white")
+                                                      ? Colors.white
+                                                      : Color(
+                                                          int.parse(
+                                                            "0xFF${item.color.replaceAll("#", "")}",
                                                           ),
-                                                child: Row(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    _bomDataCell(
-                                                      item.tdgPn,
-                                                      colW[0],
-                                                    ),
-                                                    _bomDataCell(
-                                                      item.description,
-                                                      colW[1],
-                                                    ),
-                                                    _bomDataCell(
-                                                      item.material,
-                                                      colW[2],
-                                                    ),
-                                                    _bomDataCell(
-                                                      item.quantity.toString(),
-                                                      colW[3],
-                                                    ),
-                                                    _bomDataCell(
-                                                      item.size.toString(),
-                                                      colW[3],
-                                                    ),
-                                                    _bomDataCell(
-                                                      item.UOM.toString(),
-                                                      colW[3],
-                                                    ),
-                                                    _bomDataCell(
-                                                      item.state,
-                                                      colW[4],
-                                                    ),
-                                                    _bomDataCell(
-                                                      item.vendor,
-                                                      colW[5],
-                                                    ),
-                                                    _bomDataCell(
-                                                      item.PathName,
-                                                      colW[6],
-                                                    ),
-                                                  ],
+                                                        ),
+                                                  child: Row(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      _bomDataCell(
+                                                        item.tdgPn,
+                                                        colW[0],
+                                                      ),
+                                                      _bomDataCell(
+                                                        item.description,
+                                                        colW[1],
+                                                      ),
+                                                      _bomDataCell(
+                                                        item.material,
+                                                        colW[2],
+                                                      ),
+                                                      _bomDataCell(
+                                                        item.quantity
+                                                            .toString(),
+                                                        colW[3],
+                                                      ),
+                                                      _bomDataCell(
+                                                        item.size.toString(),
+                                                        colW[3],
+                                                      ),
+                                                      _bomDataCell(
+                                                        item.UOM.toString(),
+                                                        colW[3],
+                                                      ),
+                                                      _bomDataCell(
+                                                        item.state,
+                                                        colW[4],
+                                                      ),
+                                                      _bomDataCell(
+                                                        item.vendor,
+                                                        colW[5],
+                                                      ),
+                                                      _bomDataCell(
+                                                        item.PathName,
+                                                        colW[6],
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
-                                              ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
         ),
       ),
     );

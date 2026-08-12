@@ -21,11 +21,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // Common AppBar
 class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
-<<<<<<< Updated upstream
-  final bool showBack;
-  final VoidCallback? onBack;
-  const CommonAppBar({super.key, this.showBack = false, this.onBack});
-=======
   const CommonAppBar({
     super.key,
     this.showBackButton = false,
@@ -34,7 +29,6 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   final bool showBackButton;
   final VoidCallback? onBackPressed;
->>>>>>> Stashed changes
 
   @override
   Widget build(BuildContext context) {
