@@ -430,10 +430,21 @@ class _PublicSearchState extends State<Publicsearch> {
       680.0,
     );
 
+    final openedFromFixtureLink =
+        widget.fixtureNumber?.toString().trim().isNotEmpty ?? false;
+
     return Scaffold(
       appBar: CommonAppBar(
-        showBackButton: hasSearched,
-        onBackPressed: _handleNewSearch,
+        showBackButton: openedFromFixtureLink || hasSearched,
+        onBackPressed: () {
+          // Opened from Critical Items / fixture click → return to that page.
+          if (openedFromFixtureLink && Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+            return;
+          }
+          // Standalone Public Search → clear results (same as New Search).
+          _handleNewSearch();
+        },
       ),
       drawer: const CommonDrawer(),
       backgroundColor: Colors.white,

@@ -189,9 +189,11 @@ class Dashboard extends StatefulWidget {
 
 class _DashboardState extends State<Dashboard> {
   List<Project> projects = [];
+  /// Full project list used for local title suggestions (no separate search API).
+  List<Project> _allProjectsCache = [];
   bool isLoading = true;
   List<String> searchSuggestion = [];
-  List<Map<String, dynamic>> searchResults = []; // Store full search results
+  List<Project> searchResults = [];
   bool isSearching = false;
   final Map<num, FileObject?> _selectedSclByProject = {};
   final Map<num, FileObject?> _selectedProPlanByProject = {};
@@ -537,53 +539,40 @@ class _DashboardState extends State<Dashboard> {
     }
   }
 
-  Future<void> fetchProjectsBySearch(String code) async {
-    setState(() => isLoading = true);
+  Future<List<Project>> _fetchAllProjectsForSearch() async {
+    if (_allProjectsCache.isNotEmpty) return _allProjectsCache;
 
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('accessToken');
-
-      if (token == null) {
-        setState(() => isLoading = false);
-        return;
-      }
-
-      final response = await http.get(
-        Uri.parse(
-          'http://192.168.1.12:8000/api/projects/get_projects_by_code/$code',
-        ),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final dynamic decoded = jsonDecode(response.body);
-        final List<dynamic> data;
-        if (decoded is Map<String, dynamic> && decoded['projects'] is List) {
-          data = decoded['projects'] as List<dynamic>;
-        } else if (decoded is Map<String, dynamic> && decoded['data'] is List) {
-          data = decoded['data'] as List<dynamic>;
-        } else {
-          data = [];
-        }
-
-        setState(() {
-          projects = data.map((json) => Project.fromJson(json)).toList();
-          _selectedSclByProject.clear();
-          _selectedProPlanByProject.clear();
-          _totalPages = 1;
-          _currentPage = 1;
-          isLoading = false;
-        });
-      } else {
-        setState(() => isLoading = false);
-      }
-    } catch (_) {
-      setState(() => isLoading = false);
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('accessToken');
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
     }
+
+    final response = await http.get(
+      Uri.parse(
+        'https://digitalwall.api.tdgoverview.cloud/api/projects/getPaginatedProjects'
+        '?page=1&limit=1000',
+      ),
+      headers: headers,
+    );
+
+    if (response.statusCode != 200) return _allProjectsCache;
+
+    final dynamic decoded = jsonDecode(response.body);
+    final List<dynamic> data;
+    if (decoded is Map<String, dynamic> && decoded['projects'] is List) {
+      data = decoded['projects'] as List<dynamic>;
+    } else if (decoded is Map<String, dynamic> && decoded['data'] is List) {
+      data = decoded['data'] as List<dynamic>;
+    } else if (decoded is List) {
+      data = decoded;
+    } else {
+      data = [];
+    }
+
+    _allProjectsCache = data.map((json) => Project.fromJson(json)).toList();
+    return _allProjectsCache;
   }
 
   Future<void> fetchProjects({bool resetToFirstPage = false}) async {
@@ -595,7 +584,7 @@ class _DashboardState extends State<Dashboard> {
     });
     final limit = _pageLimit;
     final Uri url = Uri.parse(
-      'http://192.168.1.12:8000/api/projects/getPaginatedProjects'
+      'https://digitalwall.api.tdgoverview.cloud/api/projects/getPaginatedProjects'
       '?page=$_currentPage&limit=$limit',
     );
     final prefs = await SharedPreferences.getInstance();
@@ -644,6 +633,10 @@ class _DashboardState extends State<Dashboard> {
           _totalPages = totalPages;
           isLoading = false;
         });
+        // Warm search cache in background (all titles for suggestions).
+        if (_allProjectsCache.isEmpty) {
+          _fetchAllProjectsForSearch();
+        }
       } else if (response.statusCode == 401) {
         setState(() {
           isLoading = false;
@@ -668,80 +661,60 @@ class _DashboardState extends State<Dashboard> {
       isSearching = true;
     });
 
-    // Get the access token
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('accessToken');
+    try {
+      final allProjects = await _fetchAllProjectsForSearch();
+      final q = query.trim().toLowerCase();
+      final matches = allProjects
+          .where((p) => p.title.toLowerCase().contains(q))
+          .toList();
 
-    if (token == null) {
+      if (!mounted) return;
       setState(() {
+        searchResults = matches;
+        searchSuggestion = matches.map((p) => p.title).toList();
         isSearching = false;
       });
-      return;
-    }
-
-    try {
-      final response = await http.get(
-        Uri.parse(
-          "http://192.168.1.12:8000/api/projects/get_projects_title?search=$query",
-        ),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        var responseData = jsonDecode(response.body);
-
-        // Check if response has projects array
-        if (responseData['projects'] != null) {
-          var projects = responseData['projects'] as List<dynamic>;
-
-          setState(() {
-            searchResults = projects.cast<Map<String, dynamic>>();
-            searchSuggestion = projects
-                .map((project) => project['title'] as String)
-                .toList();
-            isSearching = false;
-          });
-        } else {
-          setState(() {
-            searchResults = [];
-            searchSuggestion = [];
-            isSearching = false;
-          });
-        }
-      } else {
-        setState(() {
-          isSearching = false;
-        });
-      }
-    } catch (e) {
+    } catch (_) {
+      if (!mounted) return;
       setState(() {
+        searchResults = [];
+        searchSuggestion = [];
         isSearching = false;
       });
     }
   }
 
   Future<void> _selectProjectFromSearch(String title) async {
-    final projectData = searchResults.cast<Map<String, dynamic>?>().firstWhere(
-      (project) => project?['title'] == title,
-      orElse: () => null,
-    );
+    Project? projectData;
+    for (final project in searchResults) {
+      if (project.title == title) {
+        projectData = project;
+        break;
+      }
+    }
+    if (projectData == null) {
+      for (final project in _allProjectsCache) {
+        if (project.title == title) {
+          projectData = project;
+          break;
+        }
+      }
+    }
 
     if (projectData == null) return;
-
-    final code = projectData['code'];
-    if (code == null) return;
 
     setState(() {
       searchSuggestion = [];
       isSearching = false;
       _searchQuery = title;
       _searchController.text = title;
+      projects = [projectData!];
+      _selectedSclByProject.clear();
+      _selectedProPlanByProject.clear();
+      _totalPages = 1;
+      _currentPage = 1;
+      isLoading = false;
     });
-
-    await fetchProjectsBySearch(code.toString());
   }
 
   // Future<void> _performLogout() async {
@@ -937,7 +910,7 @@ class _DashboardState extends State<Dashboard> {
                       onChanged: (value) {
                         _searchQuery = value;
                         if (value.isNotEmpty) {
-                          Future.delayed(const Duration(milliseconds: 500), () {
+                          Future.delayed(const Duration(seconds: 3), () {
                             if (_searchQuery == value) {
                               _searchProjects(value);
                             }
