@@ -3,6 +3,7 @@ import 'package:overview_app/Screen/Public-Search/Services/PublicSearchService.d
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
@@ -592,13 +593,9 @@ class _PublicSearchState extends State<Publicsearch> {
 
                 const SizedBox(height: 16),
                 if (isSopLoading)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 32),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: Color.fromARGB(255, 57, 73, 95),
-                      ),
-                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    child: Center(child: AppLoader()),
                   )
                 else ...[
                   SizedBox(
@@ -632,13 +629,9 @@ class _PublicSearchState extends State<Publicsearch> {
                   ),
                   const SizedBox(height: 16),
                   if (isTableLoading)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 32),
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: Color.fromARGB(255, 57, 73, 95),
-                        ),
-                      ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: Center(child: AppLoader()),
                     )
                   else if (hasSearched)
                     SizedBox(

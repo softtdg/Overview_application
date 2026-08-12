@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/ShippingEdit/Components/ShippingEditEntry.dart';
 import 'package:overview_app/Screen/ShippingIn/Services/ShippingInService.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 class ShippingEdit extends StatefulWidget {
@@ -436,9 +437,7 @@ class _ShippingEditState extends State<ShippingEdit> {
             Expanded(
               child: isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(
-                        color: Color.fromARGB(255, 57, 73, 95),
-                      ),
+                      child: Center(child: AppLoader())
                     )
                   : buildTable(),
             ),

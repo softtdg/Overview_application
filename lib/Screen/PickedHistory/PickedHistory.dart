@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/PickedHistory/Services/PickedHistoryService.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:overview_app/Widgets/pagination_bar.dart';
+
 
 class ItemModel {
   final String sopNumber;
@@ -278,11 +280,10 @@ class _PickedHistoryState extends State<PickedHistory> {
               ),
               const SizedBox(height: 16),
               if (isLoading)
-                const Expanded(
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: Color.fromARGB(255, 57, 73, 95),
-                    ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    child: Center(child: AppLoader()),
                   ),
                 )
               else if (items.isEmpty)

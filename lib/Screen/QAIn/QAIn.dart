@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/QAIn/Components/QAInEditEntry.dart';
 import 'package:overview_app/Screen/QAIn/Services/QAInService.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 class QAIn extends StatefulWidget {
@@ -831,9 +832,7 @@ class _QAInState extends State<QAIn> {
             Expanded(
               child: isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(
-                        color: Color.fromARGB(255, 57, 73, 95),
-                      ),
+                      child: Center(child: AppLoader())
                     )
                   : buildTable(QaInHistory),
             ),

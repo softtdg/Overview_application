@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/QAOut/Services/QAOutService.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 class QAOutEditEntry extends StatefulWidget {
@@ -631,11 +632,7 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
               isLoading
                   ? const SizedBox(
                       height: 220,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: Color.fromARGB(255, 57, 73, 95),
-                        ),
-                      ),
+                      child: Center(child: AppLoader()),
                     )
                   : buildTable(),
 

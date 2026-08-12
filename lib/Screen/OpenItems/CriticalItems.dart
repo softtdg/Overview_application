@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Screen/OpenItems/Components/Query.dart';
 import 'package:overview_app/Screen/OpenItems/Services/OpenItemsServices.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:overview_app/Widgets/pagination_bar.dart';
 import 'package:overview_app/Screen/Public-Search/PublicSearch.dart';
@@ -1141,11 +1142,7 @@ class _CriticalItemsState extends State<CriticalItems> {
             const SizedBox(height: 12),
             Expanded(
               child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF344963),
-                      ),
-                    )
+                  ? const Center(child: AppLoader())
                   : _filteredRows.isEmpty
                   ? Center(
                       child: Text(

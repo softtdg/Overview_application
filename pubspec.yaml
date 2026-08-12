@@ -43,6 +43,7 @@ dependencies:
   intl: ^0.18.0
   data_table_2: ^2.7.2
   webview_flutter: ^4.8.0
+  lottie: ^3.3.0
 
 dev_dependencies:
   flutter_test:

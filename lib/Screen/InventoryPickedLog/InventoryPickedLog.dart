@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/InventoryPickedLog/Services/InventoryPickedLogService.dart';
 import 'package:overview_app/Screen/InventoryPickedLog/ViewPickedLog.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 class ItemModel {
@@ -589,9 +590,28 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                     child: SizedBox(
                       width: 220,
                       child: DropdownButtonFormField<String>(
-                        decoration: const InputDecoration(
-                          labelText: 'Status',
-                          border: OutlineInputBorder(),
+                        dropdownColor: Colors.white,
+                        decoration: InputDecoration(
+                          // labelText: 'Status',
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderSide: const BorderSide(
+                              color: Color(0xFF38485E),
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(
+                              color: Color.fromARGB(255, 229, 231, 235),
+                              width: 2,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(
+                              color: Color(0xFF38485E),
+                              width: 2,
+                            ),
+                          ),
                         ),
                         value: selectedPickList,
                         items: itemList.map((item) {
@@ -610,26 +630,46 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                   ),
                   const SizedBox(width: 12),
                   SizedBox(
-                    width: 155,
+                    width: 280,
                     child: TextField(
                       controller: _pickListSearchController,
                       keyboardType: TextInputType.number,
+                      style: const TextStyle(fontSize: 14),
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: Colors.white,
-                        hintText: 'Pick List Number',
+                        hintText: 'Search by Pick List Number...',
+                        hintStyle: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          size: 20,
+                          color: Colors.grey.shade800,
+                        ),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 14,
+                        ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: Color.fromARGB(255, 229, 231, 235),
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey, width: 1),
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: Color.fromARGB(255, 229, 231, 235),
+                            width: 2,
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
-                            color: const Color.fromARGB(255, 22, 129, 218),
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF38485E),
                             width: 2,
                           ),
                         ),
@@ -652,13 +692,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
               const SizedBox(height: 16),
 
               if (isLoading)
-                const Expanded(
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: Color.fromARGB(255, 57, 73, 95),
-                    ),
-                  ),
-                )
+                const Expanded(child: Center(child: AppLoader()))
               else
                 Expanded(
                   child: items.isEmpty

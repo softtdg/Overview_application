@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:overview_app/Screen/Public-Search/PublicSearch.dart';
 import 'package:overview_app/Screen/SOPSearch/Services/SOPSearchService.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:overview_app/Widgets/card.dart';
 import 'package:intl/intl.dart';
@@ -502,10 +503,9 @@ class _SOPSearchState extends State<SOPSearch> {
                       SizedBox(height: 16),
 
                       if (isLoading)
-                        const Center(
-                          child: CircularProgressIndicator(
-                            color: Color.fromARGB(255, 57, 73, 95),
-                          ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 32),
+                          child: const Center(child: AppLoader()),
                         )
                       else if (sopCards != null) ...[
                         if (isTablet)

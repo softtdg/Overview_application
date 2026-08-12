@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:overview_app/Screen/MPF/Components/picklist.dart';
 import 'package:overview_app/Screen/MPF/Services/MPFServices.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -945,10 +946,7 @@ class _MPFRequestState extends State<MPFRequest> {
                           SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Color(0xFF1976D2),
-                            ),
+                            child: Center(child: AppLoader())
                           ),
                           SizedBox(width: 10),
                           Text(

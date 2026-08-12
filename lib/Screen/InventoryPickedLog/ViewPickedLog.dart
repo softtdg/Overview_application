@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/InventoryPickedLog/Services/InventoryPickedLogService.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 
 String _formatDisplayDate(String raw) {
   final value = raw.trim();
@@ -430,7 +431,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
                 if (isLoading)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(child: CircularProgressIndicator()),
+                    child: Center(child: AppLoader()),
                   )
                 else
                   _buildInfoGrid(today, isMobile: isMobile),

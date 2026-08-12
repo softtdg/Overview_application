@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
@@ -468,7 +469,7 @@ class _ExpediteReportState extends State<ExpediteReport> {
         if (_isLoading && _errorMessage == null)
           const IgnorePointer(
             child: Center(
-              child: CircularProgressIndicator(color: Color(0xFF39495F)),
+              child: Center(child: AppLoader()),
             ),
           ),
       ],

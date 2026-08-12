@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:lottie/lottie.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
@@ -443,7 +445,7 @@ class _DashboardState extends State<Dashboard> {
                     SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: Center(child: AppLoader()),
                     ),
                     SizedBox(width: 12),
                     Text('Searching...', style: TextStyle(fontSize: 14)),
@@ -773,6 +775,10 @@ class _DashboardState extends State<Dashboard> {
   //   }
   // }
 
+  Widget _buildLoadingLottie() {
+    return _dashboardLottieLoader(size: 80);
+  }
+
   Widget _buildProjectsBody() {
     final isWide = MediaQuery.sizeOf(context).width >= 600;
 
@@ -939,7 +945,10 @@ class _DashboardState extends State<Dashboard> {
           ),
           backgroundColor: Colors.white,
           body: isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? ColoredBox(
+                  color: const Color(0xFFF5F5F5),
+                  child: Center(child: _buildLoadingLottie()),
+                )
               : projects.isEmpty
               ? const Center(child: Text('No projects found'))
               : ColoredBox(
@@ -1231,6 +1240,40 @@ bool _hasDashboardAsset(String? path) {
   return t.isNotEmpty && t != 'null';
 }
 
+Widget _dashboardLottieLoader({double size = 80}) {
+  const loaderColor = Color(0xFF0D0F36);
+  return ColorFiltered(
+    colorFilter: const ColorFilter.mode(loaderColor, BlendMode.srcIn),
+    child: Lottie.asset(
+      'assets/lottie/loading.json',
+      package: 'digital_wall',
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      repeat: true,
+      errorBuilder: (context, error, stackTrace) {
+        return ColorFiltered(
+          colorFilter: const ColorFilter.mode(loaderColor, BlendMode.srcIn),
+          child: Lottie.asset(
+            'assets/lottie/loading.json',
+            width: size,
+            height: size,
+            fit: BoxFit.contain,
+            repeat: true,
+            errorBuilder: (context, error2, stackTrace2) {
+              return SizedBox(
+                width: size,
+                height: size,
+                child: Center(child: AppLoader())
+              );
+            },
+          ),
+        );
+      },
+    ),
+  );
+}
+
 /// Header / overlay logo using the same OCI URL + authenticated fallback as the hero image.
 Widget _dashboardLogoImage(
   String relativePath,
@@ -1252,26 +1295,14 @@ Widget _dashboardLogoImage(
       alignment: Alignment.center,
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
-        return const Center(
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        );
+        return Center(child: _dashboardLottieLoader(size: 24));
       },
       errorBuilder: (context, error, stackTrace) {
         return FutureBuilder<Uint8List?>(
           future: fetchImage(relativePath),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              );
+              return Center(child: _dashboardLottieLoader(size: 24));
             }
             if (snapshot.hasData && snapshot.data != null) {
               return Image.memory(
@@ -1327,7 +1358,7 @@ Widget buildProjectCard(
                     if (loadingProgress == null) return child;
                     return Container(
                       color: Colors.grey[300],
-                      child: const Center(child: CircularProgressIndicator()),
+                      child: Center(child: _dashboardLottieLoader(size: 48)),
                     );
                   },
                   errorBuilder: (context, error, stackTrace) {
@@ -1338,8 +1369,8 @@ Widget buildProjectCard(
                             ConnectionState.waiting) {
                           return Container(
                             color: Colors.grey[300],
-                            child: const Center(
-                              child: CircularProgressIndicator(),
+                            child: Center(
+                              child: _dashboardLottieLoader(size: 48),
                             ),
                           );
                         }
@@ -1658,7 +1689,7 @@ class _ExcelPreviewPanelState extends State<_ExcelPreviewPanel> {
       future: _sheetFuture,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: AppLoader());
         }
 
         final sheet = snap.data;
@@ -1790,7 +1821,7 @@ void _showFilePreview(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  CircularProgressIndicator(),
+                                  AppLoader(),
                                   SizedBox(height: 16),
                                   Text('Loading file...'),
                                 ],
@@ -1949,7 +1980,7 @@ class _PdfViewerWidgetState extends State<_PdfViewerWidget> {
           border: Border.all(color: Colors.grey),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Center(child: CircularProgressIndicator()),
+        child: const Center(child: AppLoader()),
       );
     }
 

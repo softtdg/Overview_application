@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/QAEdit/Services/Components/QAEditEntry.dart';
 import 'package:overview_app/Screen/QAEdit/Services/QAEditService.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:overview_app/Widgets/pagination_bar.dart';
 
@@ -636,9 +637,7 @@ class _QAEditState extends State<QAEdit> {
           if (isLoading)
             const Expanded(
               child: Center(
-                child: CircularProgressIndicator(
-                  color: Color.fromARGB(255, 57, 73, 95),
-                ),
+                child: Center(child: AppLoader())
               ),
             )
           else

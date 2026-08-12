@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/QAOut/Components/QAOutEditEntry.dart';
 import 'package:overview_app/Screen/QAOut/Services/QAOutService.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 class QAOut extends StatefulWidget {
@@ -811,11 +812,7 @@ class _QAOutState extends State<QAOut> {
             const SizedBox(height: 6),
             Expanded(
               child: isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: Color.fromARGB(255, 57, 73, 95),
-                      ),
-                    )
+                  ? const Center(child: Center(child: AppLoader()))
                   : buildTable(QaOutHistory),
             ),
           ],

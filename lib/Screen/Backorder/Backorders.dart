@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:overview_app/Screen/Backorder/Services/BackorderService.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:overview_app/Widgets/pagination_bar.dart';
 
@@ -762,9 +763,7 @@ class _BackordersTableState extends State<Backorders> {
                 Expanded(
                   child: _isLoading || _rows.isEmpty
                       ? const Center(
-                          child: CircularProgressIndicator(
-                            color: Color(0xFF607D99),
-                          ),
+                          child: Center(child: AppLoader())
                         )
                       : Column(
                           children: [

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/ShippingOut/Components/EditShippingOutEntry.dart';
 import 'package:overview_app/Screen/ShippingOut/Services/ShippingOutServices.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 class ShippingOut extends StatefulWidget {
@@ -100,22 +101,22 @@ class _ShippingOutState extends State<ShippingOut> {
   void initState() {
     super.initState();
     _historyLeftVerticalScroll.addListener(
-      () => _syncScroll(
-        _historyLeftVerticalScroll,
-        [_historyMiddleVerticalScroll, _historyActionsVerticalScroll],
-      ),
+      () => _syncScroll(_historyLeftVerticalScroll, [
+        _historyMiddleVerticalScroll,
+        _historyActionsVerticalScroll,
+      ]),
     );
     _historyMiddleVerticalScroll.addListener(
-      () => _syncScroll(
-        _historyMiddleVerticalScroll,
-        [_historyLeftVerticalScroll, _historyActionsVerticalScroll],
-      ),
+      () => _syncScroll(_historyMiddleVerticalScroll, [
+        _historyLeftVerticalScroll,
+        _historyActionsVerticalScroll,
+      ]),
     );
     _historyActionsVerticalScroll.addListener(
-      () => _syncScroll(
-        _historyActionsVerticalScroll,
-        [_historyLeftVerticalScroll, _historyMiddleVerticalScroll],
-      ),
+      () => _syncScroll(_historyActionsVerticalScroll, [
+        _historyLeftVerticalScroll,
+        _historyMiddleVerticalScroll,
+      ]),
     );
     GetShippingOutHistory();
   }
@@ -131,10 +132,7 @@ class _ShippingOutState extends State<ShippingOut> {
     super.dispose();
   }
 
-  void _syncScroll(
-    ScrollController source,
-    List<ScrollController> targets,
-  ) {
+  void _syncScroll(ScrollController source, List<ScrollController> targets) {
     for (final target in targets) {
       if (!target.hasClients) continue;
       if (target.offset != source.offset) {
@@ -193,20 +191,20 @@ class _ShippingOutState extends State<ShippingOut> {
   ];
 
   List<BoxShadow> get _leftStickyShadow => [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.12),
-          blurRadius: 6,
-          offset: const Offset(2, 0),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withOpacity(0.12),
+      blurRadius: 6,
+      offset: const Offset(2, 0),
+    ),
+  ];
 
   List<BoxShadow> get _rightStickyShadow => [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.12),
-          blurRadius: 6,
-          offset: const Offset(-2, 0),
-        ),
-      ];
+    BoxShadow(
+      color: Colors.black.withOpacity(0.12),
+      blurRadius: 6,
+      offset: const Offset(-2, 0),
+    ),
+  ];
 
   List<double> _scaledMiddleWidths({
     required bool showLastEditedAndAction,
@@ -249,11 +247,7 @@ class _ShippingOutState extends State<ShippingOut> {
     );
   }
 
-  Widget _bodyTextCell(
-    String text,
-    double width, {
-    bool wrap = false,
-  }) {
+  Widget _bodyTextCell(String text, double width, {bool wrap = false}) {
     return Container(
       width: width,
       height: _rowHeight,
@@ -370,9 +364,7 @@ class _ShippingOutState extends State<ShippingOut> {
     print("PASSING SOPId: $SOPId");
     final updated = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => EditShippingOutEntry(SOPId: SOPId),
-      ),
+      MaterialPageRoute(builder: (_) => EditShippingOutEntry(SOPId: SOPId)),
     );
     if (updated == true) {
       await GetShippingOutHistory();
@@ -533,10 +525,7 @@ class _ShippingOutState extends State<ShippingOut> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildPlainHeaderRow(
-                    widths,
-                    showLastEdited: showLastEdited,
-                  ),
+                  _buildPlainHeaderRow(widths, showLastEdited: showLastEdited),
                   ...rowsData.map(
                     (item) => _buildPlainDataRow(
                       item,
@@ -551,14 +540,15 @@ class _ShippingOutState extends State<ShippingOut> {
         }
 
         final reserved = leftWidth + (showAction ? actionWidth : 0);
-        final middleAvailable =
-            (constraints.maxWidth - reserved).clamp(0.0, double.infinity);
+        final middleAvailable = (constraints.maxWidth - reserved).clamp(
+          0.0,
+          double.infinity,
+        );
         final middleWidths = _scaledMiddleWidths(
           showLastEditedAndAction: showLastEdited,
           availableMiddleWidth: middleAvailable,
         );
-        final middleWidth =
-            middleWidths.fold<double>(0, (sum, w) => sum + w);
+        final middleWidth = middleWidths.fold<double>(0, (sum, w) => sum + w);
 
         return Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -624,10 +614,7 @@ class _ShippingOutState extends State<ShippingOut> {
                         itemCount: rowsData.length,
                         itemExtent: _rowHeight,
                         itemBuilder: (context, index) {
-                          return _actionDataCell(
-                            rowsData[index],
-                            actionWidth,
-                          );
+                          return _actionDataCell(rowsData[index], actionWidth);
                         },
                       ),
                     ),
@@ -737,10 +724,7 @@ class _ShippingOutState extends State<ShippingOut> {
                 children: [
                   const Text(
                     'Update SOP Shipping Out Date',
-                    style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 12),
                   sopField,
@@ -758,10 +742,7 @@ class _ShippingOutState extends State<ShippingOut> {
                   shrinkWrap: true,
                 ),
                 const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: updateButton,
-                ),
+                Align(alignment: Alignment.centerLeft, child: updateButton),
                 const SizedBox(height: 12),
               ] else
                 Container(
@@ -793,11 +774,7 @@ class _ShippingOutState extends State<ShippingOut> {
             const SizedBox(height: 8),
             Expanded(
               child: isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: Color.fromARGB(255, 57, 73, 95),
-                      ),
-                    )
+                  ? const Center(child: Center(child: AppLoader()))
                   : buildTable(ShippingOutHistory),
             ),
           ],

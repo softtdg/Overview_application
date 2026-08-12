@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:overview_app/Screen/ShippingIn/Compomnents/EditShippingInEntry.dart';
 import 'package:overview_app/Screen/ShippingIn/Services/ShippingInService.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:intl/intl.dart';
 
@@ -425,9 +426,7 @@ class _ShippingInState extends State<ShippingIn> {
             Expanded(
               child: isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(
-                        color: Color.fromARGB(255, 57, 73, 95),
-                      ),
+                      child: Center(child: AppLoader())
                     )
                   : buildTable(),
             ),

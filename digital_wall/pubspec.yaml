@@ -133,6 +133,7 @@ dependencies:
   overview_app:
     path: ..
   excel: ^4.0.6
+  lottie: ^3.3.0
 
 dev_dependencies:
   flutter_test:
@@ -146,6 +147,8 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/lottie/
+    - assets/lottie/loading.json
 
   fonts:
     - family: bold
