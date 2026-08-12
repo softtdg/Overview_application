@@ -415,84 +415,89 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
       drawer: const CommonDrawer(),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Align(
-              alignment: Alignment.center,
-              child: Text(
-                "Edit Shipping Entry",
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: Color.fromARGB(255, 57, 73, 95),
-                      ),
-                    )
-                  : buildTable(),
-            ),
-            const SizedBox(height: 20),
-            Align(
-              alignment: Alignment.center,
-              child: SizedBox(
-                width: 200,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : handleShippingEditDate,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1565C0),
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: const Color(0xFF1565C0),
-                    disabledForegroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    elevation: 8,
-                    shadowColor: Colors.black.withOpacity(0.35),
-                    surfaceTintColor: Colors.transparent,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Align(
+                alignment: Alignment.center,
+                child: Text(
+                  "Edit Shipping Entry",
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
                   ),
-                  child: isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(color: Colors.white),
-                        )
-                      : const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: Icon(
-                                Icons.save,
-                                size: 20,
-                                color: Colors.white,
-                              ),
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Update Entry',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              if (isLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: Color.fromARGB(255, 57, 73, 95),
+                    ),
+                  ),
+                )
+              else
+                buildTable(),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.center,
+                child: SizedBox(
+                  width: 200,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: isLoading ? null : handleShippingEditDate,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1565C0),
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: const Color(0xFF1565C0),
+                      disabledForegroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      elevation: 8,
+                      shadowColor: Colors.black.withOpacity(0.35),
+                      surfaceTintColor: Colors.transparent,
+                    ),
+                    child: isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child:
+                                CircularProgressIndicator(color: Colors.white),
+                          )
+                        : const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: Icon(
+                                  Icons.save,
+                                  size: 20,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Update Entry',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -33,6 +33,8 @@ class _MPFRequestState extends State<MPFRequest> {
   bool _showPartBox = false;
   String? _mpfRequestedBy;
   final List<_PartItem> _partItems = [_PartItem()];
+  OverlayEntry? _errorToastEntry;
+  Timer? _errorToastTimer;
 
   static const _mpfRequestedByList = [
     "GEORGEK",
@@ -195,7 +197,125 @@ class _MPFRequestState extends State<MPFRequest> {
     }
   }
 
+  void _hideValidationError() {
+    _errorToastTimer?.cancel();
+    _errorToastTimer = null;
+    _errorToastEntry?.remove();
+    _errorToastEntry = null;
+  }
+
+  void _showValidationError(String message) {
+    if (!mounted) return;
+    _hideValidationError();
+
+    final overlay = Overlay.of(context);
+    _errorToastEntry = OverlayEntry(
+      builder: (context) {
+        return Positioned(
+          top: MediaQuery.of(context).padding.top + 72,
+          right: 16,
+          child: Material(
+            color: Colors.transparent,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 360),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC62828),
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.18),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: _hideValidationError,
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        message,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    overlay.insert(_errorToastEntry!);
+    _errorToastTimer = Timer(const Duration(seconds: 3), _hideValidationError);
+  }
+
+  bool _validateMpfRequest() {
+    if (_mpfRequestedBy == null || _mpfRequestedBy!.trim().isEmpty) {
+      _showValidationError('Please enter MPF Requested By');
+      return false;
+    }
+
+    if (_mpfRequestedBy == 'Other' &&
+        _mpfRequestedByOtherController.text.trim().isEmpty) {
+      _showValidationError('Please enter Other (MPF Requested By)');
+      return false;
+    }
+
+    for (var i = 0; i < _partItems.length; i++) {
+      final item = _partItems[i];
+      final itemLabel = 'item ${i + 1}';
+      final partNo = item.partController.text.trim();
+      final qtyText = item.qtyController.text.trim();
+      final qty = num.tryParse(qtyText);
+
+      if (partNo.isEmpty) {
+        _showValidationError('Please enter Part Number for $itemLabel');
+        return false;
+      }
+
+      if (qtyText.isEmpty || qty == null || qty <= 0) {
+        _showValidationError('Please enter valid Qty for $itemLabel');
+        return false;
+      }
+
+      if (item.comment == null || item.comment!.trim().isEmpty) {
+        _showValidationError('Please enter Comment for Item ${i + 1}');
+        return false;
+      }
+
+      if (item.comment == 'Other' &&
+          item.commentController.text.trim().isEmpty) {
+        _showValidationError('Please enter Other (Comment) for $itemLabel');
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   Future<void> _submitInventoryPicklist() async {
+    if (!_validateMpfRequest()) return;
+
     try {
       await Dioservices.setToken();
 
@@ -219,7 +339,7 @@ class _MPFRequestState extends State<MPFRequest> {
           "Size": partDetail["Size"] ?? 0,
           "TDGPN": item.partController.text.trim(),
           "TotalQtyNeeded": 0,
-          "UnitOfMeasure": item.unitOfMeasure ?? "PCS",
+          "UnitOfMeasure": "PCS",
           "UnitPrice": "0",
           "Vendor": partDetail["Vendor"] ?? "",
           "VendorPN": partDetail["VendorPN"] ?? "",
@@ -268,6 +388,7 @@ class _MPFRequestState extends State<MPFRequest> {
       }
     } catch (e) {
       print("Error in SubmitMPFRequest api call: $e");
+      _showValidationError('Failed to submit MPF Request');
     }
   }
 
@@ -376,6 +497,14 @@ class _MPFRequestState extends State<MPFRequest> {
     );
   }
 
+  void _removePartItem(int index) {
+    if (_partItems.length <= 1) return;
+    setState(() {
+      final removed = _partItems.removeAt(index);
+      removed.dispose();
+    });
+  }
+
   Widget _buildPartItem(int index) {
     final item = _partItems[index];
     OutlineInputBorder fieldBorder() => OutlineInputBorder(
@@ -394,13 +523,39 @@ class _MPFRequestState extends State<MPFRequest> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "Item ${index + 1}",
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: _titleColor,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  "Item ${index + 1}",
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: _titleColor,
+                  ),
+                ),
+              ),
+              if (_partItems.length > 1)
+                OutlinedButton.icon(
+                  onPressed: () => _removePartItem(index),
+                  icon: const Icon(Icons.delete, size: 16),
+                  label: const Text('Remove'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFC62828),
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: Color(0xFFC62828)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 12),
           Row(
@@ -462,63 +617,6 @@ class _MPFRequestState extends State<MPFRequest> {
                         ),
                         enabledBorder: fieldBorder(),
                         focusedBorder: fieldBorder(),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _requiredLabel('Unit of Measure'),
-                    const SizedBox(height: 8),
-
-                    DropdownButtonFormField<String>(
-                      value: item.unitOfMeasure,
-                      isExpanded: true,
-                      dropdownColor: Colors.white,
-
-                      items: const [
-                        DropdownMenuItem(
-                          value: "Select...",
-                          child: Text("Select..."),
-                        ),
-                        DropdownMenuItem(value: "MM", child: Text("MM")),
-                        DropdownMenuItem(value: "CM", child: Text("CM")),
-                        DropdownMenuItem(value: "M", child: Text("M")),
-                        DropdownMenuItem(value: "LBS", child: Text("LBS")),
-                        DropdownMenuItem(value: "G", child: Text("G")),
-                        DropdownMenuItem(value: "KG", child: Text("KG")),
-                        DropdownMenuItem(value: "ML", child: Text("ML")),
-                        DropdownMenuItem(value: "L", child: Text("L")),
-                        DropdownMenuItem(value: "PCS", child: Text("PCS")),
-                      ],
-
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() {
-                            item.unitOfMeasure = value;
-                          });
-                        }
-                      },
-
-                      decoration: InputDecoration(
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        enabledBorder: fieldBorder(),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF1976D2),
-                            width: 1.5,
-                          ),
-                        ),
                       ),
                     ),
                   ],
@@ -664,7 +762,10 @@ class _MPFRequestState extends State<MPFRequest> {
                 const Text(
                   "Your MPF request has been processed successfully.",
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 17, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 17,
+                    color: Color(0xFF4B5563),
+                  ),
                 ),
 
                 const SizedBox(height: 30),
@@ -958,6 +1059,23 @@ class _MPFRequestState extends State<MPFRequest> {
 
   bool get _showContinueBox {
     return _projectNameController.text.trim().isNotEmpty;
+  }
+
+  @override
+  void dispose() {
+    _hideValidationError();
+    _debounce?.cancel();
+    _fixtureDebounce?.cancel();
+    _sopController.dispose();
+    _projectNameController.dispose();
+    _mpfRequestedByOtherController.dispose();
+    _customSopController.dispose();
+    _newCustomSopController.dispose();
+    _fixtureController.dispose();
+    for (final item in _partItems) {
+      item.dispose();
+    }
+    super.dispose();
   }
 
   @override
@@ -1673,10 +1791,16 @@ class _PartItem {
   final TextEditingController qtyController = TextEditingController();
   final TextEditingController commentController = TextEditingController();
   String? comment;
-  String unitOfMeasure = "PCS";
   Timer? searchDebounce;
   bool suppressSearch = false;
   bool isSearching = false;
   List<Map<String, dynamic>> results = [];
   Map<String, dynamic>? magnifiedData;
+
+  void dispose() {
+    searchDebounce?.cancel();
+    partController.dispose();
+    qtyController.dispose();
+    commentController.dispose();
+  }
 }

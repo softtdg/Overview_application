@@ -475,16 +475,13 @@ class _CriticalItemsState extends State<CriticalItems> {
                             horizontal: 4,
                             vertical: 4,
                           ),
-                          child: Text(
+                          child: _highlightedText(
                             value,
                             textAlign: textAlign,
                             softWrap: true,
                             maxLines: null,
                             overflow: TextOverflow.visible,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         if (!isLast)
@@ -715,15 +712,14 @@ class _CriticalItemsState extends State<CriticalItems> {
             border: Border.all(color: const Color(0xFF39495F)),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Text(
+          child: _highlightedText(
             _pick(row, ['FixtureNumber']),
             textAlign: TextAlign.center,
             softWrap: true,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: Color.fromARGB(255, 90, 106, 131),
-            ),
+            maxLines: null,
+            overflow: TextOverflow.visible,
+            fontWeight: FontWeight.w500,
+            color: const Color.fromARGB(255, 90, 106, 131),
           ),
         ),
       ),
@@ -767,63 +763,57 @@ class _CriticalItemsState extends State<CriticalItems> {
 
   Widget _buildStickyActionsPane(List<Map<String, dynamic>> groupedRows) {
     const borderColor = Color(0xFFD1D5DB);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.12),
-            blurRadius: 6,
-            offset: const Offset(-2, 0),
+    return SizedBox(
+      width: _actionColumnWidth,
+      child: Column(
+        children: [
+          Container(
+            height: 52,
+            width: _actionColumnWidth,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: Color(0xFF344963),
+              border: Border(
+                left: BorderSide(color: borderColor),
+              ),
+            ),
+            child: const Text(
+              'Action',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              controller: _actionsVerticalScroll,
+              itemCount: groupedRows.length,
+              itemBuilder: (context, index) {
+                final group = groupedRows[index];
+                final row = group['row'] as Map<String, dynamic>;
+                final isDisabled = row['Disabled'] == true;
+                return Container(
+                  height: _dataRowHeightForGroup(group, context),
+                  width: _actionColumnWidth,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isDisabled
+                        ? const Color(0xFFB5B5B5)
+                        : const Color(0xFFF0F1F3),
+                    border: const Border(
+                      left: BorderSide(color: borderColor),
+                      bottom: BorderSide(color: borderColor),
+                    ),
+                  ),
+                  child: _buildActionButton(row, isDisabled: isDisabled),
+                );
+              },
+            ),
           ),
         ],
-      ),
-      child: SizedBox(
-        width: _actionColumnWidth,
-        child: Column(
-          children: [
-            Container(
-              height: 52,
-              width: _actionColumnWidth,
-              alignment: Alignment.center,
-              color: const Color(0xFF344963),
-              child: const Text(
-                'Action',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-            Expanded(
-              child: ListView.builder(
-                controller: _actionsVerticalScroll,
-                itemCount: groupedRows.length,
-                itemBuilder: (context, index) {
-                  final group = groupedRows[index];
-                  final row = group['row'] as Map<String, dynamic>;
-                  final isDisabled = row['Disabled'] == true;
-                  return Container(
-                    height: _dataRowHeightForGroup(group, context),
-                    width: _actionColumnWidth,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: isDisabled
-                          ? const Color(0xFFB5B5B5)
-                          : const Color(0xFFF0F1F3),
-                      border: const Border(
-                        left: BorderSide(color: borderColor),
-                        bottom: BorderSide(color: borderColor),
-                      ),
-                    ),
-                    child: _buildActionButton(row, isDisabled: isDisabled),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -844,6 +834,74 @@ class _CriticalItemsState extends State<CriticalItems> {
     return max(52.0, totalHeight + 8);
   }
 
+  Widget _highlightedText(
+    String text, {
+    TextAlign textAlign = TextAlign.center,
+    int? maxLines = 5,
+    bool softWrap = true,
+    FontWeight fontWeight = FontWeight.w500,
+    Color? color,
+    TextOverflow overflow = TextOverflow.ellipsis,
+  }) {
+    final style = TextStyle(fontSize: 13, fontWeight: fontWeight, color: color);
+    final q = _searchQuery.trim();
+    if (q.isEmpty) {
+      return Text(
+        text,
+        softWrap: softWrap,
+        maxLines: maxLines,
+        overflow: overflow,
+        textAlign: textAlign,
+        style: style,
+      );
+    }
+
+    final lower = text.toLowerCase();
+    final needle = q.toLowerCase();
+    if (!lower.contains(needle)) {
+      return Text(
+        text,
+        softWrap: softWrap,
+        maxLines: maxLines,
+        overflow: overflow,
+        textAlign: textAlign,
+        style: style,
+      );
+    }
+
+    final children = <InlineSpan>[];
+    var i = 0;
+    while (i < text.length) {
+      final j = lower.indexOf(needle, i);
+      if (j < 0) {
+        children.add(TextSpan(text: text.substring(i)));
+        break;
+      }
+      if (j > i) {
+        children.add(TextSpan(text: text.substring(i, j)));
+      }
+      final end = j + needle.length;
+      children.add(
+        TextSpan(
+          text: text.substring(j, end),
+          style: style.copyWith(
+            backgroundColor: const Color.fromARGB(255, 245, 197, 41),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+      i = end;
+    }
+
+    return Text.rich(
+      TextSpan(style: style, children: children),
+      softWrap: softWrap,
+      maxLines: maxLines,
+      overflow: overflow,
+      textAlign: textAlign,
+    );
+  }
+
   Widget _tableTextCell(
     String text, {
     double width = 90,
@@ -853,13 +911,12 @@ class _CriticalItemsState extends State<CriticalItems> {
   }) {
     return SizedBox(
       width: width,
-      child: Text(
+      child: _highlightedText(
         text,
-        softWrap: true,
-        maxLines: maxLines,
-        overflow: TextOverflow.ellipsis,
         textAlign: align,
-        style: TextStyle(fontSize: 13, fontWeight: fontWeight),
+        maxLines: maxLines,
+        softWrap: true,
+        fontWeight: fontWeight,
       ),
     );
   }
@@ -954,6 +1011,16 @@ class _CriticalItemsState extends State<CriticalItems> {
       controller: _searchController,
       textInputAction: TextInputAction.search,
       onSubmitted: (_) => _runSearch(),
+      onChanged: (value) {
+        // Clearing the input restores the full table immediately.
+        if (value.trim().isEmpty && _searchQuery.isNotEmpty) {
+          setState(() {
+            _searchQuery = '';
+            _currentPage = 1;
+            _clampCurrentPage();
+          });
+        }
+      },
       decoration: InputDecoration(
         hintText: 'Search in table...',
         contentPadding: EdgeInsets.symmetric(
@@ -1080,7 +1147,18 @@ class _CriticalItemsState extends State<CriticalItems> {
                       ),
                     )
                   : _filteredRows.isEmpty
-                  ? const Center(child: Text('No matching SOP found'))
+                  ? Center(
+                      child: Text(
+                        _searchQuery.isEmpty
+                            ? 'No matching SOP found'
+                            : 'No results found for "$_searchQuery".',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [

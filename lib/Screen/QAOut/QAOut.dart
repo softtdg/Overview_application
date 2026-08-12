@@ -63,7 +63,6 @@ class _QAOutState extends State<QAOut> {
               return sopTokens.contains(sop);
             }).toList();
     });
-    HandleUpdateQCOutDate();
   }
 
   void _refreshSearchResults() {
@@ -704,6 +703,22 @@ class _QAOutState extends State<QAOut> {
         ),
       ),
     );
+    final updateButton = ElevatedButton.icon(
+      onPressed: HandleUpdateQCOutDate,
+      icon: const Icon(Icons.save, size: 20),
+      label: const Text(
+        'Update QA Out Date',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF1E88E5),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+        ),
+      ),
+    );
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -756,14 +771,17 @@ class _QAOutState extends State<QAOut> {
               ),
             const SizedBox(height: 8),
             if (hasSearched) ...[
-              if (searchedQaOutHistory.isNotEmpty)
+              if (searchedQaOutHistory.isNotEmpty) ...[
                 buildTable(
                   searchedQaOutHistory,
                   showLastEditedAndAction: false,
                   isSearchTable: true,
                   shrinkWrap: true,
-                )
-              else
+                ),
+                const SizedBox(height: 8),
+                Align(alignment: Alignment.centerLeft, child: updateButton),
+                const SizedBox(height: 8),
+              ] else
                 Container(
                   width: double.infinity,
                   margin: const EdgeInsets.only(bottom: 8),
@@ -785,7 +803,6 @@ class _QAOutState extends State<QAOut> {
                     ),
                   ),
                 ),
-              const SizedBox(height: 8),
             ],
             const Text(
               'SOP History',

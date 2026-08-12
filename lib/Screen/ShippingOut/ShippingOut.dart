@@ -422,6 +422,84 @@ class _ShippingOutState extends State<ShippingOut> {
     );
   }
 
+  Widget _buildPlainHeaderRow(
+    List<double> widths, {
+    required bool showLastEdited,
+  }) {
+    return Row(
+      children: [
+        _headerCell('SOP', widths[0]),
+        _headerCell('PO Num', widths[1]),
+        _headerCell('ODD', widths[2]),
+        _headerCell('Customer', widths[3]),
+        _headerCell('Prgm', widths[4]),
+        _headerCell('Loc.', widths[5]),
+        _headerCell('SOP Entry', widths[6]),
+        _headerCell('SOP Out', widths[7]),
+        _headerCell('PROD MGR', widths[8]),
+        _headerCell('Delivery Date', widths[9]),
+        _headerCell('New Comments', widths[10]),
+        if (showLastEdited) _headerCell('Last Edited On', widths[11]),
+      ],
+    );
+  }
+
+  Widget _buildPlainDataRow(
+    Map<String, dynamic> item,
+    List<double> widths, {
+    required bool showLastEdited,
+  }) {
+    return Row(
+      children: [
+        _bodyTextCell(item['SOPNum']?.toString() ?? '-', widths[0]),
+        _bodyTextCell(item['PONum']?.toString() ?? '-', widths[1]),
+        _bodyTextCell(formatDate(item['ODD']?.toString() ?? '-'), widths[2]),
+        _bodyTextCell(
+          item['customer']?.toString() ?? '-',
+          widths[3],
+          wrap: true,
+        ),
+        _bodyTextCell(item['program']?.toString() ?? '-', widths[4]),
+        _bodyTextCell(item['Location']?.toString() ?? '-', widths[5]),
+        _bodyTextCell(
+          formatDate(item['SOPEntryDateIn']?.toString() ?? '-'),
+          widths[6],
+        ),
+        _bodyTextCell(
+          formatDate(item['SOPOrderEntryOut']?.toString() ?? '-'),
+          widths[7],
+        ),
+        _bodyTextCell(item['prodMgr']?.toString() ?? '-', widths[8]),
+        _bodyTextCell(
+          formatDate(item['FinalDeliveryDate']?.toString() ?? '-'),
+          widths[9],
+        ),
+        _bodyTextCell(
+          item['OrderEntryComments']?.toString() ?? '-',
+          widths[10],
+        ),
+        if (showLastEdited)
+          _bodyTextCell(
+            formatDateTime(item['LastEdit']?.toString() ?? '-'),
+            widths[11],
+          ),
+      ],
+    );
+  }
+
+  List<double> _plainTableWidths({
+    required bool showLastEdited,
+    required double availableWidth,
+  }) {
+    final base = showLastEdited
+        ? _baseColWidths.take(12).toList()
+        : _baseColWidths.take(11).toList();
+    final total = base.fold<double>(0, (sum, w) => sum + w);
+    if (availableWidth <= total) return base;
+    final scale = availableWidth / total;
+    return base.map((w) => w * scale).toList();
+  }
+
   Widget buildTable(
     List<Map<String, dynamic>> rowsData, {
     bool showLastEditedAndAction = true,
@@ -439,8 +517,40 @@ class _ShippingOutState extends State<ShippingOut> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final reserved =
-            leftWidth + (showAction ? actionWidth : 0);
+        // Search/first table: normal scrollable table, no sticky columns.
+        if (shrinkWrap || isSearchTable) {
+          final widths = _plainTableWidths(
+            showLastEdited: showLastEdited,
+            availableWidth: constraints.maxWidth,
+          );
+          final tableWidth = widths.fold<double>(0, (sum, w) => sum + w);
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            controller: horizontalScroll,
+            child: SizedBox(
+              width: tableWidth,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildPlainHeaderRow(
+                    widths,
+                    showLastEdited: showLastEdited,
+                  ),
+                  ...rowsData.map(
+                    (item) => _buildPlainDataRow(
+                      item,
+                      widths,
+                      showLastEdited: showLastEdited,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final reserved = leftWidth + (showAction ? actionWidth : 0);
         final middleAvailable =
             (constraints.maxWidth - reserved).clamp(0.0, double.infinity);
         final middleWidths = _scaledMiddleWidths(
@@ -450,67 +560,6 @@ class _ShippingOutState extends State<ShippingOut> {
         final middleWidth =
             middleWidths.fold<double>(0, (sum, w) => sum + w);
 
-        final leftHeader = _leftHeader(leftWidths);
-        final middleHeader = _middleHeader(
-          middleWidths,
-          showLastEdited: showLastEdited,
-        );
-        final actionHeader =
-            showAction ? _actionHeader(actionWidth) : const SizedBox.shrink();
-
-        if (shrinkWrap) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: leftWidth,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    leftHeader,
-                    ...rowsData.map((item) => _leftDataRow(item, leftWidths)),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  controller: horizontalScroll,
-                  child: SizedBox(
-                    width: middleWidth,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        middleHeader,
-                        ...rowsData.map(
-                          (item) => _middleDataRow(
-                            item,
-                            middleWidths,
-                            showLastEdited: showLastEdited,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              if (showAction)
-                SizedBox(
-                  width: actionWidth,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      actionHeader,
-                      ...rowsData.map(
-                        (item) => _actionDataCell(item, actionWidth),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          );
-        }
-
         return Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -518,7 +567,7 @@ class _ShippingOutState extends State<ShippingOut> {
               width: leftWidth,
               child: Column(
                 children: [
-                  leftHeader,
+                  _leftHeader(leftWidths),
                   Expanded(
                     child: ListView.builder(
                       controller: _historyLeftVerticalScroll,
@@ -540,7 +589,10 @@ class _ShippingOutState extends State<ShippingOut> {
                   width: middleWidth,
                   child: Column(
                     children: [
-                      middleHeader,
+                      _middleHeader(
+                        middleWidths,
+                        showLastEdited: showLastEdited,
+                      ),
                       Expanded(
                         child: ListView.builder(
                           controller: _historyMiddleVerticalScroll,
@@ -565,7 +617,7 @@ class _ShippingOutState extends State<ShippingOut> {
                 width: actionWidth,
                 child: Column(
                   children: [
-                    actionHeader,
+                    _actionHeader(actionWidth),
                     Expanded(
                       child: ListView.builder(
                         controller: _historyActionsVerticalScroll,
