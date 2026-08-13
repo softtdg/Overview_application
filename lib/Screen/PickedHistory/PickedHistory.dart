@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/PickedHistory/Services/PickedHistoryService.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:overview_app/Widgets/pagination_bar.dart';
@@ -38,6 +39,7 @@ class _PickedHistoryState extends State<PickedHistory> {
   static const int _pageSize = 200;
   int _currentPage = 1;
 
+  /// Base column widths (original Status width).
   static const List<double> _bomColWidths = [130, 160, 200, 100, 120];
 
   List<ItemModel> get _visibleItems {
@@ -52,21 +54,34 @@ class _PickedHistoryState extends State<PickedHistory> {
     return (items.length + _pageSize - 1) ~/ _pageSize;
   }
 
-  /// Minimum table width (all columns; used when parent is narrower — horizontal scroll).
   double get _minTableWidth =>
       _bomColWidths.fold<double>(0, (sum, w) => sum + w);
 
   List<double> _columnWidthsForAvailable(double available) {
     final sum = _minTableWidth;
-    if (available <= sum) {
-      return List<double>.from(_bomColWidths);
-    }
+    if (available <= sum) return List<double>.from(_bomColWidths);
     final scale = available / sum;
-    return _bomColWidths.map((w) => w * scale).toList();
+    final scaled = _bomColWidths.map((w) => w * scale).toList();
+    final scaledSum = scaled.fold<double>(0, (a, b) => a + b);
+    scaled[scaled.length - 1] += available - scaledSum;
+    return scaled;
   }
 
-  double _tableWidthFor(List<double> widths) =>
-      widths.fold<double>(0, (a, b) => a + b);
+  /// Phone & small tablet → larger text. Big tablet → slightly compact.
+  ({double fontSize, double headerH, double vPad, double hPad}) _densityFor(
+    Size screenSize,
+  ) {
+    final shortest = screenSize.shortestSide;
+    final width = screenSize.width;
+
+    // Big tablet / wide layout.
+    if (shortest >= 800 || width >= 1100) {
+      return (fontSize: 13, headerH: 36, vPad: 6, hPad: 10);
+    }
+
+    // Phone & small tablet.
+    return (fontSize: 13, headerH: 40, vPad: 8, hPad: 10);
+  }
 
   Future<void> fetchHistoryData() async {
     setState(() {
@@ -201,16 +216,22 @@ class _PickedHistoryState extends State<PickedHistory> {
     fetchHistoryData();
   }
 
-  Widget _bomHeaderCell(String label, double w) {
+  Widget _bomHeaderCell(
+    String label,
+    double w, {
+    required double fontSize,
+    required double height,
+    required double hPad,
+  }) {
     final borderColor = Colors.grey.shade300;
     return SizedBox(
       width: w,
-      height: 40,
+      height: height,
       child: Container(
         alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: EdgeInsets.symmetric(horizontal: hPad),
         decoration: BoxDecoration(
-          color: Color.fromARGB(255, 57, 73, 95),
+          color: const Color.fromARGB(255, 57, 73, 95),
           border: Border(
             right: BorderSide(color: borderColor),
             bottom: BorderSide(color: borderColor),
@@ -220,9 +241,9 @@ class _PickedHistoryState extends State<PickedHistory> {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 12,
+            fontSize: fontSize,
             height: 1.0,
             color: Colors.white,
           ),
@@ -231,12 +252,18 @@ class _PickedHistoryState extends State<PickedHistory> {
     );
   }
 
-  Widget _bomDataCell(String value, double w) {
+  Widget _bomDataCell(
+    String value,
+    double w, {
+    required double fontSize,
+    required double vPad,
+    required double hPad,
+  }) {
     final borderColor = Colors.grey.shade300;
     return SizedBox(
       width: w,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
         decoration: BoxDecoration(
           border: Border(
             right: BorderSide(color: borderColor),
@@ -248,6 +275,7 @@ class _PickedHistoryState extends State<PickedHistory> {
           maxLines: 1,
           softWrap: false,
           overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: fontSize, height: 1.15),
         ),
       ),
     );
@@ -255,135 +283,193 @@ class _PickedHistoryState extends State<PickedHistory> {
 
   @override
   Widget build(BuildContext context) {
+    final r = Responsive.of(context);
+
     return Scaffold(
       appBar: CommonAppBar(),
       drawer: CommonDrawer(),
       body: Container(
         color: Colors.white,
-        child: Container(
-          // padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Align(
-                alignment: Alignment.center,
-                child: Center(
-                  child: Text(
-                    "Picked History",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 25,
-                      fontWeight: FontWeight.bold,
-                    ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                r.pagePaddingH,
+                r.pagePaddingV,
+                r.pagePaddingH,
+                0,
+              ),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "Picked History",
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: r.pageTitleSize,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              if (isLoading)
-                Expanded(
+            ),
+            SizedBox(height: r.sectionGap),
+            if (isLoading)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  child: Center(child: AppLoader()),
+                ),
+              )
+            else if (items.isEmpty)
+              const Expanded(
+                child: Center(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 32),
-                    child: Center(child: AppLoader()),
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Text("No picked history found"),
                   ),
-                )
-              else if (items.isEmpty)
-                const Expanded(
-                  child: Center(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Text("No picked history found"),
-                    ),
+                ),
+              )
+            else
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    r.pagePaddingH,
+                    0,
+                    r.pagePaddingH,
+                    r.pagePaddingV,
                   ),
-                )
-              else
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                         Expanded(
                           child: LayoutBuilder(
                             builder: (context, constraints) {
                               final available = constraints.maxWidth;
-                              final colW = _columnWidthsForAvailable(available);
-                              final tableW = _tableWidthFor(colW);
+                              final needsHScroll = available < _minTableWidth;
+                              final tableW =
+                                  needsHScroll ? _minTableWidth : available;
+                              final colW = _columnWidthsForAvailable(tableW);
+                              final density = _densityFor(
+                                MediaQuery.sizeOf(context),
+                              );
+
+                              final table = DecoratedBox(
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                  ),
+                                ),
+                                child: SizedBox(
+                                  width: tableW,
+                                  height: constraints.maxHeight,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          _bomHeaderCell(
+                                            "SOP Number",
+                                            colW[0],
+                                            fontSize: density.fontSize,
+                                            height: density.headerH,
+                                            hPad: density.hPad,
+                                          ),
+                                          _bomHeaderCell(
+                                            "Fixture Number",
+                                            colW[1],
+                                            fontSize: density.fontSize,
+                                            height: density.headerH,
+                                            hPad: density.hPad,
+                                          ),
+                                          _bomHeaderCell(
+                                            "Date Changed",
+                                            colW[2],
+                                            fontSize: density.fontSize,
+                                            height: density.headerH,
+                                            hPad: density.hPad,
+                                          ),
+                                          _bomHeaderCell(
+                                            "Picked",
+                                            colW[3],
+                                            fontSize: density.fontSize,
+                                            height: density.headerH,
+                                            hPad: density.hPad,
+                                          ),
+                                          _bomHeaderCell(
+                                            "Status",
+                                            colW[4],
+                                            fontSize: density.fontSize,
+                                            height: density.headerH,
+                                            hPad: density.hPad,
+                                          ),
+                                        ],
+                                      ),
+                                      Expanded(
+                                        child: ListView.builder(
+                                          itemCount: _visibleItems.length,
+                                          itemBuilder: (context, index) {
+                                            final item = _visibleItems[index];
+                                            return Row(
+                                              children: [
+                                                _bomDataCell(
+                                                  item.sopNumber,
+                                                  colW[0],
+                                                  fontSize: density.fontSize,
+                                                  vPad: density.vPad,
+                                                  hPad: density.hPad,
+                                                ),
+                                                _bomDataCell(
+                                                  item.fixtureNumber,
+                                                  colW[1],
+                                                  fontSize: density.fontSize,
+                                                  vPad: density.vPad,
+                                                  hPad: density.hPad,
+                                                ),
+                                                _bomDataCell(
+                                                  _formatDateValue(
+                                                    item.dateChanged,
+                                                  ),
+                                                  colW[2],
+                                                  fontSize: density.fontSize,
+                                                  vPad: density.vPad,
+                                                  hPad: density.hPad,
+                                                ),
+                                                _bomDataCell(
+                                                  item.picked,
+                                                  colW[3],
+                                                  fontSize: density.fontSize,
+                                                  vPad: density.vPad,
+                                                  hPad: density.hPad,
+                                                ),
+                                                _bomDataCell(
+                                                  item.status,
+                                                  colW[4],
+                                                  fontSize: density.fontSize,
+                                                  vPad: density.vPad,
+                                                  hPad: density.hPad,
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+
+                              if (!needsHScroll) {
+                                return SizedBox(
+                                  width: available,
+                                  height: constraints.maxHeight,
+                                  child: table,
+                                );
+                              }
 
                               return SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: Colors.grey.shade300,
-                                    ),
-                                  ),
-                                  child: SizedBox(
-                                    width: tableW,
-                                    height: constraints.maxHeight,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            _bomHeaderCell(
-                                              "SOP Number",
-                                              colW[0],
-                                            ),
-                                            _bomHeaderCell(
-                                              "Fixture Number",
-                                              colW[1],
-                                            ),
-                                            _bomHeaderCell(
-                                              "Date Changed",
-                                              colW[2],
-                                            ),
-                                            _bomHeaderCell("Picked", colW[3]),
-                                            _bomHeaderCell("Status", colW[4]),
-                                          ],
-                                        ),
-                                        Expanded(
-                                          child: ListView.builder(
-                                            itemCount: _visibleItems.length,
-                                            itemBuilder: (context, index) {
-                                              final item = _visibleItems[index];
-                                              return Row(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  _bomDataCell(
-                                                    item.sopNumber,
-                                                    colW[0],
-                                                  ),
-                                                  _bomDataCell(
-                                                    item.fixtureNumber,
-                                                    colW[1],
-                                                  ),
-                                                  _bomDataCell(
-                                                    _formatDateValue(
-                                                      item.dateChanged,
-                                                    ),
-                                                    colW[2],
-                                                  ),
-                                                  _bomDataCell(
-                                                    item.picked,
-                                                    colW[3],
-                                                  ),
-                                                  _bomDataCell(
-                                                    item.status,
-                                                    colW[4],
-                                                  ),
-                                                ],
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
+                                child: table,
                               );
                             },
                           ),
@@ -393,6 +479,16 @@ class _PickedHistoryState extends State<PickedHistory> {
                           PaginationBar(
                             currentPage: _currentPage.clamp(1, _totalPages),
                             totalPages: _totalPages,
+                            fromItem: items.isEmpty
+                                ? 0
+                                : ((_currentPage - 1) * _pageSize) + 1,
+                            toItem: items.isEmpty
+                                ? 0
+                                : (_currentPage * _pageSize).clamp(
+                                    0,
+                                    items.length,
+                                  ),
+                            totalItems: items.length,
                             onPageChanged: (page) {
                               setState(() {
                                 _currentPage = page;
@@ -404,8 +500,7 @@ class _PickedHistoryState extends State<PickedHistory> {
                     ),
                   ),
                 ),
-            ],
-          ),
+          ],
         ),
       ),
     );

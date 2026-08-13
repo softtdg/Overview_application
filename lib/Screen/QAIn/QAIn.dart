@@ -194,7 +194,7 @@ class _QAInState extends State<QAIn> {
   }
 
   static const Color _tableHeaderColor = Color.fromARGB(255, 57, 73, 95);
-  static const double _rowHeight = 56;
+  static const double _rowHeight = 76;
 
   // SOP, PO Num, ODD | middle cols | Last Edited | Action
   static const List<double> _baseColWidths = [
@@ -443,8 +443,10 @@ class _QAInState extends State<QAIn> {
         child: IconButton(
           onPressed: () => _openEdit(item),
           tooltip: 'Edit',
-          icon: const Icon(Icons.edit, size: 18, color: Colors.black),
+          icon: const Icon(Icons.edit, size: 18, color: Colors.white),
           style: IconButton.styleFrom(
+            backgroundColor: const Color(0xFF39495F),
+            foregroundColor: Colors.white,
             minimumSize: const Size(32, 32),
             padding: const EdgeInsets.all(4),
             side: const BorderSide(color: Colors.black),

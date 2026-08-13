@@ -287,11 +287,11 @@ class _BackordersTableState extends State<Backorders> {
     48, // Picked
     72, // Date Sent
     64, // Dept
-    130, // Notice
+    260, // Notice
     130, // Response
     44, // UOM
     72, // Qty Backordered
-    72, // Qty Received
+    36, // Qty Re ceived
   ];
 
   Widget _tableTextCell(
@@ -362,16 +362,30 @@ class _BackordersTableState extends State<Backorders> {
     );
   }
 
-  Widget _fillBgCell(String text, Color? color, {int maxLines = 5}) {
+  Widget _fillBgCell(
+    String text,
+    Color? color, {
+    int maxLines = 5,
+    bool showTooltip = false,
+  }) {
+    final content = Align(
+      alignment: Alignment.center,
+      child: _tableTextCell(text, width: null, maxLines: maxLines),
+    );
+
     return Stack(
       fit: StackFit.expand,
       clipBehavior: Clip.hardEdge,
       children: [
         if (color != null) ColoredBox(color: color),
-        Align(
-          alignment: Alignment.center,
-          child: _tableTextCell(text, width: null, maxLines: maxLines),
-        ),
+        if (showTooltip && text.isNotEmpty && text != '-')
+          Tooltip(
+            message: text,
+            waitDuration: const Duration(milliseconds: 400),
+            child: content,
+          )
+        else
+          content,
       ],
     );
   }
@@ -390,6 +404,7 @@ class _BackordersTableState extends State<Backorders> {
             key: ValueKey('received-${row["SOPBackorderEntryId"]}'),
             initialValue: value,
             keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 13),
             decoration: InputDecoration(
               isDense: true,
@@ -425,9 +440,8 @@ class _BackordersTableState extends State<Backorders> {
     const minHeight = 56.0;
     const verticalPadding = 16.0;
     const lineHeight = 18.0;
-    const maxLines = 4;
 
-    int estimateLines(String text, double columnWidth) {
+    int estimateLines(String text, double columnWidth, {int maxLines = 4}) {
       if (text.isEmpty || text == '-') return 1;
       final charsPerLine = max(12, (columnWidth / 7).floor());
       return min(maxLines, max(1, (text.length / charsPerLine).ceil()));
@@ -436,7 +450,7 @@ class _BackordersTableState extends State<Backorders> {
     final lines = [
       estimateLines(_text(row["InventoryComments"]), 120),
       estimateLines(_text(row["FixtureDescription"]), 140),
-      estimateLines(_text(row["Notice"]), 120),
+      estimateLines(_text(row["Notice"]), 260, maxLines: 8),
       estimateLines(_text(row["Response"]), 120),
     ].reduce(max);
 
@@ -925,7 +939,8 @@ class _BackordersTableState extends State<Backorders> {
                                                 _fillBgCell(
                                                   _text(row["Notice"]),
                                                   row["BgColor"] as Color?,
-                                                  maxLines: 4,
+                                                  maxLines: 8,
+                                                  showTooltip: true,
                                                 ),
                                               ),
                                               DataCell(

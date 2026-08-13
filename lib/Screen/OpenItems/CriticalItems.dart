@@ -24,13 +24,15 @@ class CriticalItems extends StatefulWidget {
 }
 
 class _CriticalItemsState extends State<CriticalItems> {
-  static const double _noticeColumnWidth = 150;
+  static const double _noticeColumnWidth = 180;
+  static const double _noticeCellHorizontalPadding = 8;
+  static const double _noticeMinSubRowHeight = 52;
   static const double _actionColumnWidth = 56;
   static const int _pickedColumnIndex = 11;
   static const int _sopColumnIndex = 0;
   static const int _oddColumnIndex = 1;
-  static const int _fixtureColumnIndex = 2;
-  static const int _leadHandColumnIndex = 3;
+  static const int _leadHandColumnIndex = 2;
+  static const int _fixtureColumnIndex = 4;
   static const int _deptColumnIndex = 13;
   final String username = 'John Doe';
   final TextEditingController _searchController = TextEditingController();
@@ -392,14 +394,13 @@ class _CriticalItemsState extends State<CriticalItems> {
     required double noticeWidth,
     required TextScaler textScaler,
   }) {
-    const textStyle = TextStyle(fontSize: 13, fontWeight: FontWeight.w500);
-    const minHeight = 52.0;
-    const horizontalPadding = 8.0;
-    const verticalPadding = 14.0;
-    final maxTextWidth = (noticeWidth - horizontalPadding).clamp(
-      0.0,
-      double.infinity,
+    const textStyle = TextStyle(
+      fontSize: 13,
+      height: 1.3,
+      fontWeight: FontWeight.w500,
     );
+    final maxTextWidth = (noticeWidth - (_noticeCellHorizontalPadding * 2) - 4)
+        .clamp(40.0, double.infinity);
 
     return noticeValues.map((value) {
       final painter = TextPainter(
@@ -409,9 +410,8 @@ class _CriticalItemsState extends State<CriticalItems> {
         textScaler: textScaler,
       )..layout(maxWidth: maxTextWidth);
 
-      return (painter.height + verticalPadding) < minHeight
-          ? minHeight
-          : painter.height + verticalPadding;
+      final needed = painter.height + 16;
+      return needed < _noticeMinSubRowHeight ? _noticeMinSubRowHeight : needed;
     }).toList();
   }
 
@@ -439,68 +439,60 @@ class _CriticalItemsState extends State<CriticalItems> {
         final w = constraints.hasBoundedWidth && constraints.maxWidth > 0
             ? constraints.maxWidth
             : width;
-        return SizedBox(
-          width: w,
-          child: Stack(
-            clipBehavior: Clip.none,
-            fit: StackFit.expand,
-            children: [
-              Positioned.fill(child: ColoredBox(color: cellFillColor)),
-              Positioned(
-                left: 0,
-                right: 0,
-                top: 0,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: values.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final value = entry.value;
-                    final isLast = index == values.length - 1;
-                    final rowHeight =
-                        rowHeights != null && index < rowHeights.length
-                        ? rowHeights[index]
-                        : null;
-                    final rowBg = perRowBg ? rowBackgrounds[index] : null;
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          height: rowHeight,
-                          color: rowBg,
-                          constraints: rowHeight == null
-                              ? const BoxConstraints(minHeight: 52)
-                              : null,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 4,
-                          ),
-                          child: _highlightedText(
-                            value,
-                            textAlign: textAlign,
-                            softWrap: true,
-                            maxLines: null,
-                            overflow: TextOverflow.visible,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        if (!isLast)
-                          const Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            child: SizedBox(
-                              height: 0.6,
-                              child: ColoredBox(color: Colors.white),
-                            ),
-                          ),
-                      ],
-                    );
-                  }).toList(),
+
+        if (values.isEmpty) {
+          return SizedBox(
+            width: w,
+            height: _noticeMinSubRowHeight,
+            child: ColoredBox(color: cellFillColor),
+          );
+        }
+
+        return ColoredBox(
+          color: cellFillColor,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: values.asMap().entries.map((entry) {
+              final index = entry.key;
+              final value = entry.value;
+              final isLast = index == values.length - 1;
+              final rowHeight =
+                  rowHeights != null && index < rowHeights.length
+                  ? rowHeights[index]
+                  : _noticeMinSubRowHeight;
+              final rowBg = perRowBg ? rowBackgrounds[index] : null;
+
+              return Container(
+                width: w,
+                height: rowHeight,
+                alignment: textAlign == TextAlign.left
+                    ? Alignment.centerLeft
+                    : textAlign == TextAlign.right
+                        ? Alignment.centerRight
+                        : Alignment.center,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: _noticeCellHorizontalPadding,
+                  vertical: 6,
                 ),
-              ),
-            ],
+                decoration: BoxDecoration(
+                  color: rowBg,
+                  border: isLast
+                      ? null
+                      : const Border(
+                          bottom: BorderSide(color: Colors.white, width: 0.6),
+                        ),
+                ),
+                child: _highlightedText(
+                  value,
+                  textAlign: textAlign,
+                  softWrap: true,
+                  maxLines: 10,
+                  overflow: TextOverflow.clip,
+                  fontWeight: FontWeight.w500,
+                ),
+              );
+            }).toList(),
           ),
         );
       },
@@ -656,6 +648,7 @@ class _CriticalItemsState extends State<CriticalItems> {
   DataColumn2 _column(
     String text, {
     required double minWidth,
+    double? fixedWidth,
     int? sortKey,
     Widget? cutomLabels,
     DataColumnSortCallback? onSort,
@@ -663,10 +656,12 @@ class _CriticalItemsState extends State<CriticalItems> {
     final label =
         cutomLabels ??
         (sortKey != null ? _sortableHeading(text, sortKey) : _heading(text));
+    final colWidth = fixedWidth ?? minWidth;
     return DataColumn2(
       headingRowAlignment: MainAxisAlignment.center,
       minWidth: minWidth,
-      label: SizedBox(width: minWidth, child: label),
+      fixedWidth: fixedWidth,
+      label: SizedBox(width: colWidth, child: label),
       onSort: onSort,
     );
   }
@@ -675,10 +670,10 @@ class _CriticalItemsState extends State<CriticalItems> {
     return [
       _column('SOP', minWidth: 56, sortKey: 0, onSort: _onSort),
       _column('ODD', minWidth: 90, sortKey: 1, onSort: _onSort),
-      _column('Fixture', minWidth: 96, sortKey: 2, onSort: _onSort),
-      _column('Lead\nHand', minWidth: 82, sortKey: 3, onSort: _onSort),
+      _column('Lead\nHand', minWidth: 82, sortKey: 2, onSort: _onSort),
       _column('Assembler', minWidth: 90),
-      _column('Desc', minWidth: 150),
+      _column('Fixture', minWidth: 120, sortKey: 4, onSort: _onSort),
+      _column('Desc', minWidth: 170),
       _column('Qty', minWidth: 40),
       _column('Time To\nBuild/Per\nUnit', minWidth: 88),
       _column('Total\nTime To\nBuild', minWidth: 92),
@@ -687,40 +682,57 @@ class _CriticalItemsState extends State<CriticalItems> {
       _column('Picked', minWidth: 58, sortKey: 11, onSort: _onSort),
       _column('Date Sent', minWidth: 90),
       _column('Dept', minWidth: 88, sortKey: 13, onSort: _onSort),
-      _column('Notice', minWidth: _noticeColumnWidth),
+      _column(
+        'Notice',
+        minWidth: _noticeColumnWidth,
+        fixedWidth: _noticeColumnWidth,
+      ),
       _column('Response', minWidth: 180),
     ];
   }
 
+  /// Display like reference: first two hyphen groups on line 1, rest below.
+  /// e.g. `190-100-1573RPR` → `190-100-\n1573RPR`
+  String _fixtureDisplayText(String fixture) {
+    final parts = fixture.split('-');
+    if (parts.length < 3) return fixture;
+    final firstLine = '${parts[0]}-${parts[1]}-';
+    final secondLine = parts.sublist(2).join('-');
+    return '$firstLine\n$secondLine';
+  }
+
   Widget _buildFixtureCell(Map<String, dynamic> row) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      child: GestureDetector(
-        onTap: () {
-          final f = _pick(row, ['FixtureNumber']).trim();
-          if (f.isEmpty) return;
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => Publicsearch(fixtureNumber: f),
+    final fixture = _pick(row, ['FixtureNumber']);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: GestureDetector(
+          onTap: () {
+            final f = fixture.trim();
+            if (f.isEmpty) return;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => Publicsearch(fixtureNumber: f),
+              ),
+            );
+          },
+          child: Container(
+            width: 76,
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFF39495F)),
+              borderRadius: BorderRadius.circular(6),
             ),
-          );
-        },
-        child: Container(
-          width: 76,
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFF39495F)),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: _highlightedText(
-            _pick(row, ['FixtureNumber']),
-            textAlign: TextAlign.center,
-            softWrap: true,
-            maxLines: null,
-            overflow: TextOverflow.visible,
-            fontWeight: FontWeight.w500,
-            color: const Color.fromARGB(255, 90, 106, 131),
+            child: _highlightedText(
+              _fixtureDisplayText(fixture),
+              textAlign: TextAlign.center,
+              softWrap: true,
+              maxLines: 2,
+              overflow: TextOverflow.clip,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF5A6A83),
+            ),
           ),
         ),
       ),
@@ -750,8 +762,10 @@ class _CriticalItemsState extends State<CriticalItems> {
         );
       },
       tooltip: 'Edit',
-      icon: const Icon(Icons.edit, size: 18, color: Colors.black),
+      icon: const Icon(Icons.edit, size: 18, color: Colors.white),
       style: IconButton.styleFrom(
+        backgroundColor: const Color(0xFF39495F),
+        foregroundColor: Colors.white,
         minimumSize: const Size(36, 36),
         padding: const EdgeInsets.all(6),
         side: const BorderSide(color: Colors.black, width: 1),
@@ -789,7 +803,11 @@ class _CriticalItemsState extends State<CriticalItems> {
             ),
           ),
           Expanded(
-            child: ListView.builder(
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(context).copyWith(
+                scrollbars: false,
+              ),
+              child: ListView.builder(
               controller: _actionsVerticalScroll,
               itemCount: groupedRows.length,
               itemBuilder: (context, index) {
@@ -812,6 +830,7 @@ class _CriticalItemsState extends State<CriticalItems> {
                   child: _buildActionButton(row, isDisabled: isDisabled),
                 );
               },
+              ),
             ),
           ),
         ],
@@ -832,7 +851,7 @@ class _CriticalItemsState extends State<CriticalItems> {
       textScaler: MediaQuery.textScalerOf(context),
     );
     final totalHeight = noticeRowHeights.fold<double>(0, (a, b) => a + b);
-    return max(52.0, totalHeight + 8);
+    return max(52.0, totalHeight);
   }
 
   Widget _highlightedText(
@@ -844,7 +863,12 @@ class _CriticalItemsState extends State<CriticalItems> {
     Color? color,
     TextOverflow overflow = TextOverflow.ellipsis,
   }) {
-    final style = TextStyle(fontSize: 13, fontWeight: fontWeight, color: color);
+    final style = TextStyle(
+      fontSize: 13,
+      height: 1.3,
+      fontWeight: fontWeight,
+      color: color,
+    );
     final q = _searchQuery.trim();
     if (q.isEmpty) {
       return Text(
@@ -903,22 +927,42 @@ class _CriticalItemsState extends State<CriticalItems> {
     );
   }
 
+  String _wrapFriendly(String text) {
+    return text
+        .replaceAll('-', '-\u200B')
+        .replaceAll('_', '_\u200B')
+        .replaceAll('/', '/\u200B')
+        .replaceAll('#', '#\u200B');
+  }
+
   Widget _tableTextCell(
     String text, {
-    double width = 90,
+    double? width,
     TextAlign align = TextAlign.center,
     int maxLines = 5,
     FontWeight fontWeight = FontWeight.w500,
   }) {
-    return SizedBox(
-      width: width,
-      child: _highlightedText(
-        text,
-        textAlign: align,
-        maxLines: maxLines,
-        softWrap: true,
-        fontWeight: fontWeight,
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxW = width ??
+            (constraints.hasBoundedWidth && constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : null);
+        return SizedBox(
+          width: maxW,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: _highlightedText(
+              _wrapFriendly(text),
+              textAlign: align,
+              maxLines: maxLines,
+              softWrap: true,
+              overflow: TextOverflow.ellipsis,
+              fontWeight: fontWeight,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1171,7 +1215,24 @@ class _CriticalItemsState extends State<CriticalItems> {
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Expanded(
-                                    child: DataTable2(
+                                    child: Theme(
+                                      data: Theme.of(context).copyWith(
+                                        scrollbarTheme: const ScrollbarThemeData(
+                                          thickness: WidgetStatePropertyAll(0),
+                                          thumbVisibility:
+                                              WidgetStatePropertyAll(false),
+                                          trackVisibility:
+                                              WidgetStatePropertyAll(false),
+                                          crossAxisMargin: 0,
+                                          mainAxisMargin: 0,
+                                          minThumbLength: 0,
+                                        ),
+                                      ),
+                                      child: ScrollConfiguration(
+                                        behavior: ScrollConfiguration.of(
+                                          context,
+                                        ).copyWith(scrollbars: false),
+                                        child: DataTable2(
                                       fixedTopRows: 1,
                                       fixedLeftColumns: 3,
                                       scrollController: _tableVerticalScroll,
@@ -1193,6 +1254,8 @@ class _CriticalItemsState extends State<CriticalItems> {
                                       columnSpacing: 0,
                                       horizontalMargin: 0,
                                       dividerThickness: 1,
+                                      isHorizontalScrollBarVisible: false,
+                                      isVerticalScrollBarVisible: false,
                                       minWidth: 1550,
                                       border: tableBorder,
                                       columns: tableColumns,
@@ -1255,20 +1318,15 @@ class _CriticalItemsState extends State<CriticalItems> {
                                     ),
                                     cells: [
                                       DataCell(
-                                        _tableTextCell(
-                                          _pickSopNum(row),
-                                          width: 56,
-                                        ),
+                                        _tableTextCell(_pickSopNum(row)),
                                       ),
                                       DataCell(
                                         _tableTextCell(
                                           _formatDate(
                                             _pickPath(row, ['SOP', 'ODD']),
                                           ),
-                                          width: 90,
                                         ),
                                       ),
-                                      DataCell(_buildFixtureCell(row)),
                                       DataCell(
                                         _tableTextCell(
                                           _pickPath(row, [
@@ -1277,47 +1335,36 @@ class _CriticalItemsState extends State<CriticalItems> {
                                             'LeadHand',
                                             'LeadHandName',
                                           ]),
-                                          width: 82,
                                         ),
                                       ),
                                       DataCell(
                                         _tableTextCell(
                                           _pickPath(row, ['Assembler', 'Name']),
-                                          width: 90,
                                         ),
                                       ),
+                                      DataCell(_buildFixtureCell(row)),
                                       DataCell(
                                         _tableTextCell(
                                           _pick(row, ['FixtureDescription']),
-                                          width: 150,
                                           maxLines: 4,
                                         ),
                                       ),
                                       DataCell(
                                         _tableTextCell(
                                           _pick(row, ['Quantity']),
-                                          width: 40,
-                                          align: TextAlign.center,
                                         ),
                                       ),
                                       DataCell(
-                                        _tableTextCell(
-                                          hoursText,
-                                          width: 88,
-                                          align: TextAlign.center,
-                                        ),
+                                        _tableTextCell(hoursText),
                                       ),
                                       DataCell(
                                         _tableTextCell(
                                           (qty * hours).toStringAsFixed(2),
-                                          width: 92,
-                                          align: TextAlign.center,
                                         ),
                                       ),
                                       DataCell(
                                         _tableTextCell(
                                           _pick(row, ['Amount']),
-                                          width: 70,
                                         ),
                                       ),
                                       DataCell(
@@ -1325,7 +1372,7 @@ class _CriticalItemsState extends State<CriticalItems> {
                                           _pick(row, [
                                             'InventoryCommentsForProduction',
                                           ]),
-                                          width: 130,
+                                          maxLines: 4,
                                         ),
                                       ),
                                       DataCell(
@@ -1396,6 +1443,7 @@ class _CriticalItemsState extends State<CriticalItems> {
                                           values: noticeValues,
                                           backgroundColor: noticeBg,
                                           rowHeights: noticeRowHeights,
+                                          textAlign: TextAlign.left,
                                         ),
                                       ),
                                       DataCell(
@@ -1413,6 +1461,8 @@ class _CriticalItemsState extends State<CriticalItems> {
                                     ],
                                   );
                                 }).toList(),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   _buildStickyActionsPane(groupedRows),
@@ -1444,6 +1494,16 @@ class _CriticalItemsState extends State<CriticalItems> {
                               child: PaginationBar(
                                 currentPage: _currentPage.clamp(1, _totalPages),
                                 totalPages: _totalPages,
+                                fromItem: _filteredData.isEmpty
+                                    ? 0
+                                    : ((_currentPage - 1) * _rowsPerPage) + 1,
+                                toItem: _filteredData.isEmpty
+                                    ? 0
+                                    : min(
+                                        _currentPage * _rowsPerPage,
+                                        _filteredData.length,
+                                      ),
+                                totalItems: _filteredData.length,
                                 onPageChanged: (page) {
                                   setState(() {
                                     _currentPage = page;

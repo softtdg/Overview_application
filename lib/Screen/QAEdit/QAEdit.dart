@@ -30,7 +30,7 @@ class _QAEditState extends State<QAEdit> {
   int _currentPage = 1;
 
   static const Color _tableHeaderColor = Color.fromARGB(255, 57, 73, 95);
-  static const double _rowHeight = 56;
+  static const double _rowHeight = 76;
   static const TextStyle _cellTextStyle = TextStyle(fontSize: 12);
 
   // SOP, PO Num, ODD | middle | Action
@@ -464,8 +464,10 @@ class _QAEditState extends State<QAEdit> {
         child: IconButton(
           onPressed: () => _openEdit(item),
           tooltip: 'Edit',
-          icon: const Icon(Icons.edit, size: 18, color: Colors.black),
+          icon: const Icon(Icons.edit, size: 18, color: Colors.white),
           style: IconButton.styleFrom(
+            backgroundColor: const Color(0xFF39495F),
+            foregroundColor: Colors.white,
             minimumSize: const Size(32, 32),
             padding: const EdgeInsets.all(4),
             side: const BorderSide(color: Colors.black),
@@ -585,7 +587,7 @@ class _QAEditState extends State<QAEdit> {
               child: Row(
                 children: [
                   const Text(
-                    'Search SOP to Edit',
+                    'Search SOP to QA Edit',
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(width: 16),

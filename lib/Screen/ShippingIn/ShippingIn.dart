@@ -260,7 +260,7 @@ class _ShippingInState extends State<ShippingIn> {
             decoration: BoxDecoration(
               border: Border.all(color: Colors.grey, width: 0.5),
             ),
-            child: OutlinedButton.icon(
+            child: IconButton(
               onPressed: () async {
                 final sopNumber = item['sopNum']?.toString() ?? '';
                 final updated = await Navigator.push(
@@ -273,19 +273,19 @@ class _ShippingInState extends State<ShippingIn> {
                   await GetShippingInHistory();
                 }
               },
-              icon: const Icon(Icons.edit, size: 20, color: Colors.black),
-              label: const Text(''),
-              style: OutlinedButton.styleFrom(
+              tooltip: 'Edit',
+              icon: const Icon(Icons.edit, size: 18, color: Colors.white),
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xFF39495F),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(32, 32),
+                padding: const EdgeInsets.all(4),
                 side: const BorderSide(color: Colors.black),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(5),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
               ),
             ),
           ),

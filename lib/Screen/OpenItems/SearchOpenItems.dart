@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:overview_app/Screen/OpenItems/Components/BackOrder.dart';
 import 'package:overview_app/Screen/OpenItems/Services/OpenItemsServices.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 class SearchOpenItems extends StatefulWidget {
@@ -69,17 +70,17 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
 
     setState(() {
       isLoading = true;
+      SOPData = null;
+      selectedOpenItem = null;
     });
-    // debugPrint("Open Items search clicked. SOP: $SOPNumber");
 
     try {
       await Dioservices.setToken();
       final response = await OpenItemsServices().SearchOpenItemsSOP(
         SOP: SOPNumber,
       );
-      // debugPrint("Open Items API status: ${response.statusCode}");
-      // debugPrint("Open Items API raw response: ${response.data}");
 
+      if (!mounted) return;
       setState(() {
         SOPData = _rowsFromResponse(response.data);
         selectedOpenItem = null;
@@ -88,8 +89,6 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("SOP found")));
-
-      // debugPrint("SOP Data From Open Items Search: $SOPData");
     } catch (e) {
       debugPrint("Error in Search Open Items: $e");
       if (!mounted) return;
@@ -97,6 +96,7 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
         context,
       ).showSnackBar(SnackBar(content: Text("Search failed: $e")));
     } finally {
+      if (!mounted) return;
       setState(() {
         isLoading = false;
       });
@@ -121,9 +121,22 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
 
   Widget _buildTable(List data) {
     final count = data.length;
+    final width = MediaQuery.sizeOf(context).width;
+    final isNarrow = width < 700;
+    final headerSize = isNarrow ? 11.0 : 12.0;
+    final bodySize = isNarrow ? 12.0 : 13.0;
+    final fixtureSize = isNarrow ? 11.0 : 12.0;
+
     final headerStyle = TextStyle(
       fontWeight: FontWeight.bold,
-      // color: _tableHeaderTextColor,
+      fontSize: headerSize,
+    );
+    final bodyStyle = TextStyle(fontSize: bodySize, height: 1.25);
+    final fixtureStyle = TextStyle(
+      color: const Color(0xFF1976D2),
+      fontWeight: FontWeight.w600,
+      fontSize: fixtureSize,
+      height: 1.2,
     );
 
     return Container(
@@ -131,13 +144,16 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
         color: Colors.grey[200],
         borderRadius: BorderRadius.circular(10),
       ),
-      padding: const EdgeInsets.all(8),
+      padding: EdgeInsets.all(isNarrow ? 6 : 8),
       child: Column(
         children: [
           // Header: total row count + labels spaced across full width (same flex as data rows)
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+            padding: EdgeInsets.symmetric(
+              vertical: isNarrow ? 8 : 10,
+              horizontal: isNarrow ? 6 : 8,
+            ),
             decoration: BoxDecoration(
               color: Colors.grey[300],
               borderRadius: BorderRadius.circular(8),
@@ -187,13 +203,17 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
             final qty = (item['Quantity'] ?? item['qty'] ?? item['Qty'] ?? '')
                 .toString();
             return Container(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+              padding: EdgeInsets.symmetric(
+                vertical: isNarrow ? 7 : 8,
+                horizontal: isNarrow ? 6 : 8,
+              ),
               margin: const EdgeInsets.symmetric(vertical: 2),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     flex: 2,
@@ -201,30 +221,31 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
                       onTap: () => _handleFixtureClick(item),
                       borderRadius: BorderRadius.circular(6),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 6,
-                          horizontal: 8,
+                        padding: EdgeInsets.symmetric(
+                          vertical: isNarrow ? 4 : 5,
+                          horizontal: isNarrow ? 6 : 7,
                         ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE3F2FD),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(color: const Color(0xFF1976D2)),
                         ),
-                        child: Text(
-                          fixture,
-                          style: const TextStyle(
-                            color: Color(0xFF1976D2),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                        child: Text(fixture, style: fixtureStyle),
                       ),
                     ),
                   ),
-                  SizedBox(width: 10),
-                  Expanded(flex: 5, child: Text(description)),
+                  SizedBox(width: isNarrow ? 8 : 10),
+                  Expanded(
+                    flex: 5,
+                    child: Text(description, style: bodyStyle),
+                  ),
                   Expanded(
                     flex: 1,
-                    child: Text(qty, textAlign: TextAlign.right),
+                    child: Text(
+                      qty,
+                      textAlign: TextAlign.right,
+                      style: bodyStyle,
+                    ),
                   ),
                 ],
               ),
@@ -378,18 +399,48 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                     ),
-                                    child: Text(
-                                      "Search",
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                                    child: isLoading
+                                        ? const SizedBox(
+                                            width: 22,
+                                            height: 22,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.5,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : const Text(
+                                            "Search",
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
                                   ),
                                 ),
                               ),
                               const SizedBox(height: 20),
-                              if (SOPData != null && SOPData!.isNotEmpty)
+                              if (isLoading)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 32),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        AppLoader(size: 72),
+                                        SizedBox(height: 12),
+                                        Text(
+                                          'Searching...',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF39495F),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              else if (SOPData != null && SOPData!.isNotEmpty)
                                 _buildTable(SOPData!),
                             ],
                           ),

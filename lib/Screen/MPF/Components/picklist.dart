@@ -761,7 +761,7 @@ class _PickListState extends State<PickList> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: const CommonAppBar(),
+      appBar: const CommonAppBar(showBackButton: true),
       drawer: const CommonDrawer(),
       body: Column(
         children: [

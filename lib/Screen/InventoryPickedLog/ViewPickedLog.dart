@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/InventoryPickedLog/Services/InventoryPickedLogService.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
+import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 String _formatDisplayDate(String raw) {
   final value = raw.trim();
@@ -351,11 +352,8 @@ class ViewPickedLogState extends State<ViewPickedLog> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Pick Log View'),
-        backgroundColor: const Color(0xFF1F2937),
-        foregroundColor: Colors.white,
-      ),
+      appBar: const CommonAppBar(showBackButton: true),
+      drawer: const CommonDrawer(),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isMobile = constraints.maxWidth < 480;
@@ -723,8 +721,9 @@ class ViewPickedLogState extends State<ViewPickedLog> {
       columnWidth,
     ).fold<double>(0, (sum, width) => sum + width);
     final contentHeight = headerHeight + rows.length * dataRowHeight;
-    final tableHeight = contentHeight > maxHeight ? maxHeight : contentHeight;
     final scrollRows = contentHeight > maxHeight;
+    // Include 2px for the container's top+bottom border so inner Column never overflows.
+    final tableHeight = (scrollRows ? maxHeight : contentHeight) + 2;
 
     Widget buildTableRow(List<String> cells, {required bool isHeader}) {
       final textStyle = isHeader ? headerTextStyle : bodyTextStyle;
@@ -766,29 +765,34 @@ class ViewPickedLogState extends State<ViewPickedLog> {
 
     return Container(
       height: tableHeight,
+      clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(border: Border.all(color: borderColor)),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          width: tableWidth,
-          height: tableHeight,
-          child: Column(
-            children: [
-              buildTableRow(headers, isHeader: true),
-              if (scrollRows)
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: rows.length,
-                    itemBuilder: (context, index) {
-                      return buildTableRow(rows[index], isHeader: false);
-                    },
-                  ),
-                )
-              else
-                ...rows.map((row) => buildTableRow(row, isHeader: false)),
-            ],
-          ),
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: tableWidth,
+              height: constraints.maxHeight,
+              child: Column(
+                children: [
+                  buildTableRow(headers, isHeader: true),
+                  if (scrollRows)
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: rows.length,
+                        itemBuilder: (context, index) {
+                          return buildTableRow(rows[index], isHeader: false);
+                        },
+                      ),
+                    )
+                  else
+                    ...rows.map((row) => buildTableRow(row, isHeader: false)),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

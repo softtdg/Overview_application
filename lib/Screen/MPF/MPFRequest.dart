@@ -543,7 +543,7 @@ class _MPFRequestState extends State<MPFRequest> {
                   label: const Text('Remove'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFFC62828),
-                    backgroundColor: Colors.white,
+                    backgroundColor: const Color(0xFFfee2e2),
                     side: const BorderSide(color: Color(0xFFC62828)),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,

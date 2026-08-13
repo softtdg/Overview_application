@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/InventoryPickedLog/Services/InventoryPickedLogService.dart';
 import 'package:overview_app/Screen/InventoryPickedLog/ViewPickedLog.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
@@ -239,16 +240,22 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
     super.dispose();
   }
 
-  Widget _bomHeaderCell(String label, double w) {
+  Widget _bomHeaderCell(
+    String label,
+    double w, {
+    required double fontSize,
+    required double height,
+    required double hPad,
+  }) {
     final borderColor = Colors.grey.shade300;
     return SizedBox(
       width: w,
-      height: 44,
+      height: height,
       child: Container(
         alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: EdgeInsets.symmetric(horizontal: hPad),
         decoration: BoxDecoration(
-          color: Color.fromARGB(255, 57, 73, 95),
+          color: const Color.fromARGB(255, 57, 73, 95),
           border: Border(
             right: BorderSide(color: borderColor),
             bottom: BorderSide(color: borderColor),
@@ -258,9 +265,9 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 12,
+            fontSize: fontSize,
             height: 1.0,
             color: Colors.white,
           ),
@@ -269,14 +276,21 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
     );
   }
 
-  Widget _bomDataCell(String value, double w) {
+  Widget _bomDataCell(
+    String value,
+    double w, {
+    required double fontSize,
+    required double rowH,
+    required double vPad,
+    required double hPad,
+  }) {
     final borderColor = Colors.grey.shade300;
     return SizedBox(
       width: w,
       child: Container(
-        height: 56,
+        height: rowH,
         alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
         decoration: BoxDecoration(
           border: Border(
             right: BorderSide(color: borderColor),
@@ -288,13 +302,14 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           maxLines: 1,
           softWrap: false,
           overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: fontSize, height: 1.15),
         ),
       ),
     );
   }
 
-  // Exact width for each table column, left to right.
-  static const List<double> _colWidths = [
+  // Base widths; scaled up on wide screens to fill available space.
+  static const List<double> _baseColWidths = [
     140, // Pick list Number
     100, // SOP
     150, // Fixture
@@ -307,13 +322,30 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
     90, // Actions
   ];
 
-  double get _leftStickyWidth =>
-      _colWidths.take(3).fold<double>(0, (sum, w) => sum + w);
+  double get _minTableWidth =>
+      _baseColWidths.fold<double>(0, (sum, w) => sum + w);
 
-  double get _actionsColWidth => _colWidths[9];
+  List<double> _columnWidthsForAvailable(double available) {
+    final sum = _minTableWidth;
+    if (available <= sum) return List<double>.from(_baseColWidths);
+    final scale = available / sum;
+    final scaled = _baseColWidths.map((w) => w * scale).toList();
+    final scaledSum = scaled.fold<double>(0, (a, b) => a + b);
+    scaled[scaled.length - 1] += available - scaledSum;
+    return scaled;
+  }
 
-  double get _scrollableTableWidth =>
-      _colWidths.skip(3).take(6).fold<double>(0, (sum, w) => sum + w);
+  /// Phone & small tablet → larger text. Big tablet → slightly compact.
+  ({double fontSize, double headerH, double rowH, double vPad, double hPad})
+  _densityFor(Size screenSize) {
+    final shortest = screenSize.shortestSide;
+    final width = screenSize.width;
+
+    if (shortest >= 800 || width >= 1100) {
+      return (fontSize: 14, headerH: 38, rowH: 48, vPad: 7, hPad: 10);
+    }
+    return (fontSize: 14, headerH: 42, rowH: 56, vPad: 8, hPad: 10);
+  }
 
   List<BoxShadow> get _leftStickyShadow => [
     BoxShadow(
@@ -331,21 +363,50 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
     ),
   ];
 
-  Widget _buildLeftStickyHeaderRow() {
+  Widget _buildLeftStickyHeaderRow(
+    List<double> colW, {
+    required double fontSize,
+    required double headerH,
+    required double hPad,
+  }) {
     return DecoratedBox(
       decoration: BoxDecoration(boxShadow: _leftStickyShadow),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _bomHeaderCell("Pick list Number", _colWidths[0]),
-          _bomHeaderCell("SOP", _colWidths[1]),
-          _bomHeaderCell("Fixture", _colWidths[2]),
+          _bomHeaderCell(
+            "Pick list Number",
+            colW[0],
+            fontSize: fontSize,
+            height: headerH,
+            hPad: hPad,
+          ),
+          _bomHeaderCell(
+            "SOP",
+            colW[1],
+            fontSize: fontSize,
+            height: headerH,
+            hPad: hPad,
+          ),
+          _bomHeaderCell(
+            "Fixture",
+            colW[2],
+            fontSize: fontSize,
+            height: headerH,
+            hPad: hPad,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildLeftStickyDataRow(ItemModel item) {
+  Widget _buildLeftStickyDataRow(
+    ItemModel item,
+    List<double> colW, {
+    required double fontSize,
+    required double rowH,
+    required double vPad,
+    required double hPad,
+  }) {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -354,53 +415,176 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
       child: ColoredBox(
         color: Colors.white,
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _bomDataCell(_orDash(item.pickListNumber), _colWidths[0]),
-            _bomDataCell(_orDash(item.sopNum), _colWidths[1]),
-            _bomDataCell(_orDash(item.fixture), _colWidths[2]),
+            _bomDataCell(
+              _orDash(item.pickListNumber),
+              colW[0],
+              fontSize: fontSize,
+              rowH: rowH,
+              vPad: vPad,
+              hPad: hPad,
+            ),
+            _bomDataCell(
+              _orDash(item.sopNum),
+              colW[1],
+              fontSize: fontSize,
+              rowH: rowH,
+              vPad: vPad,
+              hPad: hPad,
+            ),
+            _bomDataCell(
+              _orDash(item.fixture),
+              colW[2],
+              fontSize: fontSize,
+              rowH: rowH,
+              vPad: vPad,
+              hPad: hPad,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildScrollableHeaderRow() {
+  Widget _buildScrollableHeaderRow(
+    List<double> colW, {
+    required double fontSize,
+    required double headerH,
+    required double hPad,
+  }) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _bomHeaderCell("Description", _colWidths[3]),
-        _bomHeaderCell("Project", _colWidths[4]),
-        _bomHeaderCell("Quantity", _colWidths[5]),
-        _bomHeaderCell("RMA", _colWidths[6]),
-        _bomHeaderCell("MPF Requested By", _colWidths[7]),
-        _bomHeaderCell("Created At", _colWidths[8]),
+        _bomHeaderCell(
+          "Description",
+          colW[3],
+          fontSize: fontSize,
+          height: headerH,
+          hPad: hPad,
+        ),
+        _bomHeaderCell(
+          "Project",
+          colW[4],
+          fontSize: fontSize,
+          height: headerH,
+          hPad: hPad,
+        ),
+        _bomHeaderCell(
+          "Quantity",
+          colW[5],
+          fontSize: fontSize,
+          height: headerH,
+          hPad: hPad,
+        ),
+        _bomHeaderCell(
+          "RMA",
+          colW[6],
+          fontSize: fontSize,
+          height: headerH,
+          hPad: hPad,
+        ),
+        _bomHeaderCell(
+          "MPF Requested By",
+          colW[7],
+          fontSize: fontSize,
+          height: headerH,
+          hPad: hPad,
+        ),
+        _bomHeaderCell(
+          "Created At",
+          colW[8],
+          fontSize: fontSize,
+          height: headerH,
+          hPad: hPad,
+        ),
       ],
     );
   }
 
-  Widget _buildScrollableDataRow(ItemModel item) {
+  Widget _buildScrollableDataRow(
+    ItemModel item,
+    List<double> colW, {
+    required double fontSize,
+    required double rowH,
+    required double vPad,
+    required double hPad,
+  }) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _bomDataCell(_orDash(item.description), _colWidths[3]),
-        _bomDataCell(_orDash(item.project), _colWidths[4]),
-        _bomDataCell(_orDash(item.tempQuantity), _colWidths[5]),
-        _bomDataCell(_orDash(item.RMA), _colWidths[6]),
-        _bomDataCell(_orDash(item.MPFRequestedBy), _colWidths[7]),
-        _bomDataCell(_formatDateValue(item.createdAt), _colWidths[8]),
+        _bomDataCell(
+          _orDash(item.description),
+          colW[3],
+          fontSize: fontSize,
+          rowH: rowH,
+          vPad: vPad,
+          hPad: hPad,
+        ),
+        _bomDataCell(
+          _orDash(item.project),
+          colW[4],
+          fontSize: fontSize,
+          rowH: rowH,
+          vPad: vPad,
+          hPad: hPad,
+        ),
+        _bomDataCell(
+          _orDash(item.tempQuantity),
+          colW[5],
+          fontSize: fontSize,
+          rowH: rowH,
+          vPad: vPad,
+          hPad: hPad,
+        ),
+        _bomDataCell(
+          _orDash(item.RMA),
+          colW[6],
+          fontSize: fontSize,
+          rowH: rowH,
+          vPad: vPad,
+          hPad: hPad,
+        ),
+        _bomDataCell(
+          _orDash(item.MPFRequestedBy),
+          colW[7],
+          fontSize: fontSize,
+          rowH: rowH,
+          vPad: vPad,
+          hPad: hPad,
+        ),
+        _bomDataCell(
+          _formatDateValue(item.createdAt),
+          colW[8],
+          fontSize: fontSize,
+          rowH: rowH,
+          vPad: vPad,
+          hPad: hPad,
+        ),
       ],
     );
   }
 
-  Widget _buildActionsHeaderCell() {
+  Widget _buildActionsHeaderCell(
+    double actionW, {
+    required double fontSize,
+    required double headerH,
+    required double hPad,
+  }) {
     return DecoratedBox(
       decoration: BoxDecoration(boxShadow: _rightStickyShadow),
-      child: _bomHeaderCell("Actions", _actionsColWidth),
+      child: _bomHeaderCell(
+        "Actions",
+        actionW,
+        fontSize: fontSize,
+        height: headerH,
+        hPad: hPad,
+      ),
     );
   }
 
-  Widget _buildActionsDataCell(ItemModel item) {
+  Widget _buildActionsDataCell(
+    ItemModel item,
+    double actionW, {
+    required double rowH,
+  }) {
     final borderColor = Colors.grey.shade300;
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -408,9 +592,9 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
         boxShadow: _rightStickyShadow,
       ),
       child: SizedBox(
-        width: _actionsColWidth,
+        width: actionW,
         child: Container(
-          height: 56,
+          height: rowH,
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           decoration: BoxDecoration(
@@ -473,7 +657,18 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
     );
   }
 
-  Widget _buildStickyActionsTable() {
+  Widget _buildStickyActionsTable({
+    required List<double> colW,
+    required double fontSize,
+    required double headerH,
+    required double rowH,
+    required double vPad,
+    required double hPad,
+  }) {
+    final leftW = colW[0] + colW[1] + colW[2];
+    final middleW = colW.skip(3).take(6).fold<double>(0, (sum, w) => sum + w);
+    final actionW = colW[9];
+
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade300),
@@ -482,63 +677,152 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildStickyColumnPane(
-            width: _leftStickyWidth,
-            header: _buildLeftStickyHeaderRow(),
+            width: leftW,
+            header: _buildLeftStickyHeaderRow(
+              colW,
+              fontSize: fontSize,
+              headerH: headerH,
+              hPad: hPad,
+            ),
             controller: _leftVerticalScroll,
-            rowBuilder: _buildLeftStickyDataRow,
+            rowBuilder: (item) => _buildLeftStickyDataRow(
+              item,
+              colW,
+              fontSize: fontSize,
+              rowH: rowH,
+              vPad: vPad,
+              hPad: hPad,
+            ),
           ),
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: _scrollableTableWidth,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildScrollableHeaderRow(),
-                    Expanded(
-                      child: ListView.builder(
-                        controller: _bodyVerticalScroll,
-                        itemCount: items.length,
-                        itemBuilder: (context, index) {
-                          return _buildScrollableDataRow(items[index]);
-                        },
-                      ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final scrollW = middleW > constraints.maxWidth
+                    ? middleW
+                    : constraints.maxWidth;
+                // If middle needs to stretch further within Expanded, rescale
+                // middle columns only to fill the expanded area.
+                final midCols = colW.skip(3).take(6).toList();
+                final midSum = midCols.fold<double>(0, (a, b) => a + b);
+                final effectiveMid = scrollW >= midSum
+                    ? () {
+                        final scale = scrollW / midSum;
+                        final scaled = midCols.map((w) => w * scale).toList();
+                        final s = scaled.fold<double>(0, (a, b) => a + b);
+                        scaled[scaled.length - 1] += scrollW - s;
+                        return scaled;
+                      }()
+                    : midCols;
+                final effectiveColW = [
+                  colW[0],
+                  colW[1],
+                  colW[2],
+                  ...effectiveMid,
+                  colW[9],
+                ];
+                final tableMidW = effectiveMid.fold<double>(0, (a, b) => a + b);
+
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: tableMidW,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildScrollableHeaderRow(
+                          effectiveColW,
+                          fontSize: fontSize,
+                          headerH: headerH,
+                          hPad: hPad,
+                        ),
+                        Expanded(
+                          child: ListView.builder(
+                            controller: _bodyVerticalScroll,
+                            itemCount: items.length,
+                            itemBuilder: (context, index) {
+                              return _buildScrollableDataRow(
+                                items[index],
+                                effectiveColW,
+                                fontSize: fontSize,
+                                rowH: rowH,
+                                vPad: vPad,
+                                hPad: hPad,
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
           ),
           _buildStickyColumnPane(
-            width: _actionsColWidth,
-            header: _buildActionsHeaderCell(),
+            width: actionW,
+            header: _buildActionsHeaderCell(
+              actionW,
+              fontSize: fontSize,
+              headerH: headerH,
+              hPad: hPad,
+            ),
             controller: _actionsVerticalScroll,
-            rowBuilder: _buildActionsDataCell,
+            rowBuilder: (item) =>
+                _buildActionsDataCell(item, actionW, rowH: rowH),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyStickyHeader() {
+  Widget _buildEmptyStickyHeader({
+    required List<double> colW,
+    required double fontSize,
+    required double headerH,
+    required double hPad,
+  }) {
+    final leftW = colW[0] + colW[1] + colW[2];
+    final middleW = colW.skip(3).take(6).fold<double>(0, (sum, w) => sum + w);
+    final actionW = colW[9];
+
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: Row(
         children: [
-          SizedBox(width: _leftStickyWidth, child: _buildLeftStickyHeaderRow()),
+          SizedBox(
+            width: leftW,
+            child: _buildLeftStickyHeaderRow(
+              colW,
+              fontSize: fontSize,
+              headerH: headerH,
+              hPad: hPad,
+            ),
+          ),
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: SizedBox(
-                width: _scrollableTableWidth,
-                child: _buildScrollableHeaderRow(),
+                width: middleW,
+                child: _buildScrollableHeaderRow(
+                  colW,
+                  fontSize: fontSize,
+                  headerH: headerH,
+                  hPad: hPad,
+                ),
               ),
             ),
           ),
-          SizedBox(width: _actionsColWidth, child: _buildActionsHeaderCell()),
+          SizedBox(
+            width: actionW,
+            child: _buildActionsHeaderCell(
+              actionW,
+              fontSize: fontSize,
+              headerH: headerH,
+              hPad: hPad,
+            ),
+          ),
         ],
       ),
     );
@@ -546,95 +830,103 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
 
   @override
   Widget build(BuildContext context) {
+    final r = Responsive.of(context);
+    final density = _densityFor(MediaQuery.sizeOf(context));
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: const CommonAppBar(),
       drawer: const CommonDrawer(),
       body: Container(
         color: Colors.white,
-        child: Container(
-          // padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Align(
-                alignment: Alignment.center,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                r.pagePaddingH,
+                r.pagePaddingV,
+                r.pagePaddingH,
+                0,
+              ),
+              child: Align(
+                alignment: Alignment.centerLeft,
                 child: Text(
                   "Inventory Picked Log",
                   style: TextStyle(
                     color: Colors.black,
-                    fontSize: 25,
+                    fontSize: r.pageTitleSize,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-
-              const SizedBox(height: 16),
-
-              // DropdownButton<String>(
-              //   hint: Text("Pending Pick List"),
-              //   value: selectedPickList,
-              //   items: itemList.map((item) {
-              //     return DropdownMenuItem(value: item, child: Text(item));
-              //   }).toList(),
-              //   onChanged: (value) {
-              //     setState(() {
-              //       selectedPickList = value;
-              //     });
-              //   },
-              // ),
-              Row(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: SizedBox(
-                      width: 220,
-                      child: DropdownButtonFormField<String>(
-                        dropdownColor: Colors.white,
-                        decoration: InputDecoration(
-                          // labelText: 'Status',
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderSide: const BorderSide(
-                              color: Color(0xFF38485E),
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderSide: const BorderSide(
-                              color: Color.fromARGB(255, 229, 231, 235),
-                              width: 2,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: const BorderSide(
-                              color: Color(0xFF38485E),
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                        value: selectedPickList,
-                        items: itemList.map((item) {
-                          return DropdownMenuItem(
-                            value: item,
-                            child: Text(item),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() => selectedPickList = value);
-                          fetchInvetoryPickedData();
-                        },
-                      ),
+            ),
+            SizedBox(height: r.sectionGap),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: r.pagePaddingH),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  const fieldHeight = 48.0;
+                  final isNarrow = constraints.maxWidth < 700;
+                  final sharedBorder = OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(
+                      color: Color.fromARGB(255, 229, 231, 235),
+                      width: 2,
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 280,
+                  );
+                  final focusedBorder = OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF38485E),
+                      width: 2,
+                    ),
+                  );
+
+                  final dropdown = SizedBox(
+                    height: fieldHeight,
+                    width: isNarrow ? double.infinity : 220,
+                    child: DropdownButtonFormField<String>(
+                      dropdownColor: Colors.white,
+                      isDense: true,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        border: sharedBorder,
+                        enabledBorder: sharedBorder,
+                        focusedBorder: focusedBorder,
+                      ),
+                      value: selectedPickList,
+                      items: itemList.map((item) {
+                        return DropdownMenuItem(
+                          value: item,
+                          child: Text(
+                            item,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() => selectedPickList = value);
+                        fetchInvetoryPickedData();
+                      },
+                    ),
+                  );
+
+                  final searchField = SizedBox(
+                    height: fieldHeight,
+                    width: isNarrow ? double.infinity : 280,
                     child: TextField(
                       controller: _pickListSearchController,
                       keyboardType: TextInputType.number,
                       style: const TextStyle(fontSize: 14),
+                      textInputAction: TextInputAction.search,
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: Colors.white,
@@ -651,55 +943,96 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
-                          vertical: 14,
+                          vertical: 12,
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                            color: Color.fromARGB(255, 229, 231, 235),
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                            color: Color.fromARGB(255, 229, 231, 235),
-                            width: 2,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF38485E),
-                            width: 2,
-                          ),
-                        ),
+                        border: sharedBorder,
+                        enabledBorder: sharedBorder,
+                        focusedBorder: focusedBorder,
                       ),
+                      onChanged: (value) {
+                        if (value.trim().isEmpty) {
+                          fetchInvetoryPickedData();
+                        }
+                      },
                       onSubmitted: (_) => fetchInvetoryPickedData(),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  // SizedBox(
-                  //   height: 48,
-                  //   child: ElevatedButton.icon(
-                  //     onPressed: fetchInvetoryPickedData,
-                  //     icon: const Icon(Icons.search),
-                  //     label: const Text('Search'),
-                  //   ),
-                  // ),
-                ],
+                  );
+
+                  final searchButton = SizedBox(
+                    height: fieldHeight,
+                    child: ElevatedButton(
+                      onPressed: fetchInvetoryPickedData,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E88E5),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Search',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  );
+
+                  if (isNarrow) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        dropdown,
+                        const SizedBox(height: 10),
+                        searchField,
+                        const SizedBox(height: 10),
+                        searchButton,
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      dropdown,
+                      const SizedBox(width: 12),
+                      searchField,
+                      const SizedBox(width: 12),
+                      searchButton,
+                    ],
+                  );
+                },
               ),
-
-              const SizedBox(height: 16),
-
-              if (isLoading)
-                const Expanded(child: Center(child: AppLoader()))
-              else
-                Expanded(
-                  child: items.isEmpty
-                      ? Column(
+            ),
+            SizedBox(height: r.sectionGap),
+            if (isLoading)
+              const Expanded(child: Center(child: AppLoader()))
+            else
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    r.pagePaddingH,
+                    0,
+                    r.pagePaddingH,
+                    r.pagePaddingV,
+                  ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final colW = _columnWidthsForAvailable(
+                        constraints.maxWidth,
+                      );
+                      if (items.isEmpty) {
+                        return Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _buildEmptyStickyHeader(),
+                            _buildEmptyStickyHeader(
+                              colW: colW,
+                              fontSize: density.fontSize,
+                              headerH: density.headerH,
+                              hPad: density.hPad,
+                            ),
                             const Expanded(
                               child: Center(
                                 child: Padding(
@@ -709,14 +1042,21 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                               ),
                             ),
                           ],
-                        )
-                      : Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: _buildStickyActionsTable(),
-                        ),
+                        );
+                      }
+                      return _buildStickyActionsTable(
+                        colW: colW,
+                        fontSize: density.fontSize,
+                        headerH: density.headerH,
+                        rowH: density.rowH,
+                        vPad: density.vPad,
+                        hPad: density.hPad,
+                      );
+                    },
+                  ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
