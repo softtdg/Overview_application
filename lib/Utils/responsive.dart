@@ -72,8 +72,8 @@ class Responsive {
   }
 
   double get pageTitleSize {
-    if (isDesktop) return 18;
-    if (isTablet) return isCompactTablet ? 16.0 : 17.0;
+    if (isDesktop) return 24;
+    if (isTablet) return isCompactTablet ? 20.0 : 21.0;
     return isCompactPhone ? 18 : 20;
   }
 
@@ -114,9 +114,9 @@ class Responsive {
   }
 
   double get fieldVerticalPadding {
-    if (isDesktop) return 8;
-    if (isTablet) return 7;
-    return isCompactPhone ? 10 : 11;
+    if (isDesktop) return 0;
+    if (isTablet) return 0;
+    return 0;
   }
 
   double get fieldRadius {
@@ -129,115 +129,122 @@ class Responsive {
   /// Equal-height card rows only on true desktop (avoids huge empty cards on tablets).
   bool get stretchCardRows => isDesktop;
 
-  double get searchButtonFontSize {
-    if (isDesktop) return 12;
-    if (isTablet) return 11;
-    return 13;
+  /// Shared height for SOP search field + Search button (keeps them aligned).
+  double get searchControlHeight {
+    if (isDesktop) return 36;
+    if (isTablet) return 36;
+    return 44;
   }
 
-  double get searchButtonHeight {
-    if (isDesktop) return 32;
-    if (isTablet) return 30;
-    return 40;
+  double get searchFieldContentPaddingV {
+    if (isDesktop) return 8;
+    if (isTablet) return 8;
+    return 12;
   }
+
+  double get searchButtonFontSize {
+    if (isDesktop) return 13;
+    if (isTablet) return 12;
+    return 14;
+  }
+
+  double get searchButtonHeight => searchControlHeight;
 
   double get searchIconSize {
-    if (isDesktop) return 14;
-    if (isTablet) return 13;
-    return 16;
+    if (isDesktop) return 16;
+    if (isTablet) return 16;
+    return 18;
   }
 
   double get searchFieldFontSize {
     if (isDesktop) return 13;
-    if (isTablet) return 12.5;
+    if (isTablet) return 13;
     return isCompactPhone ? 13 : 14;
   }
 
   double get searchFieldMaxWidth {
-    if (isDesktop) return 280;
-    if (isTablet) return isCompactTablet ? 220.0 : 250.0;
+    if (isDesktop) return 360;
+    if (isTablet) return isCompactTablet ? 240.0 : 280.0;
     return double.infinity;
   }
 
-  double get searchFieldHeight {
-    if (isDesktop) return 38;
-    if (isTablet) return 36;
-    return 42;
-  }
+  double get searchFieldHeight => searchControlHeight;
 
   // --- Public Search: SOP cards ---
+  // Compact tablet = "perfect" look; large tablet/desktop = smaller text.
 
   double get sopCardWidth {
-    if (isDesktop) return 130;
-    if (isTablet) return isCompactTablet ? 110.0 : 120.0;
-    return isCompactPhone ? 100.0 : 112.0;
+    if (isDesktop) return 128;
+    if (isTablet) return isCompactTablet ? 150.0 : 135.0;
+    return isCompactPhone ? 130.0 : 145.0;
   }
 
   double get sopCardListHeight {
-    if (isDesktop) return 132;
-    if (isTablet) return isCompactTablet ? 118.0 : 124.0;
-    return isCompactPhone ? 112.0 : 120.0;
+    if (isDesktop) return 110;
+    if (isTablet) return isCompactTablet ? 124.0 : 114.0;
+    return isCompactPhone ? 118.0 : 122.0;
   }
 
   double get sopCardPadding {
     if (isDesktop) return 10;
-    if (isTablet) return 8;
-    return 8;
+    if (isTablet) return isCompactTablet ? 12.0 : 10.0;
+    return 12;
   }
 
   double get sopCardLabelSize {
     if (isDesktop) return 12;
-    if (isTablet) return 11;
-    return 11;
+    if (isTablet) return isCompactTablet ? 14.0 : 12.0;
+    return 14;
   }
 
   double get sopCardNumberSize {
-    if (isDesktop) return 15;
-    if (isTablet) return isCompactTablet ? 13.0 : 14.0;
-    return isCompactPhone ? 13.0 : 14.0;
+    if (isDesktop) return 16;
+    if (isTablet) return isCompactTablet ? 18.0 : 16.0;
+    return 18;
   }
 
   double get sopCardMetaSize {
     if (isDesktop) return 12;
-    if (isTablet) return 11;
-    return 11;
+    if (isTablet) return isCompactTablet ? 14.0 : 12.0;
+    return 14;
   }
 
   // --- Public Search: BOM table ---
 
   double get bomHeaderHeight {
-    if (isDesktop) return 36;
-    if (isTablet) return 32;
-    return 30;
+    if (isDesktop) return 34;
+    if (isTablet) return isCompactTablet ? 42.0 : 36.0;
+    return 40;
   }
 
   double get bomCellFontSize {
     if (isDesktop) return 12;
-    if (isTablet) return isCompactTablet ? 10.5 : 11.0;
-    return isCompactPhone ? 10.0 : 11.0;
+    if (isTablet) return isCompactTablet ? 15.0 : 13.0;
+    return 14;
   }
 
   double get bomCellPaddingH {
     if (isDesktop) return 8;
-    if (isTablet) return 6;
-    return 6;
+    if (isTablet) return isCompactTablet ? 10.0 : 8.0;
+    return 10;
   }
 
   double get bomCellPaddingV {
     if (isDesktop) return 6;
-    if (isTablet) return 5;
-    return 4;
+    if (isTablet) return isCompactTablet ? 10.0 : 7.0;
+    return 9;
   }
 
   /// Base column widths: TDGPN, Desc, Material, Qty/Size/UOM, State, Vendor, FileName.
-  /// Phone/tablet keep wide readable mins so the table scrolls horizontally
-  /// instead of crushing text.
   List<double> get bomColWidths {
     if (isDesktop) {
-      return const [120, 220, 180, 72, 80, 120, 160];
+      return const [120, 240, 180, 72, 72, 120, 180];
     }
-    // ~1100px total — forces H-scroll on phone & small/medium tablets
-    return const [110, 280, 160, 70, 70, 100, 200];
+    if (isTablet && !isCompactTablet) {
+      return const [120, 260, 170, 76, 76, 120, 200];
+    }
+    // Small tablet — matches the "perfect" look
+    return const [130, 300, 180, 84, 84, 120, 220];
   }
 
   /// Width for each card when laid out in [cardColumns] columns.

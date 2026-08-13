@@ -213,6 +213,13 @@ class _PublicSearchState extends State<Publicsearch> {
 
         items = components is List
             ? components.map<ItemModel>((e) {
+                // API uses PascalCase for most fields; color may be "color" or "Color".
+                final rawColor =
+                    e["Color"] ?? e["color"] ?? e["Colour"] ?? e["colour"];
+                final colorStr = rawColor?.toString().trim().isNotEmpty == true
+                    ? rawColor.toString().trim()
+                    : "white";
+
                 return ItemModel(
                   tdgPn: e["TDGPN"]?.toString() ?? "-",
                   description: e["Description"]?.toString() ?? "",
@@ -224,10 +231,19 @@ class _PublicSearchState extends State<Publicsearch> {
                       double.tryParse(e["Quantity"]?.toString() ?? "1") ?? 1.0,
                   size: e['Size']?.toString() ?? '',
                   UOM: e['UnitOfMeasure']?.toString() ?? "",
-                  color: e["color"]?.toString() ?? "white",
+                  color: colorStr,
                 );
               }).toList()
             : [];
+
+        // One summary log: unique Color values from this fixture's Components.
+        if (items.isNotEmpty) {
+          final uniqueColors = items.map((e) => e.color).toSet().toList()
+            ..sort();
+          print(
+            "PublicSearch fixture=$fixtureNumber unique Colors=$uniqueColors",
+          );
+        }
         isTableLoading = false;
       });
 
@@ -272,46 +288,89 @@ class _PublicSearchState extends State<Publicsearch> {
   }
 
   Widget _buildSOPCard(String sop, String date, String qty, Responsive r) {
-    return Container(
-      width: r.sopCardWidth,
-      margin: EdgeInsets.only(right: r.isPhone ? 8 : 10),
-      padding: EdgeInsets.all(r.sopCardPadding),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(r.isPhone ? 10 : 12),
-        border: Border.all(color: Colors.grey.shade400),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "SOP",
-            style: TextStyle(
-              fontSize: r.sopCardLabelSize,
-              color: Colors.black,
-              fontWeight: FontWeight.w500,
+    // Leave 2px so the bottom border is not clipped by the horizontal ListView.
+    final cardHeight = r.sopCardListHeight - 2;
+
+    return Padding(
+      padding: EdgeInsets.only(right: r.isPhone ? 8 : 10),
+      child: SizedBox(
+        width: r.sopCardWidth,
+        height: cardHeight,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(r.isPhone ? 10 : 12),
+            border: Border.all(color: Colors.grey.shade400, width: 1),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(r.sopCardPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Text(
+                  "SOP",
+                  style: TextStyle(
+                    fontSize: r.sopCardLabelSize,
+                    color: Colors.black,
+                    fontWeight: FontWeight.w500,
+                    height: 1.2,
+                  ),
+                ),
+                SizedBox(height: r.isPhone ? 2 : 4),
+                Text(
+                  sop,
+                  style: TextStyle(
+                    fontSize: r.sopCardNumberSize,
+                    fontWeight: FontWeight.bold,
+                    height: 1.2,
+                  ),
+                ),
+                // Small fixed gap instead of Spacer (Spacer caused large empty space).
+                const SizedBox(height: 8),
+                Text(
+                  "Date: $date",
+                  style: TextStyle(
+                    fontSize: r.sopCardMetaSize,
+                    height: 1.2,
+                  ),
+                ),
+                Text(
+                  "Qty: $qty",
+                  style: TextStyle(
+                    fontSize: r.sopCardMetaSize,
+                    height: 1.2,
+                  ),
+                ),
+              ],
             ),
           ),
-          SizedBox(height: r.isPhone ? 2 : 4),
-          Text(
-            sop,
-            style: TextStyle(
-              fontSize: r.sopCardNumberSize,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            "Date: $date",
-            style: TextStyle(fontSize: r.sopCardMetaSize),
-          ),
-          Text(
-            "Qty: $qty",
-            style: TextStyle(fontSize: r.sopCardMetaSize),
-          ),
-        ],
+        ),
       ),
     );
+  }
+
+  /// API may return hex ("#FFA500") or the name "orange".
+  Color _rowColorFromApi(String? raw) {
+    var value = (raw ?? '').trim();
+    if (value.isEmpty) return Colors.white;
+
+    final lower = value.toLowerCase().replaceAll('#', '');
+    if (lower == 'white') return Colors.white;
+    if (lower == 'orange') return const Color(0xFFFFA500); // #FFA500
+
+    // Hex only: "#RRGGBB", "RRGGBB", "#AARRGGBB", "AARRGGBB"
+    var hex = value.replaceAll('#', '');
+    if (RegExp(r'^[0-9a-fA-F]+$').hasMatch(hex)) {
+      if (hex.length == 6) hex = 'FF$hex';
+      if (hex.length == 8) {
+        final parsed = int.tryParse(hex, radix: 16);
+        if (parsed != null) return Color(parsed);
+      }
+    }
+
+    // Unknown value → white (never crash)
+    return Colors.white;
   }
 
   double _minBomTableWidth(List<double> widths) =>
@@ -399,7 +458,6 @@ class _PublicSearchState extends State<Publicsearch> {
   }) {
     final colW = _columnWidthsForBomTable(availableWidth, r);
     final tableW = _bomTableWidthFor(colW);
-    final needsHorizontalScroll = tableW > availableWidth + 0.5;
 
     final header = Material(
       color: const Color.fromARGB(255, 57, 73, 95),
@@ -428,11 +486,7 @@ class _PublicSearchState extends State<Publicsearch> {
       children: [
         for (final item in items)
           Container(
-            color: (item.color.toLowerCase() == "white")
-                ? Colors.white
-                : Color(
-                    int.parse("0xFF${item.color.replaceAll("#", "")}"),
-                  ),
+            color: _rowColorFromApi(item.color),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -452,14 +506,13 @@ class _PublicSearchState extends State<Publicsearch> {
       ],
     );
 
-    // One horizontal scroll for the whole table so small screens can swipe
-    // left/right without columns getting crushed to fit.
+    // Horizontal scroll without visible scrollbar (swipe / drag still works).
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: ScrollConfiguration(
-        behavior: const MaterialScrollBehavior().copyWith(
+        behavior: const _NoScrollbarScrollBehavior().copyWith(
           dragDevices: {
             PointerDeviceKind.touch,
             PointerDeviceKind.mouse,
@@ -467,43 +520,30 @@ class _PublicSearchState extends State<Publicsearch> {
             PointerDeviceKind.stylus,
           },
         ),
-        child: Scrollbar(
+        child: SingleChildScrollView(
           controller: _tableHorizontalBodyController,
-          thumbVisibility: needsHorizontalScroll,
-          trackVisibility: needsHorizontalScroll,
-          scrollbarOrientation: ScrollbarOrientation.bottom,
-          notificationPredicate: (ScrollNotification n) =>
-              n.metrics.axis == Axis.horizontal,
-          child: SingleChildScrollView(
-            controller: _tableHorizontalBodyController,
-            scrollDirection: Axis.horizontal,
-            primary: false,
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: ClampingScrollPhysics(),
-            ),
-            child: SizedBox(
-              width: tableW,
-              height: tableHeight,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  header,
-                  Expanded(
-                    child: Scrollbar(
-                      controller: _tableVerticalScrollController,
-                      thumbVisibility: !r.isPhone,
-                      trackVisibility: !r.isPhone,
-                      child: SingleChildScrollView(
-                        controller: _tableVerticalScrollController,
-                        primary: false,
-                        scrollDirection: Axis.vertical,
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        child: rows,
-                      ),
-                    ),
+          scrollDirection: Axis.horizontal,
+          primary: false,
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: ClampingScrollPhysics(),
+          ),
+          child: SizedBox(
+            width: tableW,
+            height: tableHeight,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                header,
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: _tableVerticalScrollController,
+                    primary: false,
+                    scrollDirection: Axis.vertical,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: rows,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -516,7 +556,7 @@ class _PublicSearchState extends State<Publicsearch> {
     final r = Responsive.of(context);
     final searchFieldWidth = (r.width - (r.pagePaddingH * 2)).clamp(
       220.0,
-      r.isPhone ? 360.0 : 420.0,
+      r.isPhone ? 360.0 : (r.isTablet ? 340.0 : 360.0),
     );
     final media = MediaQuery.of(context);
     final bodyViewportHeight =
@@ -565,15 +605,15 @@ class _PublicSearchState extends State<Publicsearch> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Align(
-                  alignment: Alignment.centerLeft,
-                  child: Center(
-                    child: Text(
-                      "Public Search",
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: r.isPhone ? 22 : r.pageTitleSize + 4,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  alignment: hasSearched
+                      ? Alignment.centerLeft
+                      : Alignment.center,
+                  child: Text(
+                    "Public Search",
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: r.isPhone ? 22 : r.pageTitleSize + 4,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -583,7 +623,7 @@ class _PublicSearchState extends State<Publicsearch> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: SizedBox(
-                      height: r.searchButtonHeight + 4,
+                      height: r.searchControlHeight,
                       child: ElevatedButton.icon(
                         onPressed: _handleNewSearch,
                         style: ElevatedButton.styleFrom(
@@ -616,46 +656,65 @@ class _PublicSearchState extends State<Publicsearch> {
                   Center(
                     child: SizedBox(
                       width: searchFieldWidth,
-                      height: r.searchFieldHeight + 4,
-                      child: TextField(
-                        controller: PublicSearchController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[0-9-]')),
-                        ],
-                        style: TextStyle(fontSize: r.searchFieldFontSize),
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white,
-                          isDense: true,
-                          hintText: 'Enter Fixture Number',
-                          hintStyle:
-                              TextStyle(fontSize: r.searchFieldFontSize),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: r.fieldVerticalPadding,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(r.fieldRadius),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(r.fieldRadius),
-                            borderSide: const BorderSide(
-                              color: Color.fromARGB(255, 22, 129, 218),
-                              width: 1.5,
+                      height: r.searchControlHeight,
+                      child: Theme(
+                        data: Theme.of(context).copyWith(
+                          inputDecorationTheme: InputDecorationTheme(
+                            isDense: !r.isPhone,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: r.searchFieldContentPaddingV,
                             ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(r.fieldRadius),
-                            borderSide: const BorderSide(
-                              color: Colors.blue,
-                              width: 1.5,
-                            ),
+                            constraints: const BoxConstraints(),
                           ),
                         ),
-                        textInputAction: TextInputAction.search,
-                        onSubmitted: (_) => performSearch(),
+                        child: TextField(
+                          controller: PublicSearchController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9-]'),
+                            ),
+                          ],
+                          style: TextStyle(fontSize: r.searchFieldFontSize),
+                          textAlignVertical: TextAlignVertical.center,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.white,
+                            isDense: !r.isPhone,
+                            hintText: 'Enter Fixture Number',
+                            hintStyle: TextStyle(
+                              fontSize: r.searchFieldFontSize,
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: r.searchFieldContentPaddingV,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(r.fieldRadius),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(r.fieldRadius),
+                              borderSide: const BorderSide(
+                                color: Color.fromARGB(255, 22, 129, 218),
+                                width: 1.5,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(r.fieldRadius),
+                              borderSide: const BorderSide(
+                                color: Colors.blue,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                          textInputAction: TextInputAction.search,
+                          onSubmitted: (_) => performSearch(),
+                        ),
                       ),
                     ),
                   ),
@@ -664,8 +723,8 @@ class _PublicSearchState extends State<Publicsearch> {
 
                   Center(
                     child: SizedBox(
-                      height: r.searchButtonHeight + 6,
-                      width: r.isPhone ? 160 : 180,
+                      height: r.searchControlHeight,
+                      width: r.isPhone ? 160 : 160,
                       child: ElevatedButton(
                         onPressed: (isSopLoading || isTableLoading)
                             ? null
@@ -674,8 +733,16 @@ class _PublicSearchState extends State<Publicsearch> {
                           backgroundColor:
                               const Color.fromARGB(255, 57, 73, 95),
                           foregroundColor: Colors.white,
-                          padding: EdgeInsets.zero,
-                          visualDensity: VisualDensity.compact,
+                          elevation: 0,
+                          minimumSize: Size(0, r.searchControlHeight),
+                          fixedSize: Size.fromHeight(r.searchControlHeight),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: r.isPhone ? 16 : 12,
+                          ),
+                          visualDensity: r.isPhone
+                              ? VisualDensity.standard
+                              : VisualDensity.compact,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(r.fieldRadius),
                           ),
@@ -683,7 +750,7 @@ class _PublicSearchState extends State<Publicsearch> {
                         child: Text(
                           "Search",
                           style: TextStyle(
-                            fontSize: r.searchButtonFontSize + 1,
+                            fontSize: r.searchButtonFontSize,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -722,9 +789,8 @@ class _PublicSearchState extends State<Publicsearch> {
                             ),
                           )
                         : ListView.builder(
-                            padding: EdgeInsets.only(
-                              bottom: r.isPhone ? 4 : 8,
-                            ),
+                            clipBehavior: Clip.none,
+                            padding: EdgeInsets.zero,
                             controller: _scrollController,
                             scrollDirection: Axis.horizontal,
                             itemCount: sopList.length,
@@ -766,6 +832,20 @@ class _PublicSearchState extends State<Publicsearch> {
         ),
       ),
     );
+  }
+}
+
+/// Hides platform/Flutter scrollbars while keeping scroll gestures.
+class _NoScrollbarScrollBehavior extends MaterialScrollBehavior {
+  const _NoScrollbarScrollBehavior();
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
   }
 }
 

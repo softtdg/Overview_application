@@ -64,9 +64,9 @@ class _SOPSearchState extends State<SOPSearch> {
         sopData = response.data["data"];
       });
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Data Loaded")));
+      // ScaffoldMessenger.of(
+      //   context,
+      // ).showSnackBar(SnackBar(content: Text("Data Loaded")));
 
       // print("SOP Search Data From SOPSearch --===---==--->: $response");
     } catch (e) {
@@ -79,9 +79,9 @@ class _SOPSearchState extends State<SOPSearch> {
         print("SOP Error Data --------> ${e.response}");
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Failed to fetch SOP")));
+      // ScaffoldMessenger.of(
+      //   context,
+      // ).showSnackBar(SnackBar(content: Text("Failed to fetch SOP")));
     }
     setState(() {
       isLoading = false;
@@ -331,13 +331,11 @@ class _SOPSearchState extends State<SOPSearch> {
 
     if (r.useInlineSearchHeader) {
       return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           title,
           SizedBox(width: r.sectionGap),
-          SizedBox(
-            width: r.searchFieldMaxWidth,
-            child: sopField,
-          ),
+          sopField,
           SizedBox(width: r.sectionGap),
           searchButton,
         ],
@@ -475,41 +473,66 @@ class _SOPSearchState extends State<SOPSearch> {
           ];
 
     final fieldRadius = r.fieldRadius;
+    // Fixed control height — keep field & button identical.
+    final controlHeight = r.searchControlHeight;
+    final fieldWidth = r.isPhone ? double.infinity : r.searchFieldMaxWidth;
+    final borderColor =
+        r.isPhone ? const Color(0xFF2196F3) : const Color(0xFFBDBDBD);
+
     final sopField = SizedBox(
-      height: r.searchFieldHeight,
-      width: r.isPhone ? null : r.searchFieldMaxWidth,
-      child: TextField(
-        controller: SOPController,
-        style: TextStyle(fontSize: r.searchFieldFontSize, height: 1.2),
-        decoration: InputDecoration(
-          hintText: 'Enter SOP Number',
-          hintStyle: TextStyle(fontSize: r.searchFieldFontSize),
-          isDense: true,
-          contentPadding: EdgeInsets.symmetric(
-            horizontal: r.isPhone ? 12 : 12,
-            vertical: r.fieldVerticalPadding,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(fieldRadius),
-            borderSide: BorderSide(
-              color: r.isPhone
-                  ? const Color(0xFF2196F3)
-                  : const Color(0xFFBDBDBD),
-              width: r.isPhone ? 1.5 : 1,
+      width: r.isPhone ? null : fieldWidth,
+      height: controlHeight,
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          inputDecorationTheme: InputDecorationTheme(
+            isDense: !r.isPhone,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: r.searchFieldContentPaddingV,
             ),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(fieldRadius),
-            borderSide: const BorderSide(color: Color(0xFF1565C0), width: 1.5),
+            constraints: const BoxConstraints(),
           ),
         ),
-        textInputAction: TextInputAction.search,
-        onSubmitted: (_) => handleSOPSearch(),
+        child: TextField(
+          controller: SOPController,
+          style: TextStyle(fontSize: r.searchFieldFontSize),
+          textAlignVertical: TextAlignVertical.center,
+          decoration: InputDecoration(
+            hintText: 'Enter SOP Number',
+            hintStyle: TextStyle(fontSize: r.searchFieldFontSize),
+            filled: true,
+            fillColor: Colors.white,
+            isCollapsed: false,
+            isDense: !r.isPhone,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: r.searchFieldContentPaddingV,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(fieldRadius),
+              borderSide: BorderSide(color: borderColor),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(fieldRadius),
+              borderSide: BorderSide(
+                color: borderColor,
+                width: r.isPhone ? 1.5 : 1,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(fieldRadius),
+              borderSide:
+                  const BorderSide(color: Color(0xFF1565C0), width: 1.5),
+            ),
+          ),
+          textInputAction: TextInputAction.search,
+          onSubmitted: (_) => handleSOPSearch(),
+        ),
       ),
     );
+
     final searchButton = SizedBox(
-      height: r.searchButtonHeight,
-      
+      height: controlHeight,
       child: ElevatedButton.icon(
         onPressed: handleSOPSearch,
         icon: Icon(Icons.search, size: r.searchIconSize),
@@ -517,21 +540,17 @@ class _SOPSearchState extends State<SOPSearch> {
           'Search',
           style: TextStyle(
             fontSize: r.searchButtonFontSize,
-            fontWeight: FontWeight.w500,
-            height: 1.1,
+            fontWeight: FontWeight.w600,
           ),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF1E88E5),
           foregroundColor: Colors.white,
           elevation: 0,
-          minimumSize: Size(0, r.searchButtonHeight),
-          maximumSize: Size(double.infinity, r.searchButtonHeight),
-          padding: EdgeInsets.symmetric(
-            horizontal: r.isPhone ? 12 : 10,
-            vertical: 0,
-          ),
-          visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+          minimumSize: Size(88, controlHeight),
+          fixedSize: Size.fromHeight(controlHeight),
+          padding: EdgeInsets.symmetric(horizontal: r.isPhone ? 16 : 12),
+          visualDensity: r.isPhone ? VisualDensity.standard : VisualDensity.compact,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(fieldRadius),
