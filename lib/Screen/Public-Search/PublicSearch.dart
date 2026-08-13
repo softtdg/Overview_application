@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:overview_app/Screen/Public-Search/Services/PublicSearchService.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
+import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -51,9 +53,7 @@ class _PublicSearchState extends State<Publicsearch> {
   final ScrollController _scrollController = ScrollController();
   final ScrollController _bodyScrollController = ScrollController();
   final ScrollController _tableVerticalScrollController = ScrollController();
-  final ScrollController _tableHorizontalHeaderController = ScrollController();
   final ScrollController _tableHorizontalBodyController = ScrollController();
-  bool _syncingTableHorizontalScroll = false;
   final TextEditingController PublicSearchController = TextEditingController();
   Map<String, dynamic> result = {};
   List<ItemModel> items = [];
@@ -65,35 +65,10 @@ class _PublicSearchState extends State<Publicsearch> {
 
   String get _fixtureNumberInput => PublicSearchController.text.trim();
 
-  void _syncTableHorizontalScroll(
-    ScrollController source,
-    ScrollController target,
-  ) {
-    if (_syncingTableHorizontalScroll) return;
-    if (!source.hasClients || !target.hasClients) return;
-    final delta = (target.offset - source.offset).abs();
-    if (delta < 0.5) return;
-    _syncingTableHorizontalScroll = true;
-    target.jumpTo(source.offset);
-    _syncingTableHorizontalScroll = false;
-  }
-
   @override
   void initState() {
     super.initState();
     _bodyScrollController.addListener(_enforceBodyVerticalScrollLimit);
-    _tableHorizontalHeaderController.addListener(() {
-      _syncTableHorizontalScroll(
-        _tableHorizontalHeaderController,
-        _tableHorizontalBodyController,
-      );
-    });
-    _tableHorizontalBodyController.addListener(() {
-      _syncTableHorizontalScroll(
-        _tableHorizontalBodyController,
-        _tableHorizontalHeaderController,
-      );
-    });
     loadUserName();
     final passed = widget.fixtureNumber?.toString().trim();
     if (passed != null && passed.isNotEmpty) {
@@ -155,9 +130,6 @@ class _PublicSearchState extends State<Publicsearch> {
     if (_tableVerticalScrollController.hasClients) {
       _tableVerticalScrollController.jumpTo(0);
     }
-    if (_tableHorizontalHeaderController.hasClients) {
-      _tableHorizontalHeaderController.jumpTo(0);
-    }
     if (_tableHorizontalBodyController.hasClients) {
       _tableHorizontalBodyController.jumpTo(0);
     }
@@ -177,7 +149,6 @@ class _PublicSearchState extends State<Publicsearch> {
     _bodyScrollController.removeListener(_enforceBodyVerticalScrollLimit);
     _bodyScrollController.dispose();
     _tableVerticalScrollController.dispose();
-    _tableHorizontalHeaderController.dispose();
     _tableHorizontalBodyController.dispose();
     _scrollController.dispose();
     PublicSearchController.dispose();
@@ -300,62 +271,50 @@ class _PublicSearchState extends State<Publicsearch> {
     }
   }
 
-  Widget _buildSOPCard(String sop, String date, String qty) {
+  Widget _buildSOPCard(String sop, String date, String qty, Responsive r) {
     return Container(
-      margin: const EdgeInsets.only(right: 10),
-      padding: const EdgeInsets.all(12),
+      width: r.sopCardWidth,
+      margin: EdgeInsets.only(right: r.isPhone ? 8 : 10),
+      padding: EdgeInsets.all(r.sopCardPadding),
       decoration: BoxDecoration(
         color: Colors.white,
-        // color: const Color(0xFFF5F6FA),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(r.isPhone ? 10 : 12),
         border: Border.all(color: Colors.grey.shade400),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             "SOP",
             style: TextStyle(
-              fontSize: 14,
+              fontSize: r.sopCardLabelSize,
               color: Colors.black,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: r.isPhone ? 2 : 4),
           Text(
             sop,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: r.sopCardNumberSize,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const Spacer(),
-          Text("Date: $date", style: const TextStyle(fontSize: 14)),
-          Text("Qty: $qty", style: const TextStyle(fontSize: 14)),
+          Text(
+            "Date: $date",
+            style: TextStyle(fontSize: r.sopCardMetaSize),
+          ),
+          Text(
+            "Qty: $qty",
+            style: TextStyle(fontSize: r.sopCardMetaSize),
+          ),
         ],
       ),
     );
   }
 
-  static const List<double> _bomColWidths = [130, 240, 220, 80, 90, 150, 150];
-
-  /// Row width = TDGPN + Description + Material + (Qty/Size/UOM) + State + Vendor + FileName.
-  double get _minBomTableWidth =>
-      _bomColWidths[0] +
-      _bomColWidths[1] +
-      _bomColWidths[2] +
-      3 * _bomColWidths[3] +
-      _bomColWidths[4] +
-      _bomColWidths[5] +
-      _bomColWidths[6];
-
-  List<double> _columnWidthsForBomTable(double available) {
-    final sum = _minBomTableWidth;
-    if (available <= sum) {
-      return List<double>.from(_bomColWidths);
-    }
-    final scale = available / sum;
-    return _bomColWidths.map((w) => w * scale).toList();
-  }
-
-  double _bomTableWidthFor(List<double> widths) =>
+  double _minBomTableWidth(List<double> widths) =>
       widths[0] +
       widths[1] +
       widths[2] +
@@ -364,16 +323,29 @@ class _PublicSearchState extends State<Publicsearch> {
       widths[5] +
       widths[6];
 
-  Widget _bomHeaderCell(String label, double w) {
+  List<double> _columnWidthsForBomTable(double available, Responsive r) {
+    final base = r.bomColWidths;
+    final sum = _minBomTableWidth(base);
+    // Small screens: never shrink/stretch to fit — keep readable widths + H-scroll.
+    if (!r.isDesktop || available <= sum) {
+      return List<double>.from(base);
+    }
+    final scale = available / sum;
+    return base.map((w) => w * scale).toList();
+  }
+
+  double _bomTableWidthFor(List<double> widths) => _minBomTableWidth(widths);
+
+  Widget _bomHeaderCell(String label, double w, Responsive r) {
     final borderColor = Colors.grey.shade300;
     return SizedBox(
       width: w,
-      height: 40,
+      height: r.bomHeaderHeight,
       child: Container(
         alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: EdgeInsets.symmetric(horizontal: r.bomCellPaddingH),
         decoration: BoxDecoration(
-          color: Color.fromARGB(255, 57, 73, 95),
+          color: const Color.fromARGB(255, 57, 73, 95),
           border: Border(
             right: BorderSide(color: borderColor),
             bottom: BorderSide(color: borderColor),
@@ -383,9 +355,9 @@ class _PublicSearchState extends State<Publicsearch> {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 12,
+            fontSize: r.bomCellFontSize,
             height: 1.0,
             color: Colors.white,
           ),
@@ -394,12 +366,15 @@ class _PublicSearchState extends State<Publicsearch> {
     );
   }
 
-  Widget _bomDataCell(String value, double w) {
+  Widget _bomDataCell(String value, double w, Responsive r) {
     final borderColor = Colors.grey.shade300;
     return SizedBox(
       width: w,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: r.bomCellPaddingH,
+          vertical: r.bomCellPaddingV,
+        ),
         decoration: BoxDecoration(
           border: Border(
             right: BorderSide(color: borderColor),
@@ -409,8 +384,128 @@ class _PublicSearchState extends State<Publicsearch> {
         child: Text(
           value,
           maxLines: 1,
-          softWrap: true,
-          overflow: TextOverflow.visible,
+          softWrap: false,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: r.bomCellFontSize),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBomTable({
+    required double availableWidth,
+    required double tableHeight,
+    required Responsive r,
+  }) {
+    final colW = _columnWidthsForBomTable(availableWidth, r);
+    final tableW = _bomTableWidthFor(colW);
+    final needsHorizontalScroll = tableW > availableWidth + 0.5;
+
+    final header = Material(
+      color: const Color.fromARGB(255, 57, 73, 95),
+      elevation: 2,
+      shadowColor: Colors.black26,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _bomHeaderCell("TDGPN", colW[0], r),
+          _bomHeaderCell("Description", colW[1], r),
+          _bomHeaderCell("Material", colW[2], r),
+          _bomHeaderCell("Quantity", colW[3], r),
+          _bomHeaderCell("Size", colW[3], r),
+          _bomHeaderCell("UOM", colW[3], r),
+          _bomHeaderCell("State", colW[4], r),
+          _bomHeaderCell("Vendor", colW[5], r),
+          _bomHeaderCell("FileName", colW[6], r),
+        ],
+      ),
+    );
+
+    final rows = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final item in items)
+          Container(
+            color: (item.color.toLowerCase() == "white")
+                ? Colors.white
+                : Color(
+                    int.parse("0xFF${item.color.replaceAll("#", "")}"),
+                  ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _bomDataCell(item.tdgPn, colW[0], r),
+                _bomDataCell(item.description, colW[1], r),
+                _bomDataCell(item.material, colW[2], r),
+                _bomDataCell(item.quantity.toString(), colW[3], r),
+                _bomDataCell(item.size.toString(), colW[3], r),
+                _bomDataCell(item.UOM.toString(), colW[3], r),
+                _bomDataCell(item.state, colW[4], r),
+                _bomDataCell(item.vendor, colW[5], r),
+                _bomDataCell(item.PathName, colW[6], r),
+              ],
+            ),
+          ),
+      ],
+    );
+
+    // One horizontal scroll for the whole table so small screens can swipe
+    // left/right without columns getting crushed to fit.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: ScrollConfiguration(
+        behavior: const MaterialScrollBehavior().copyWith(
+          dragDevices: {
+            PointerDeviceKind.touch,
+            PointerDeviceKind.mouse,
+            PointerDeviceKind.trackpad,
+            PointerDeviceKind.stylus,
+          },
+        ),
+        child: Scrollbar(
+          controller: _tableHorizontalBodyController,
+          thumbVisibility: needsHorizontalScroll,
+          trackVisibility: needsHorizontalScroll,
+          scrollbarOrientation: ScrollbarOrientation.bottom,
+          notificationPredicate: (ScrollNotification n) =>
+              n.metrics.axis == Axis.horizontal,
+          child: SingleChildScrollView(
+            controller: _tableHorizontalBodyController,
+            scrollDirection: Axis.horizontal,
+            primary: false,
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: ClampingScrollPhysics(),
+            ),
+            child: SizedBox(
+              width: tableW,
+              height: tableHeight,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  header,
+                  Expanded(
+                    child: Scrollbar(
+                      controller: _tableVerticalScrollController,
+                      thumbVisibility: !r.isPhone,
+                      trackVisibility: !r.isPhone,
+                      child: SingleChildScrollView(
+                        controller: _tableVerticalScrollController,
+                        primary: false,
+                        scrollDirection: Axis.vertical,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: rows,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -418,17 +513,20 @@ class _PublicSearchState extends State<Publicsearch> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final searchFieldWidth = (screenWidth - 32).clamp(240.0, 420.0);
+    final r = Responsive.of(context);
+    final searchFieldWidth = (r.width - (r.pagePaddingH * 2)).clamp(
+      220.0,
+      r.isPhone ? 360.0 : 420.0,
+    );
     final media = MediaQuery.of(context);
     final bodyViewportHeight =
         media.size.height - media.padding.vertical - kToolbarHeight;
-    // Tall enough that header + SOP + table area usually exceeds the viewport,
-    // so the outer body scroll view gets scroll extent (not only the inner table).
-    const estimatedHeaderPx = 380.0;
+    final estimatedHeaderPx = r.isPhone
+        ? 300.0
+        : (r.isTablet ? 320.0 : 340.0);
     final tableBoxHeight = (bodyViewportHeight - estimatedHeaderPx + 120).clamp(
-      240.0,
-      680.0,
+      r.isPhone ? 200.0 : 240.0,
+      r.isDesktop ? 680.0 : (r.isTablet ? 520.0 : 420.0),
     );
 
     final openedFromFixtureLink =
@@ -454,23 +552,26 @@ class _PublicSearchState extends State<Publicsearch> {
         color: Colors.white,
         child: Scrollbar(
           controller: _bodyScrollController,
-          thumbVisibility: true,
-          trackVisibility: true,
+          thumbVisibility: r.isDesktop,
+          trackVisibility: r.isDesktop,
           child: SingleChildScrollView(
             controller: _bodyScrollController,
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.symmetric(
+              horizontal: r.pagePaddingH,
+              vertical: r.pagePaddingV,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Align(
+                Align(
                   alignment: Alignment.centerLeft,
                   child: Center(
                     child: Text(
                       "Public Search",
                       style: TextStyle(
                         color: Colors.black,
-                        fontSize: 25,
+                        fontSize: r.isPhone ? 22 : r.pageTitleSize + 4,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -478,11 +579,11 @@ class _PublicSearchState extends State<Publicsearch> {
                 ),
 
                 if (hasSearched) ...[
-                  const SizedBox(height: 10),
+                  SizedBox(height: r.isPhone ? 8 : 10),
                   Align(
                     alignment: Alignment.centerRight,
                     child: SizedBox(
-                      height: 40,
+                      height: r.searchButtonHeight + 4,
                       child: ElevatedButton.icon(
                         onPressed: _handleNewSearch,
                         style: ElevatedButton.styleFrom(
@@ -490,15 +591,19 @@ class _PublicSearchState extends State<Publicsearch> {
                           foregroundColor: Colors.white,
                           elevation: 1,
                           shadowColor: Colors.black.withOpacity(0.05),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: r.isPhone ? 12 : 14,
+                          ),
+                          visualDensity: VisualDensity.compact,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6),
                           ),
                         ),
-                        icon: const Icon(Icons.search, size: 18),
-                        label: const Text(
+                        icon: Icon(Icons.search, size: r.searchIconSize),
+                        label: Text(
                           "New Search",
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: r.searchButtonFontSize,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -511,35 +616,41 @@ class _PublicSearchState extends State<Publicsearch> {
                   Center(
                     child: SizedBox(
                       width: searchFieldWidth,
+                      height: r.searchFieldHeight + 4,
                       child: TextField(
                         controller: PublicSearchController,
-                        // Show numeric keyboard
                         keyboardType: TextInputType.number,
-                        // Allow only Number
                         inputFormatters: [
                           FilteringTextInputFormatter.allow(RegExp(r'[0-9-]')),
                         ],
+                        style: TextStyle(fontSize: r.searchFieldFontSize),
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: Colors.white,
-                          // prefixIcon: Icon(Icons.lock),
+                          isDense: true,
                           hintText: 'Enter Fixture Number',
+                          hintStyle:
+                              TextStyle(fontSize: r.searchFieldFontSize),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: r.fieldVerticalPadding,
+                          ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(r.fieldRadius),
                             borderSide: BorderSide.none,
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(r.fieldRadius),
                             borderSide: const BorderSide(
                               color: Color.fromARGB(255, 22, 129, 218),
-                              width: 2,
+                              width: 1.5,
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(r.fieldRadius),
                             borderSide: const BorderSide(
                               color: Colors.blue,
-                              width: 1,
+                              width: 1.5,
                             ),
                           ),
                         ),
@@ -549,88 +660,90 @@ class _PublicSearchState extends State<Publicsearch> {
                     ),
                   ),
 
-                  const SizedBox(height: 10),
+                  SizedBox(height: r.isPhone ? 8 : 10),
 
                   Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          height: 45,
-                          width: 200,
-                          child: ElevatedButton(
-                            onPressed: (isSopLoading || isTableLoading)
-                                ? null
-                                : performSearch,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Color.fromARGB(255, 57, 73, 95),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text(
-                              "Search",
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                    child: SizedBox(
+                      height: r.searchButtonHeight + 6,
+                      width: r.isPhone ? 160 : 180,
+                      child: ElevatedButton(
+                        onPressed: (isSopLoading || isTableLoading)
+                            ? null
+                            : performSearch,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              const Color.fromARGB(255, 57, 73, 95),
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(r.fieldRadius),
                           ),
                         ),
-                      ],
+                        child: Text(
+                          "Search",
+                          style: TextStyle(
+                            fontSize: r.searchButtonFontSize + 1,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
 
-                SizedBox(height: 16),
+                SizedBox(height: r.sectionGap),
 
                 if (hasSearched)
-                  const Text(
+                  Text(
                     "Available SOPs",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: r.sectionTitleSize,
+                    ),
                   ),
 
-                const SizedBox(height: 16),
+                SizedBox(height: r.sectionGap),
                 if (isSopLoading)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 32),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32),
                     child: Center(child: AppLoader()),
                   )
                 else ...[
                   SizedBox(
-                    height: 180,
+                    height: hasSearched ? r.sopCardListHeight : 0,
                     child: !hasSearched
                         ? const SizedBox.shrink()
                         : sopList.isEmpty
-                        ? const Center(
-                            child: Text("No SOPs available for this fixture"),
-                          )
-                        : Scrollbar(
-                            controller: _scrollController,
-                            thumbVisibility: true,
-                            trackVisibility: true,
-                            child: ListView.builder(
-                              padding: const EdgeInsets.only(bottom: 24),
-                              controller: _scrollController,
-                              scrollDirection: Axis.horizontal,
-                              itemCount: sopList.length,
-                              itemBuilder: (context, index) {
-                                final item = sopList[index];
-
-                                return _buildSOPCard(
-                                  item["SOPNum"]?.toString() ?? "-",
-                                  formatDate(item["ODD"]),
-                                  item["Quantity"]?.toString() ?? "-",
-                                );
-                              },
+                        ? Center(
+                            child: Text(
+                              "No SOPs available for this fixture",
+                              style: TextStyle(fontSize: r.bodyFontSize),
                             ),
+                          )
+                        : ListView.builder(
+                            padding: EdgeInsets.only(
+                              bottom: r.isPhone ? 4 : 8,
+                            ),
+                            controller: _scrollController,
+                            scrollDirection: Axis.horizontal,
+                            itemCount: sopList.length,
+                            itemBuilder: (context, index) {
+                              final item = sopList[index];
+
+                              return _buildSOPCard(
+                                item["SOPNum"]?.toString() ?? "-",
+                                formatDate(item["ODD"]),
+                                item["Quantity"]?.toString() ?? "-",
+                                r,
+                              );
+                            },
                           ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: r.sectionGap),
                   if (isTableLoading)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 32),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
                       child: Center(child: AppLoader()),
                     )
                   else if (hasSearched)
@@ -638,134 +751,10 @@ class _PublicSearchState extends State<Publicsearch> {
                       height: tableBoxHeight,
                       child: LayoutBuilder(
                         builder: (context, constraints) {
-                          final available = constraints.maxWidth;
-                          final colW = _columnWidthsForBomTable(available);
-                          final tableW = _bomTableWidthFor(colW);
-
-                          return DecoratedBox(
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Material(
-                                  color: const Color.fromARGB(255, 57, 73, 95),
-                                  elevation: 2,
-                                  shadowColor: Colors.black26,
-                                  child: SingleChildScrollView(
-                                    controller:
-                                        _tableHorizontalHeaderController,
-                                    scrollDirection: Axis.horizontal,
-                                    child: SizedBox(
-                                      width: tableW,
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          _bomHeaderCell("TDGPN", colW[0]),
-                                          _bomHeaderCell(
-                                            "Description",
-                                            colW[1],
-                                          ),
-                                          _bomHeaderCell("Material", colW[2]),
-                                          _bomHeaderCell("Quantity", colW[3]),
-                                          _bomHeaderCell("Size", colW[3]),
-                                          _bomHeaderCell("UOM", colW[3]),
-                                          _bomHeaderCell("State", colW[4]),
-                                          _bomHeaderCell("Vendor", colW[5]),
-                                          _bomHeaderCell("FileName", colW[6]),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Scrollbar(
-                                    controller: _tableVerticalScrollController,
-                                    thumbVisibility: true,
-                                    trackVisibility: true,
-                                    child: SingleChildScrollView(
-                                      controller:
-                                          _tableVerticalScrollController,
-                                      scrollDirection: Axis.vertical,
-                                      child: SingleChildScrollView(
-                                        controller:
-                                            _tableHorizontalBodyController,
-                                        scrollDirection: Axis.horizontal,
-                                        child: SizedBox(
-                                          width: tableW,
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              for (final item in items)
-                                                Container(
-                                                  color:
-                                                      (item.color
-                                                              .toLowerCase() ==
-                                                          "white")
-                                                      ? Colors.white
-                                                      : Color(
-                                                          int.parse(
-                                                            "0xFF${item.color.replaceAll("#", "")}",
-                                                          ),
-                                                        ),
-                                                  child: Row(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      _bomDataCell(
-                                                        item.tdgPn,
-                                                        colW[0],
-                                                      ),
-                                                      _bomDataCell(
-                                                        item.description,
-                                                        colW[1],
-                                                      ),
-                                                      _bomDataCell(
-                                                        item.material,
-                                                        colW[2],
-                                                      ),
-                                                      _bomDataCell(
-                                                        item.quantity
-                                                            .toString(),
-                                                        colW[3],
-                                                      ),
-                                                      _bomDataCell(
-                                                        item.size.toString(),
-                                                        colW[3],
-                                                      ),
-                                                      _bomDataCell(
-                                                        item.UOM.toString(),
-                                                        colW[3],
-                                                      ),
-                                                      _bomDataCell(
-                                                        item.state,
-                                                        colW[4],
-                                                      ),
-                                                      _bomDataCell(
-                                                        item.vendor,
-                                                        colW[5],
-                                                      ),
-                                                      _bomDataCell(
-                                                        item.PathName,
-                                                        colW[6],
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                          return _buildBomTable(
+                            availableWidth: constraints.maxWidth,
+                            tableHeight: constraints.maxHeight,
+                            r: r,
                           );
                         },
                       ),
@@ -779,3 +768,4 @@ class _PublicSearchState extends State<Publicsearch> {
     );
   }
 }
+

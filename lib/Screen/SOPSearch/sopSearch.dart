@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:overview_app/Screen/Public-Search/PublicSearch.dart';
 import 'package:overview_app/Screen/SOPSearch/Services/SOPSearchService.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:overview_app/Widgets/card.dart';
@@ -142,15 +143,21 @@ class _SOPSearchState extends State<SOPSearch> {
   static const Color _fixtureButtonColor = Color(0xFF1A73E8);
 
   Widget _fixtureDataTable(List<dynamic> fixtures) {
-    const headerStyle = TextStyle(
-      fontWeight: FontWeight.bold,
-      color: Colors.white,
-    );
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return SizedBox(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final r = Responsive.of(context);
+        final headerStyle = TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+          fontSize: r.bodyFontSize,
+        );
+        final cellStyle = TextStyle(fontSize: r.bodyFontSize);
+
+        return Padding(
+          padding: EdgeInsets.symmetric(
+            vertical: r.isPhone ? 8 : 16,
+          ),
+          child: SizedBox(
             width: constraints.maxWidth,
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -162,12 +169,21 @@ class _SOPSearchState extends State<SOPSearch> {
                     _fixtureTableHeaderColor,
                   ),
                   headingTextStyle: headerStyle,
+                  dataTextStyle: cellStyle,
+                  dataRowMinHeight: r.isPhone ? 36 : 48,
+                  dataRowMaxHeight: r.isPhone ? 56 : 64,
+                  headingRowHeight: r.isPhone ? 40 : 56,
+                  columnSpacing: r.isPhone ? 16 : 24,
+                  horizontalMargin: r.isPhone ? 12 : 24,
                   dataRowColor: WidgetStateProperty.all(Colors.white),
-                  columns: const [
+                  columns: [
                     DataColumn(label: Text('Fixture', style: headerStyle)),
                     DataColumn(label: Text('Desc', style: headerStyle)),
                     DataColumn(
-                      label: Text('Time To Build/Per Unit', style: headerStyle),
+                      label: Text(
+                        'Time To Build/Per Unit',
+                        style: headerStyle,
+                      ),
                     ),
                     DataColumn(
                       label: Text('Total Time To Build', style: headerStyle),
@@ -183,9 +199,9 @@ class _SOPSearchState extends State<SOPSearch> {
                 ),
               ),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -252,48 +268,100 @@ class _SOPSearchState extends State<SOPSearch> {
     );
   }
 
-  static const double _tabletCardGap = 12;
-
-  List<Widget> _tabletSopCardRows(List<Widget> cards, double cardWidth) {
+  List<Widget> _sopCardRows({
+    required List<Widget> cards,
+    required int columns,
+    required double cardWidth,
+    required double gap,
+    required bool stretch,
+  }) {
     final rows = <Widget>[];
-    for (var i = 0; i < cards.length; i += 3) {
-      final end = i + 3 <= cards.length ? i + 3 : cards.length;
-      rows.add(_tabletSopCardRow(cards.sublist(i, end), cardWidth));
+    for (var i = 0; i < cards.length; i += columns) {
+      final end = i + columns <= cards.length ? i + columns : cards.length;
+      rows.add(
+        _sopCardRow(
+          cards.sublist(i, end),
+          cardWidth,
+          gap,
+          stretch: stretch,
+        ),
+      );
       if (end < cards.length) {
-        rows.add(const SizedBox(height: _tabletCardGap));
+        rows.add(SizedBox(height: gap));
       }
     }
     return rows;
   }
 
-  Widget _tabletSopCardRow(List<Widget> chunk, double cardWidth) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var j = 0; j < chunk.length; j++) ...[
-            if (j > 0) SizedBox(width: _tabletCardGap),
-            SizedBox(
-              width: cardWidth,
-              child: SizedBox.expand(child: chunk[j]),
-            ),
-          ],
+  Widget _sopCardRow(
+    List<Widget> chunk,
+    double cardWidth,
+    double gap, {
+    required bool stretch,
+  }) {
+    final row = Row(
+      crossAxisAlignment:
+          stretch ? CrossAxisAlignment.stretch : CrossAxisAlignment.start,
+      children: [
+        for (var j = 0; j < chunk.length; j++) ...[
+          if (j > 0) SizedBox(width: gap),
+          SizedBox(
+            width: cardWidth,
+            child: stretch ? SizedBox.expand(child: chunk[j]) : chunk[j],
+          ),
         ],
-      ),
+      ],
     );
+    return stretch ? IntrinsicHeight(child: row) : row;
   }
 
-  // static const Color _drawerBrand = Color.fromARGB(255, 57, 73, 95);
+  Widget _searchHeader({
+    required Responsive r,
+    required Widget sopField,
+    required Widget searchButton,
+  }) {
+    final title = Text(
+      "SOP Search",
+      style: TextStyle(
+        color: Colors.black,
+        fontSize: r.pageTitleSize,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+
+    if (r.useInlineSearchHeader) {
+      return Row(
+        children: [
+          title,
+          SizedBox(width: r.sectionGap),
+          SizedBox(
+            width: r.searchFieldMaxWidth,
+            child: sopField,
+          ),
+          SizedBox(width: r.sectionGap),
+          searchButton,
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        title,
+        SizedBox(height: r.isCompactPhone ? 8 : 10),
+        sopField,
+        SizedBox(height: r.isCompactPhone ? 8 : 10),
+        searchButton,
+      ],
+    );
+  }
 
   // UI Design here
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth >= 700;
-    final horizontalPadding = isTablet ? 24.0 : 16.0;
-    final tabletCardWidth = isTablet
-        ? (screenWidth - 2 * horizontalPadding - 24) / 3
-        : 0.0;
+    final r = Responsive.of(context);
+    final useGrid = r.cardColumns > 1;
+    final stretchCards = r.stretchCardRows;
 
     final sopCards = sopData == null
         ? null
@@ -301,7 +369,7 @@ class _SOPSearchState extends State<SOPSearch> {
             InfoCard(
               title: "ORDER INFO",
               color: Colors.grey.shade300,
-              fillHeight: isTablet,
+              fillHeight: stretchCards,
               children: [
                 infoRow("SOP", safeValue(sopData?["SOPNum"])),
                 infoRow("PO Number", safeValue(sopData?["PONum"])),
@@ -319,8 +387,8 @@ class _SOPSearchState extends State<SOPSearch> {
             ),
             InfoCard(
               title: "SOP ENTRY",
-              color: Color.fromRGBO(255, 204, 204, 1),
-              fillHeight: isTablet,
+              color: const Color.fromRGBO(255, 204, 204, 1),
+              fillHeight: stretchCards,
               children: [
                 infoRow("SOP Entry", formatDate(sopData?["SOPEntryDateIn"])),
                 infoRow("SOP Out", formatDate(sopData?['SOPOrderEntryOut'])),
@@ -336,8 +404,8 @@ class _SOPSearchState extends State<SOPSearch> {
             ),
             InfoCard(
               title: "PRODUCTION",
-              color: Color.fromRGBO(153, 204, 255, 1),
-              fillHeight: isTablet,
+              color: const Color.fromRGBO(153, 204, 255, 1),
+              fillHeight: stretchCards,
               children: [
                 infoRow(
                   "Prod In",
@@ -371,8 +439,8 @@ class _SOPSearchState extends State<SOPSearch> {
             ),
             InfoCard(
               title: "QUALITY CONTROL",
-              color: Color.fromRGBO(240, 230, 140, 1),
-              fillHeight: isTablet,
+              color: const Color.fromRGBO(240, 230, 140, 1),
+              fillHeight: stretchCards,
               children: [
                 infoRow(
                   "Final Date Received In QC",
@@ -394,8 +462,8 @@ class _SOPSearchState extends State<SOPSearch> {
             ),
             InfoCard(
               title: "QUALITY CONTROL",
-              color: Color.fromRGBO(218, 247, 166, 1),
-              fillHeight: isTablet,
+              color: const Color.fromRGBO(218, 247, 166, 1),
+              fillHeight: stretchCards,
               children: [
                 infoRow(
                   "Ship In",
@@ -406,39 +474,68 @@ class _SOPSearchState extends State<SOPSearch> {
             ),
           ];
 
-    final sopField = TextField(
-      controller: SOPController,
-      decoration: InputDecoration(
-        hintText: 'Enter SOP Number',
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: isTablet ? 12 : 14,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
-          borderSide: BorderSide(
-            color: isTablet ? const Color(0xFFBDBDBD) : const Color(0xFF2196F3),
-            width: isTablet ? 1 : 2,
+    final fieldRadius = r.fieldRadius;
+    final sopField = SizedBox(
+      height: r.searchFieldHeight,
+      width: r.isPhone ? null : r.searchFieldMaxWidth,
+      child: TextField(
+        controller: SOPController,
+        style: TextStyle(fontSize: r.searchFieldFontSize, height: 1.2),
+        decoration: InputDecoration(
+          hintText: 'Enter SOP Number',
+          hintStyle: TextStyle(fontSize: r.searchFieldFontSize),
+          isDense: true,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: r.isPhone ? 12 : 12,
+            vertical: r.fieldVerticalPadding,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(fieldRadius),
+            borderSide: BorderSide(
+              color: r.isPhone
+                  ? const Color(0xFF2196F3)
+                  : const Color(0xFFBDBDBD),
+              width: r.isPhone ? 1.5 : 1,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(fieldRadius),
+            borderSide: const BorderSide(color: Color(0xFF1565C0), width: 1.5),
           ),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
-          borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2),
-        ),
+        textInputAction: TextInputAction.search,
+        onSubmitted: (_) => handleSOPSearch(),
       ),
-      textInputAction: TextInputAction.search,
-      onSubmitted: (_) => handleSOPSearch(),
     );
-    final searchButton = ElevatedButton.icon(
-      onPressed: handleSOPSearch,
-      icon: const Icon(Icons.search, size: 20),
-      label: const Text('Search'),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF1E88E5),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+    final searchButton = SizedBox(
+      height: r.searchButtonHeight,
+      
+      child: ElevatedButton.icon(
+        onPressed: handleSOPSearch,
+        icon: Icon(Icons.search, size: r.searchIconSize),
+        label: Text(
+          'Search',
+          style: TextStyle(
+            fontSize: r.searchButtonFontSize,
+            fontWeight: FontWeight.w500,
+            height: 1.1,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF1E88E5),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          minimumSize: Size(0, r.searchButtonHeight),
+          maximumSize: Size(double.infinity, r.searchButtonHeight),
+          padding: EdgeInsets.symmetric(
+            horizontal: r.isPhone ? 12 : 10,
+            vertical: 0,
+          ),
+          visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(fieldRadius),
+          ),
         ),
       ),
     );
@@ -447,105 +544,82 @@ class _SOPSearchState extends State<SOPSearch> {
       backgroundColor: Colors.white,
       appBar: const CommonAppBar(),
       drawer: CommonDrawer(),
-
       body: LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: horizontalPadding,
-                  vertical: 16,
-                ),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Column(
-                    children: [
-                      if (isTablet)
-                        Row(
-                          children: [
-                            const Text(
-                              "SOP Search",
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            SizedBox(width: 360, child: sopField),
-                            const SizedBox(width: 16),
-                            searchButton,
-                          ],
-                        )
-                      else
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const Text(
-                              "SOP Search",
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            sopField,
-                            const SizedBox(height: 10),
-                            searchButton,
-                          ],
+        builder: (context, constraints) {
+          final contentWidth = (constraints.maxWidth - (r.pagePaddingH * 2))
+              .clamp(0.0, r.contentMaxWidth);
+          final cardWidth = r.cardWidthFor(contentWidth);
+
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: r.pagePaddingH,
+                    vertical: r.pagePaddingV,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: r.contentMaxWidth),
+                    child: Column(
+                      children: [
+                        _searchHeader(
+                          r: r,
+                          sopField: sopField,
+                          searchButton: searchButton,
                         ),
-
-                      SizedBox(height: 16),
-
-                      SizedBox(height: 16),
-
-                      if (isLoading)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 32),
-                          child: const Center(child: AppLoader()),
-                        )
-                      else if (sopCards != null) ...[
-                        if (isTablet)
-                          ..._tabletSopCardRows(sopCards, tabletCardWidth)
-                        else
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: sopCards,
-                          ),
-
-                        if ((sopData?["fixtures"] as List?)?.isNotEmpty ??
-                            false) ...[
-                          const SizedBox(height: 16),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              "Fixture Data",
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: isTablet ? 22 : 20,
-                                fontWeight: FontWeight.bold,
+                        SizedBox(height: r.sectionGap),
+                        if (isLoading)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 32),
+                            child: Center(child: AppLoader()),
+                          )
+                        else if (sopCards != null) ...[
+                          if (useGrid)
+                            ..._sopCardRows(
+                              cards: sopCards,
+                              columns: r.cardColumns,
+                              cardWidth: cardWidth,
+                              gap: r.cardGap,
+                              stretch: stretchCards,
+                            )
+                          else
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: sopCards,
+                            ),
+                          if ((sopData?["fixtures"] as List?)?.isNotEmpty ??
+                              false) ...[
+                            SizedBox(height: r.sectionGap),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                "Fixture Data",
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: r.sectionTitleSize,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          SizedBox(
-                            width: double.infinity,
-                            child: _fixtureDataTable(
-                              sopData!["fixtures"] as List,
+                            SizedBox(height: r.isPhone ? 8 : 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: _fixtureDataTable(
+                                sopData!["fixtures"] as List,
+                              ),
                             ),
-                          ),
+                          ],
                         ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
