@@ -8,8 +8,10 @@ class ShippingInService {
     try {
       final resposne = await Dioservices.dio.get('/shipping/in/history');
       return resposne;
+    } on DioException {
+      rethrow;
     } catch (e) {
-      throw Exception("Error in Shipping in $e");
+      throw Exception("Error in Shipping in");
     }
   }
 
@@ -20,8 +22,10 @@ class ShippingInService {
         data: {'sopNumbers': SOP},
       );
       return resposne;
+    } on DioException {
+      rethrow;
     } catch (e) {
-      throw Exception("Error in Search Shipping in $e");
+      throw Exception("Error updating shipping in date");
     }
   }
 
@@ -32,8 +36,10 @@ class ShippingInService {
         data: {'sopNumber': sopNumber},
       );
       return resposne;
+    } on DioException {
+      rethrow;
     } catch (e) {
-      throw Exception("Error in Search Shipping in $e");
+      throw Exception("Error searching shipping in");
     }
   }
 
@@ -44,8 +50,10 @@ class ShippingInService {
         data: {'sopNumber': SOP, 'fromQADate': fromQADate},
       );
       return resposne;
+    } on DioException {
+      rethrow;
     } catch (e) {
-      throw Exception("Error in Update Shipping in $e");
+      throw Exception("Error updating shipping in");
     }
   }
 }

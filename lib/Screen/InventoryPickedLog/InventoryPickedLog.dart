@@ -657,6 +657,151 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
     );
   }
 
+  Widget _buildFullHeaderRow(
+    List<double> colW, {
+    required double fontSize,
+    required double headerH,
+    required double hPad,
+  }) {
+    return Row(
+      children: [
+        _bomHeaderCell(
+          "Pick list Number",
+          colW[0],
+          fontSize: fontSize,
+          height: headerH,
+          hPad: hPad,
+        ),
+        _bomHeaderCell(
+          "SOP",
+          colW[1],
+          fontSize: fontSize,
+          height: headerH,
+          hPad: hPad,
+        ),
+        _bomHeaderCell(
+          "Fixture",
+          colW[2],
+          fontSize: fontSize,
+          height: headerH,
+          hPad: hPad,
+        ),
+        _buildScrollableHeaderRow(
+          colW,
+          fontSize: fontSize,
+          headerH: headerH,
+          hPad: hPad,
+        ),
+        _bomHeaderCell(
+          "Actions",
+          colW[9],
+          fontSize: fontSize,
+          height: headerH,
+          hPad: hPad,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFullDataRow(
+    ItemModel item,
+    List<double> colW, {
+    required double fontSize,
+    required double rowH,
+    required double vPad,
+    required double hPad,
+  }) {
+    return Row(
+      children: [
+        _bomDataCell(
+          _orDash(item.pickListNumber),
+          colW[0],
+          fontSize: fontSize,
+          rowH: rowH,
+          vPad: vPad,
+          hPad: hPad,
+        ),
+        _bomDataCell(
+          _orDash(item.sopNum),
+          colW[1],
+          fontSize: fontSize,
+          rowH: rowH,
+          vPad: vPad,
+          hPad: hPad,
+        ),
+        _bomDataCell(
+          _orDash(item.fixture),
+          colW[2],
+          fontSize: fontSize,
+          rowH: rowH,
+          vPad: vPad,
+          hPad: hPad,
+        ),
+        _buildScrollableDataRow(
+          item,
+          colW,
+          fontSize: fontSize,
+          rowH: rowH,
+          vPad: vPad,
+          hPad: hPad,
+        ),
+        _buildActionsDataCell(item, colW[9], rowH: rowH),
+      ],
+    );
+  }
+
+  Widget _buildFullScrollableTable({
+    required List<double> colW,
+    required double fontSize,
+    required double headerH,
+    required double rowH,
+    required double vPad,
+    required double hPad,
+    required double maxWidth,
+  }) {
+    final tableW = colW.fold<double>(0, (sum, w) => sum + w);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: SizedBox(
+        width: maxWidth,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: tableW,
+            child: Column(
+              children: [
+                _buildFullHeaderRow(
+                  colW,
+                  fontSize: fontSize,
+                  headerH: headerH,
+                  hPad: hPad,
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    controller: _bodyVerticalScroll,
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      return _buildFullDataRow(
+                        items[index],
+                        colW,
+                        fontSize: fontSize,
+                        rowH: rowH,
+                        vPad: vPad,
+                        hPad: hPad,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildStickyActionsTable({
     required List<double> colW,
     required double fontSize,
@@ -935,11 +1080,6 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                           fontSize: 13,
                           color: Colors.grey.shade600,
                         ),
-                        prefixIcon: Icon(
-                          Icons.search,
-                          size: 20,
-                          color: Colors.grey.shade800,
-                        ),
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -960,8 +1100,16 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
 
                   final searchButton = SizedBox(
                     height: fieldHeight,
-                    child: ElevatedButton(
+                    child: ElevatedButton.icon(
                       onPressed: fetchInvetoryPickedData,
+                      icon: const Icon(Icons.search, size: 18),
+                      label: const Text(
+                        'Search',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1E88E5),
                         foregroundColor: Colors.white,
@@ -969,13 +1117,6 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        'Search',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -987,9 +1128,17 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                       children: [
                         dropdown,
                         const SizedBox(height: 10),
-                        searchField,
-                        const SizedBox(height: 10),
-                        searchButton,
+                        SizedBox(
+                          height: fieldHeight,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(child: searchField),
+                              const SizedBox(width: 8),
+                              searchButton,
+                            ],
+                          ),
+                        ),
                       ],
                     );
                   }
@@ -1018,21 +1167,41 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                     r.pagePaddingH,
                     r.pagePaddingV,
                   ),
-                  child: LayoutBuilder(
+                  child: Responsive.hideScrollbars(
+                    context,
+                    LayoutBuilder(
                     builder: (context, constraints) {
                       final colW = _columnWidthsForAvailable(
                         constraints.maxWidth,
                       );
+                      final leftW = colW[0] + colW[1] + colW[2];
+                      final actionW = colW[9];
+                      final isPhone = MediaQuery.sizeOf(context).width < 700;
+                      final tooNarrow = isPhone ||
+                          constraints.maxWidth < leftW + actionW + 48;
                       if (items.isEmpty) {
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _buildEmptyStickyHeader(
-                              colW: colW,
-                              fontSize: density.fontSize,
-                              headerH: density.headerH,
-                              hPad: density.hPad,
-                            ),
+                            tooNarrow
+                                ? SizedBox(
+                                    width: constraints.maxWidth,
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: _buildFullHeaderRow(
+                                        colW,
+                                        fontSize: density.fontSize,
+                                        headerH: density.headerH,
+                                        hPad: density.hPad,
+                                      ),
+                                    ),
+                                  )
+                                : _buildEmptyStickyHeader(
+                                    colW: colW,
+                                    fontSize: density.fontSize,
+                                    headerH: density.headerH,
+                                    hPad: density.hPad,
+                                  ),
                             const Expanded(
                               child: Center(
                                 child: Padding(
@@ -1044,6 +1213,17 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                           ],
                         );
                       }
+                      if (tooNarrow) {
+                        return _buildFullScrollableTable(
+                          colW: colW,
+                          fontSize: density.fontSize,
+                          headerH: density.headerH,
+                          rowH: density.rowH,
+                          vPad: density.vPad,
+                          hPad: density.hPad,
+                          maxWidth: constraints.maxWidth,
+                        );
+                      }
                       return _buildStickyActionsTable(
                         colW: colW,
                         fontSize: density.fontSize,
@@ -1053,6 +1233,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                         hPad: density.hPad,
                       );
                     },
+                  ),
                   ),
                 ),
               ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/ShippingOut/Services/ShippingOutServices.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 class EditShippingOutEntry extends StatefulWidget {
@@ -156,15 +157,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
         setState(() {
           isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              "Please select a valid location",
-              style: TextStyle(color: Colors.white),
-            ),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppToast.error(context, "Please select a valid location");
         return;
       }
 
@@ -188,21 +181,16 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
       setState(() {
         isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "Shipping out updated successfully",
-            style: TextStyle(color: Colors.white),
-          ),
-          // backgroundColor: const Color.fromARGB(255, 40, 137, 38),
-        ),
-      );
+      AppToast.success(context, "Shipping out updated successfully");
       Navigator.pop(context, true);
     } catch (e) {
       debugPrint("Error updating shipping out: $e");
       setState(() {
         isLoading = false;
       });
+      if (mounted) {
+        AppToast.error(context, "Failed to update shipping out");
+      }
     }
   }
 
@@ -313,10 +301,11 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
             DataColumn(
               label: SizedBox(
                 width: 60,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "SOP",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -328,10 +317,11 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
             DataColumn(
               label: SizedBox(
                 width: 120,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "PO Num",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -343,10 +333,11 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
             DataColumn(
               label: SizedBox(
                 width: 90,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "ODD",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -358,10 +349,11 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
             DataColumn(
               label: SizedBox(
                 width: 260,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Customer",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -373,10 +365,11 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
             DataColumn(
               label: SizedBox(
                 width: 100,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Prgm",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -388,10 +381,11 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
             DataColumn(
               label: SizedBox(
                 width: 150,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Loc.",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -403,10 +397,11 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
             DataColumn(
               label: SizedBox(
                 width: 140,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "SOP Entry",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -418,10 +413,11 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
             DataColumn(
               label: SizedBox(
                 width: 75,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "SOP Out",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -433,10 +429,11 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
             DataColumn(
               label: SizedBox(
                 width: 150,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "PROD MGR",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     softWrap: true,
                     style: TextStyle(
                       color: Colors.white,
@@ -449,10 +446,11 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
             DataColumn(
               label: SizedBox(
                 width: 140,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Delivery Date",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -464,10 +462,11 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
             DataColumn(
               label: SizedBox(
                 width: 140,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "New Comments",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -485,7 +484,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                     width: 90,
                     child: TextFormField(
                       initialValue: item['SOPNum']?.toString() ?? '',
-                      textAlign: TextAlign.center,
+                      textAlign: TextAlign.left,
                       style: TextStyle(fontSize: 12),
                       decoration: InputDecoration(
                         isDense: true,
@@ -517,7 +516,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                     width: 120,
                     child: TextFormField(
                       initialValue: item['PONum']?.toString() ?? '',
-                      textAlign: TextAlign.center,
+                      textAlign: TextAlign.left,
                       maxLines: null,
                       keyboardType: TextInputType.multiline,
                       style: TextStyle(fontSize: 12),
@@ -549,7 +548,8 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                 DataCell(
                   SizedBox(
                     width: 140,
-                    child: Center(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
                       child: InkWell(
                         onTap: () async {
                           final pickedDate = await _pickDateWithStyledPicker(
@@ -576,7 +576,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                     width: 260,
                     child: TextFormField(
                       initialValue: item['customer']?.toString() ?? '',
-                      textAlign: TextAlign.center,
+                      textAlign: TextAlign.left,
                       style: TextStyle(fontSize: 12),
                       maxLines: null,
                       keyboardType: TextInputType.multiline,
@@ -610,7 +610,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                     width: 90,
                     child: TextFormField(
                       initialValue: item['program']?.toString() ?? '',
-                      textAlign: TextAlign.center,
+                      textAlign: TextAlign.left,
                       style: TextStyle(fontSize: 12),
                       decoration: InputDecoration(
                         isDense: true,
@@ -706,7 +706,8 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                 DataCell(
                   SizedBox(
                     width: 140,
-                    child: Center(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
                       child: InkWell(
                         onTap: () async {
                           final pickedDate = await _pickDateWithStyledPicker(
@@ -731,7 +732,8 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                 DataCell(
                   SizedBox(
                     width: 140,
-                    child: Center(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
                       child: InkWell(
                         onTap: () async {
                           final pickedDate = await _pickDateWithStyledPicker(
@@ -811,7 +813,8 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                 DataCell(
                   SizedBox(
                     width: 140,
-                    child: Center(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
                       child: InkWell(
                         onTap: () async {
                           final pickedDate = await _pickDateWithStyledPicker(
@@ -839,7 +842,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                     child: TextFormField(
                       initialValue:
                           item['OrderEntryComments']?.toString() ?? '',
-                      textAlign: TextAlign.center,
+                      textAlign: TextAlign.left,
                       style: TextStyle(fontSize: 12),
                       decoration: InputDecoration(
                         isDense: true,

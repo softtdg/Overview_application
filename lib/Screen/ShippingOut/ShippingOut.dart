@@ -3,7 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/ShippingOut/Components/EditShippingOutEntry.dart';
 import 'package:overview_app/Screen/ShippingOut/Services/ShippingOutServices.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
+import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 class ShippingOut extends StatefulWidget {
@@ -23,6 +25,91 @@ class _ShippingOutState extends State<ShippingOut> {
   List<Map<String, dynamic>> searchedShippingOutHistory = [];
   bool hasSearched = false;
   bool isLoading = false;
+
+  int? _sortColumnIndex;
+  bool _sortAscending = true;
+
+  /// Sortable columns only (excludes Action).
+  static const List<String> _sortKeys = [
+    'SOPNum',
+    'PONum',
+    'ODD',
+    'customer',
+    'program',
+    'Location',
+    'SOPEntryDateIn',
+    'SOPOrderEntryOut',
+    'prodMgr',
+    'FinalDeliveryDate',
+    'OrderEntryComments',
+    'LastEdit',
+  ];
+
+  List<Map<String, dynamic>> _sortedRows(List<Map<String, dynamic>> source) {
+    if (_sortColumnIndex == null ||
+        _sortColumnIndex! < 0 ||
+        _sortColumnIndex! >= _sortKeys.length) {
+      return source;
+    }
+    final key = _sortKeys[_sortColumnIndex!];
+    final rows = List<Map<String, dynamic>>.from(source);
+    rows.sort((a, b) {
+      final cmp = _compareValues(a[key], b[key], key);
+      if (cmp != 0) return _sortAscending ? cmp : -cmp;
+      final sa = a['SOPNum']?.toString() ?? '';
+      final sb = b['SOPNum']?.toString() ?? '';
+      return sa.compareTo(sb);
+    });
+    return rows;
+  }
+
+  DateTime? _asDateTime(dynamic raw) {
+    if (raw == null) return null;
+    final text = raw.toString().trim();
+    if (text.isEmpty ||
+        text == '-' ||
+        text == '*' ||
+        text.startsWith('0001-01-01')) {
+      return null;
+    }
+    return DateTime.tryParse(text);
+  }
+
+  int _compareValues(dynamic a, dynamic b, String key) {
+    const dateKeys = {
+      'ODD',
+      'SOPEntryDateIn',
+      'SOPOrderEntryOut',
+      'FinalDeliveryDate',
+      'LastEdit',
+    };
+    if (dateKeys.contains(key)) {
+      final da = _asDateTime(a);
+      final db = _asDateTime(b);
+      if (da != null && db != null) return da.compareTo(db);
+      if (da != null) return -1;
+      if (db != null) return 1;
+      return 0;
+    }
+    final sa = a?.toString().trim() ?? '';
+    final sb = b?.toString().trim() ?? '';
+    final ia = int.tryParse(sa);
+    final ib = int.tryParse(sb);
+    if (ia != null && ib != null) return ia.compareTo(ib);
+    return sa.toLowerCase().compareTo(sb.toLowerCase());
+  }
+
+  void _onSort(int columnIndex) {
+    if (columnIndex < 0 || columnIndex >= _sortKeys.length) return;
+    setState(() {
+      if (_sortColumnIndex == columnIndex) {
+        _sortAscending = !_sortAscending;
+      } else {
+        _sortColumnIndex = columnIndex;
+        _sortAscending = true;
+      }
+    });
+  }
 
   Future<void> GetShippingOutHistory() async {
     await Dioservices.setToken();
@@ -67,9 +154,7 @@ class _ShippingOutState extends State<ShippingOut> {
   void handleSOPs() async {
     final sop = SOPController.text.trim();
     if (sop.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Enter SOP Number")));
+      AppToast.error(context, "Please enter SOP number");
       return;
     }
 
@@ -79,9 +164,7 @@ class _ShippingOutState extends State<ShippingOut> {
       });
       await _service.EditSOPNums(sop);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("ShippingOut Date Updated Successfully")),
-      );
+      AppToast.success(context, "ShippingOut Date Updated Successfully");
       await GetShippingOutHistory();
       if (!mounted) return;
       _runSearch();
@@ -91,9 +174,7 @@ class _ShippingOutState extends State<ShippingOut> {
       setState(() {
         isLoading = false;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Something went wrong")));
+      AppToast.error(context, "Something went wrong");
     }
   }
 
@@ -219,26 +300,54 @@ class _ShippingOutState extends State<ShippingOut> {
     return middle.map((w) => w * scale).toList();
   }
 
-  Widget _headerCell(String text, double width) {
+  Widget _headerCell(String text, double width, {int? sortIndex}) {
+    final sortable = sortIndex != null;
+    final active = sortable && _sortColumnIndex == sortIndex;
+    final up = !active || _sortAscending;
+
     return SizedBox(
       width: width,
       height: _rowHeight,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: _tableHeaderColor,
-          border: Border.all(color: Colors.grey, width: 0.5),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Center(
-            child: Text(
-              text,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+      child: Material(
+        color: _tableHeaderColor,
+        child: InkWell(
+          onTap: sortable ? () => _onSort(sortIndex) : null,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey, width: 0.5),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        text,
+                        textAlign: TextAlign.left,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    if (sortable) ...[
+                      const SizedBox(width: 3),
+                      Icon(
+                        up ? Icons.arrow_upward : Icons.arrow_downward,
+                        size: 12,
+                        color: active
+                            ? Colors.white
+                            : const Color(0x99B8C8E8),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -252,14 +361,14 @@ class _ShippingOutState extends State<ShippingOut> {
       width: width,
       height: _rowHeight,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      alignment: Alignment.center,
+      alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: Colors.grey, width: 0.5),
       ),
       child: Text(
         text,
-        textAlign: TextAlign.center,
+        textAlign: TextAlign.left,
         softWrap: wrap,
         maxLines: wrap ? 2 : 1,
         overflow: TextOverflow.ellipsis,
@@ -273,9 +382,9 @@ class _ShippingOutState extends State<ShippingOut> {
       decoration: BoxDecoration(boxShadow: _leftStickyShadow),
       child: Row(
         children: [
-          _headerCell('SOP', leftWidths[0]),
-          _headerCell('PO Num', leftWidths[1]),
-          _headerCell('ODD', leftWidths[2]),
+          _headerCell('SOP', leftWidths[0], sortIndex: 0),
+          _headerCell('PO Num', leftWidths[1], sortIndex: 1),
+          _headerCell('ODD', leftWidths[2], sortIndex: 2),
         ],
       ),
     );
@@ -306,15 +415,16 @@ class _ShippingOutState extends State<ShippingOut> {
   }) {
     return Row(
       children: [
-        _headerCell('Customer', middleWidths[0]),
-        _headerCell('Prgm', middleWidths[1]),
-        _headerCell('Loc.', middleWidths[2]),
-        _headerCell('SOP Entry', middleWidths[3]),
-        _headerCell('SOP Out', middleWidths[4]),
-        _headerCell('PROD MGR', middleWidths[5]),
-        _headerCell('Delivery Date', middleWidths[6]),
-        _headerCell('New Comments', middleWidths[7]),
-        if (showLastEdited) _headerCell('Last Edited On', middleWidths[8]),
+        _headerCell('Customer', middleWidths[0], sortIndex: 3),
+        _headerCell('Prgm', middleWidths[1], sortIndex: 4),
+        _headerCell('Loc.', middleWidths[2], sortIndex: 5),
+        _headerCell('SOP Entry', middleWidths[3], sortIndex: 6),
+        _headerCell('SOP Out', middleWidths[4], sortIndex: 7),
+        _headerCell('PROD MGR', middleWidths[5], sortIndex: 8),
+        _headerCell('Delivery Date', middleWidths[6], sortIndex: 9),
+        _headerCell('New Comments', middleWidths[7], sortIndex: 10),
+        if (showLastEdited)
+          _headerCell('Last Edited On', middleWidths[8], sortIndex: 11),
       ],
     );
   }
@@ -422,18 +532,19 @@ class _ShippingOutState extends State<ShippingOut> {
   }) {
     return Row(
       children: [
-        _headerCell('SOP', widths[0]),
-        _headerCell('PO Num', widths[1]),
-        _headerCell('ODD', widths[2]),
-        _headerCell('Customer', widths[3]),
-        _headerCell('Prgm', widths[4]),
-        _headerCell('Loc.', widths[5]),
-        _headerCell('SOP Entry', widths[6]),
-        _headerCell('SOP Out', widths[7]),
-        _headerCell('PROD MGR', widths[8]),
-        _headerCell('Delivery Date', widths[9]),
-        _headerCell('New Comments', widths[10]),
-        if (showLastEdited) _headerCell('Last Edited On', widths[11]),
+        _headerCell('SOP', widths[0], sortIndex: 0),
+        _headerCell('PO Num', widths[1], sortIndex: 1),
+        _headerCell('ODD', widths[2], sortIndex: 2),
+        _headerCell('Customer', widths[3], sortIndex: 3),
+        _headerCell('Prgm', widths[4], sortIndex: 4),
+        _headerCell('Loc.', widths[5], sortIndex: 5),
+        _headerCell('SOP Entry', widths[6], sortIndex: 6),
+        _headerCell('SOP Out', widths[7], sortIndex: 7),
+        _headerCell('PROD MGR', widths[8], sortIndex: 8),
+        _headerCell('Delivery Date', widths[9], sortIndex: 9),
+        _headerCell('New Comments', widths[10], sortIndex: 10),
+        if (showLastEdited)
+          _headerCell('Last Edited On', widths[11], sortIndex: 11),
       ],
     );
   }
@@ -500,6 +611,7 @@ class _ShippingOutState extends State<ShippingOut> {
     bool isSearchTable = false,
     bool shrinkWrap = false,
   }) {
+    final rows = _sortedRows(rowsData);
     final leftWidths = _baseColWidths.take(3).toList();
     final leftWidth = leftWidths.fold<double>(0, (sum, w) => sum + w);
     final actionWidth = _baseColWidths[12];
@@ -509,33 +621,68 @@ class _ShippingOutState extends State<ShippingOut> {
         ? _searchMiddleHorizontalScroll
         : _historyMiddleHorizontalScroll;
 
-    return LayoutBuilder(
+    return Responsive.hideScrollbars(
+      context,
+      LayoutBuilder(
       builder: (context, constraints) {
-        // Search/first table: normal scrollable table, no sticky columns.
-        if (shrinkWrap || isSearchTable) {
+        // Search/first table and phones: normal scrollable table, no sticky columns.
+        final isPhone = MediaQuery.sizeOf(context).width < 700;
+        if (shrinkWrap || isSearchTable || isPhone) {
           final widths = _plainTableWidths(
             showLastEdited: showLastEdited,
             availableWidth: constraints.maxWidth,
           );
           final tableWidth = widths.fold<double>(0, (sum, w) => sum + w);
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            controller: horizontalScroll,
-            child: SizedBox(
-              width: tableWidth,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildPlainHeaderRow(widths, showLastEdited: showLastEdited),
-                  ...rowsData.map(
-                    (item) => _buildPlainDataRow(
-                      item,
-                      widths,
-                      showLastEdited: showLastEdited,
+          if (shrinkWrap || isSearchTable) {
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              controller: horizontalScroll,
+              child: SizedBox(
+                width: tableWidth,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildPlainHeaderRow(widths, showLastEdited: showLastEdited),
+                    ...rows.map(
+                      (item) => _buildPlainDataRow(
+                        item,
+                        widths,
+                        showLastEdited: showLastEdited,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+              ),
+            );
+          }
+          return SizedBox(
+            width: constraints.maxWidth,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              controller: horizontalScroll,
+              child: SizedBox(
+                width: tableWidth,
+                height: constraints.maxHeight,
+                child: Column(
+                  children: [
+                    _buildPlainHeaderRow(widths, showLastEdited: showLastEdited),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: _historyMiddleVerticalScroll,
+                        itemCount: rows.length,
+                        itemExtent: _rowHeight,
+                        itemBuilder: (context, index) {
+                          return _buildPlainDataRow(
+                            rows[index],
+                            widths,
+                            showLastEdited: showLastEdited,
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -563,10 +710,10 @@ class _ShippingOutState extends State<ShippingOut> {
                   Expanded(
                     child: ListView.builder(
                       controller: _historyLeftVerticalScroll,
-                      itemCount: rowsData.length,
+                      itemCount: rows.length,
                       itemExtent: _rowHeight,
                       itemBuilder: (context, index) {
-                        return _leftDataRow(rowsData[index], leftWidths);
+                        return _leftDataRow(rows[index], leftWidths);
                       },
                     ),
                   ),
@@ -588,11 +735,11 @@ class _ShippingOutState extends State<ShippingOut> {
                       Expanded(
                         child: ListView.builder(
                           controller: _historyMiddleVerticalScroll,
-                          itemCount: rowsData.length,
+                          itemCount: rows.length,
                           itemExtent: _rowHeight,
                           itemBuilder: (context, index) {
                             return _middleDataRow(
-                              rowsData[index],
+                              rows[index],
                               middleWidths,
                               showLastEdited: showLastEdited,
                             );
@@ -613,10 +760,10 @@ class _ShippingOutState extends State<ShippingOut> {
                     Expanded(
                       child: ListView.builder(
                         controller: _historyActionsVerticalScroll,
-                        itemCount: rowsData.length,
+                        itemCount: rows.length,
                         itemExtent: _rowHeight,
                         itemBuilder: (context, index) {
-                          return _actionDataCell(rowsData[index], actionWidth);
+                          return _actionDataCell(rows[index], actionWidth);
                         },
                       ),
                     ),
@@ -626,6 +773,7 @@ class _ShippingOutState extends State<ShippingOut> {
           ],
         );
       },
+    ),
     );
   }
 
@@ -658,7 +806,7 @@ class _ShippingOutState extends State<ShippingOut> {
     final searchButton = ElevatedButton.icon(
       onPressed: _runSearch,
       icon: const Icon(Icons.search, size: 20),
-      label: const Text('Search SOP'),
+      label: Text(isTablet ? 'Search SOP' : 'Search'),
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF1E88E5),
         foregroundColor: Colors.white,
@@ -729,9 +877,17 @@ class _ShippingOutState extends State<ShippingOut> {
                     style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 12),
-                  sopField,
-                  const SizedBox(height: 12),
-                  searchButton,
+                  SizedBox(
+                    height: 44,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: sopField),
+                        const SizedBox(width: 8),
+                        searchButton,
+                      ],
+                    ),
+                  ),
                 ],
               ),
             const SizedBox(height: 12),

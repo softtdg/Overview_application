@@ -4,6 +4,7 @@ import 'package:overview_app/Screen/ShippingEdit/Services/ShippingEditEntryServi
 import 'package:overview_app/Screen/ShippingIn/Services/ShippingInService.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
+import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 class ShippingEditEntry extends StatefulWidget {
@@ -78,12 +79,13 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
         widget.sopNumber.toString(),
         fromQADate,
       );
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Update Successfully")));
+      AppToast.success(context, "Update Successfully");
       Navigator.pop(context, true);
     } catch (e) {
       debugPrint("Error in Edit Shipping in date $e");
+      if (mounted) {
+        AppToast.error(context, "Update failed");
+      }
     }
   }
 
@@ -108,10 +110,11 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 60,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "SOP",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -123,10 +126,11 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 70,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "PO Num",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -138,10 +142,11 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 90,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "ODD",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -153,10 +158,11 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 260,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Customer",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -168,10 +174,11 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 100,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Prgm",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -183,10 +190,11 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 90,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Loc.",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -198,10 +206,11 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 140,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Ship In",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -217,10 +226,11 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
                 DataCell(
                   SizedBox(
                     width: 60,
-                    child: Center(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
                       child: Text(
                         item['sopNum']?.toString() ?? '',
-                        textAlign: TextAlign.center,
+                        textAlign: TextAlign.left,
                         style: TextStyle(fontSize: 12),
                       ),
                     ),
@@ -229,10 +239,11 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
                 DataCell(
                   SizedBox(
                     width: 70,
-                    child: Center(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
                       child: Text(
                         item['poNum']?.toString() ?? '',
-                        textAlign: TextAlign.center,
+                        textAlign: TextAlign.left,
                         style: TextStyle(fontSize: 12),
                       ),
                     ),
@@ -241,10 +252,11 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
                 DataCell(
                   SizedBox(
                     width: 90,
-                    child: Center(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
                       child: Text(
                         formatDate(item['odd']?.toString()),
-                        textAlign: TextAlign.center,
+                        textAlign: TextAlign.left,
                         style: TextStyle(fontSize: 12),
                       ),
                     ),
@@ -253,10 +265,11 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
                 DataCell(
                   SizedBox(
                     width: 260,
-                    child: Center(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
                       child: Text(
                         item['customer']?.toString() ?? '',
-                        textAlign: TextAlign.center,
+                        textAlign: TextAlign.left,
                         softWrap: true,
                         maxLines: null,
                         overflow: TextOverflow.visible,
@@ -268,10 +281,11 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
                 DataCell(
                   SizedBox(
                     width: 100,
-                    child: Center(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
                       child: Text(
                         item['program']?.toString() ?? '',
-                        textAlign: TextAlign.center,
+                        textAlign: TextAlign.left,
                         style: TextStyle(fontSize: 12),
                       ),
                     ),
@@ -280,10 +294,11 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
                 DataCell(
                   SizedBox(
                     width: 90,
-                    child: Center(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
                       child: Text(
                         item['location']?.toString() ?? '',
-                        textAlign: TextAlign.center,
+                        textAlign: TextAlign.left,
                         style: TextStyle(fontSize: 12),
                       ),
                     ),
@@ -292,7 +307,8 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
                 DataCell(
                   SizedBox(
                     width: 140,
-                    child: Center(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
                       child: InkWell(
                         onTap: () async {
                           const pickerAccent = Color.fromARGB(255, 57, 73, 95);
@@ -435,7 +451,7 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
               if (isLoading)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Center(child: AppLoader())
+                  child: Center(child: AppLoader()),
                 )
               else
                 buildTable(),

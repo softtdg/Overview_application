@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/QAEdit/Services/Components/QAEditEntry.dart';
 import 'package:overview_app/Screen/QAEdit/Services/QAEditService.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Utils/api_date.dart';
+import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
+import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:overview_app/Widgets/pagination_bar.dart';
 
@@ -29,8 +31,85 @@ class _QAEditState extends State<QAEdit> {
   static const int _rowsPerPage = 100;
   int _currentPage = 1;
 
+  int? _sortColumnIndex;
+  bool _sortAscending = true;
+
+  /// Sortable columns only (excludes Action).
+  static const List<String> _sortKeys = [
+    'SOPNum',
+    'PONum',
+    'ODD',
+    'CustomerName',
+    'ProgramName',
+    'LocationName',
+    'QCDateIn',
+    'ReworkDateOut',
+    'FinalDateReceivedInQC',
+    'QCOut',
+    'QAComments',
+    'LastEdit',
+  ];
+
+  List<Map<String, dynamic>> _sortedRows(List<Map<String, dynamic>> source) {
+    if (_sortColumnIndex == null ||
+        _sortColumnIndex! < 0 ||
+        _sortColumnIndex! >= _sortKeys.length) {
+      return source;
+    }
+    final key = _sortKeys[_sortColumnIndex!];
+    final rows = List<Map<String, dynamic>>.from(source);
+    rows.sort((a, b) {
+      final cmp = _compareValues(a[key], b[key], key);
+      if (cmp != 0) return _sortAscending ? cmp : -cmp;
+      final sa = a['SOPNum']?.toString() ?? '';
+      final sb = b['SOPNum']?.toString() ?? '';
+      return sa.compareTo(sb);
+    });
+    return rows;
+  }
+
+  DateTime? _asDateTime(dynamic raw) => ApiDate.parse(raw);
+
+  int _compareValues(dynamic a, dynamic b, String key) {
+    const dateKeys = {
+      'ODD',
+      'QCDateIn',
+      'ReworkDateOut',
+      'FinalDateReceivedInQC',
+      'QCOut',
+      'LastEdit',
+    };
+    if (dateKeys.contains(key)) {
+      final da = _asDateTime(a);
+      final db = _asDateTime(b);
+      if (da != null && db != null) return da.compareTo(db);
+      if (da != null) return -1;
+      if (db != null) return 1;
+      return 0;
+    }
+    final sa = a?.toString().trim() ?? '';
+    final sb = b?.toString().trim() ?? '';
+    final ia = int.tryParse(sa);
+    final ib = int.tryParse(sb);
+    if (ia != null && ib != null) return ia.compareTo(ib);
+    return sa.toLowerCase().compareTo(sb.toLowerCase());
+  }
+
+  void _onSort(int columnIndex) {
+    if (columnIndex < 0 || columnIndex >= _sortKeys.length) return;
+    setState(() {
+      if (_sortColumnIndex == columnIndex) {
+        _sortAscending = !_sortAscending;
+      } else {
+        _sortColumnIndex = columnIndex;
+        _sortAscending = true;
+      }
+      _currentPage = 1;
+    });
+  }
+
   static const Color _tableHeaderColor = Color.fromARGB(255, 57, 73, 95);
-  static const double _rowHeight = 76;
+  static const double _rowHeight = 56;
   static const TextStyle _cellTextStyle = TextStyle(fontSize: 12);
 
   // SOP, PO Num, ODD | middle | Action
@@ -69,6 +148,9 @@ class _QAEditState extends State<QAEdit> {
         isLoading = false;
       });
       print("Error fetching QA Edit history: $e");
+      if (mounted) {
+        AppToast.error(context, 'Failed to load QA Edit history');
+      }
     }
   }
 
@@ -153,44 +235,20 @@ class _QAEditState extends State<QAEdit> {
       : ((_filteredHistory.length + _rowsPerPage - 1) ~/ _rowsPerPage);
 
   List<Map<String, dynamic>> get _pagedHistory {
-    if (_filteredHistory.isEmpty) return [];
+    final filtered = _sortedRows(_filteredHistory);
+    if (filtered.isEmpty) return [];
     final start = (_currentPage - 1) * _rowsPerPage;
-    final end = (start + _rowsPerPage).clamp(0, _filteredHistory.length);
-    return _filteredHistory.sublist(start, end);
+    final end = (start + _rowsPerPage).clamp(0, filtered.length);
+    return filtered.sublist(start, end);
   }
 
   void _clampCurrentPage() {
     _currentPage = _currentPage.clamp(1, _totalPages);
   }
 
-  String formatDate(dynamic date) {
-    if (date == null) return "*";
-    try {
-      String dateStr = date.toString();
-      if (dateStr.startsWith("0001-01-01")) {
-        return "*";
-      }
-      DateTime parsedDate = DateTime.parse(dateStr);
-      return DateFormat('dd/MM/yyyy').format(parsedDate);
-    } catch (e) {
-      return "-";
-    }
-  }
+  String formatDate(dynamic date) => ApiDate.formatDate(date);
 
-  String formatDateTime(dynamic date) {
-    if (date == null) return "*";
-    try {
-      String dateStr = date.toString();
-      if (dateStr.startsWith("0001-01-01")) {
-        return "*";
-      }
-      DateTime parsedDate = DateTime.parse(dateStr);
-      return DateFormat('dd/MM/yyyy hh:mm a').format(parsedDate);
-    } catch (e) {
-      print("DateTime parse error: $e");
-      return "-";
-    }
-  }
+  String formatDateTime(dynamic date) => ApiDate.formatDateTime(date);
 
   String _wrapFriendly(String text) {
     return text
@@ -202,7 +260,7 @@ class _QAEditState extends State<QAEdit> {
   /// Highlights [_searchQuery] in [text] (case-insensitive).
   Widget _highlightedCellText(
     String text, {
-    TextAlign textAlign = TextAlign.center,
+    TextAlign textAlign = TextAlign.left,
     int? maxLines,
     bool softWrap = false,
   }) {
@@ -289,26 +347,53 @@ class _QAEditState extends State<QAEdit> {
     return middle.map((w) => w * scale).toList();
   }
 
-  Widget _headerCell(String text, double width) {
+  Widget _headerCell(String text, double width, {int? sortIndex}) {
+    final sortable = sortIndex != null;
+    final active = sortable && _sortColumnIndex == sortIndex;
+    final up = !active || _sortAscending;
+
     return SizedBox(
       width: width,
       height: _rowHeight,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: _tableHeaderColor,
-          border: Border.all(color: Colors.grey, width: 0.5),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Center(
-            child: Text(
-              text,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+      child: Material(
+        color: _tableHeaderColor,
+        child: InkWell(
+          onTap: sortable ? () => _onSort(sortIndex) : null,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey, width: 0.5),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        text,
+                        textAlign: TextAlign.left,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    if (sortable) ...[
+                      const SizedBox(width: 3),
+                      Icon(
+                        up ? Icons.arrow_upward : Icons.arrow_downward,
+                        size: 12,
+                        color: active
+                            ? Colors.white
+                            : const Color(0x99B8C8E8),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -321,8 +406,8 @@ class _QAEditState extends State<QAEdit> {
     return Container(
       width: width,
       height: _rowHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: Colors.grey, width: 0.5),
@@ -336,9 +421,9 @@ class _QAEditState extends State<QAEdit> {
       decoration: BoxDecoration(boxShadow: _leftStickyShadow),
       child: Row(
         children: [
-          _headerCell('SOP', leftWidths[0]),
-          _headerCell('PO Num', leftWidths[1]),
-          _headerCell('ODD', leftWidths[2]),
+          _headerCell('SOP', leftWidths[0], sortIndex: 0),
+          _headerCell('PO Num', leftWidths[1], sortIndex: 1),
+          _headerCell('ODD', leftWidths[2], sortIndex: 2),
         ],
       ),
     );
@@ -371,15 +456,15 @@ class _QAEditState extends State<QAEdit> {
   Widget _middleHeader(List<double> middleWidths) {
     return Row(
       children: [
-        _headerCell('Customer', middleWidths[0]),
-        _headerCell('Prgm', middleWidths[1]),
-        _headerCell('Loc.', middleWidths[2]),
-        _headerCell('QC In', middleWidths[3]),
-        _headerCell('RW QC Out', middleWidths[4]),
-        _headerCell('Final Date Received In QC', middleWidths[5]),
-        _headerCell('QC Out', middleWidths[6]),
-        _headerCell('Comments', middleWidths[7]),
-        _headerCell('Last Edited On', middleWidths[8]),
+        _headerCell('Customer', middleWidths[0], sortIndex: 3),
+        _headerCell('Prgm', middleWidths[1], sortIndex: 4),
+        _headerCell('Loc.', middleWidths[2], sortIndex: 5),
+        _headerCell('QC In', middleWidths[3], sortIndex: 6),
+        _headerCell('RW QC Out', middleWidths[4], sortIndex: 7),
+        _headerCell('Final Date Received In QC', middleWidths[5], sortIndex: 8),
+        _headerCell('QC Out', middleWidths[6], sortIndex: 9),
+        _headerCell('Comments', middleWidths[7], sortIndex: 10),
+        _headerCell('Last Edited On', middleWidths[8], sortIndex: 11),
       ],
     );
   }
@@ -482,15 +567,128 @@ class _QAEditState extends State<QAEdit> {
     );
   }
 
+  Widget _buildPlainHeaderRow(List<double> widths) {
+    return Row(
+      children: [
+        _headerCell('SOP', widths[0], sortIndex: 0),
+        _headerCell('PO Num', widths[1], sortIndex: 1),
+        _headerCell('ODD', widths[2], sortIndex: 2),
+        _headerCell('Customer', widths[3], sortIndex: 3),
+        _headerCell('Prgm', widths[4], sortIndex: 4),
+        _headerCell('Loc.', widths[5], sortIndex: 5),
+        _headerCell('QC In', widths[6], sortIndex: 6),
+        _headerCell('RW QC Out', widths[7], sortIndex: 7),
+        _headerCell('Final Date Received In QC', widths[8], sortIndex: 8),
+        _headerCell('QC Out', widths[9], sortIndex: 9),
+        _headerCell('Comments', widths[10], sortIndex: 10),
+        _headerCell('Last Edited On', widths[11], sortIndex: 11),
+        _headerCell('Action', widths[12]),
+      ],
+    );
+  }
+
+  Widget _buildPlainDataRow(Map<String, dynamic> item, List<double> widths) {
+    return Row(
+      children: [
+        _bodyCell(item['SOPNum']?.toString() ?? '-', widths[0], wrap: true),
+        _bodyCell(item['PONum']?.toString() ?? '-', widths[1], wrap: true),
+        _bodyCell(formatDate(item['ODD']?.toString() ?? '-'), widths[2]),
+        _bodyCell(
+          item['CustomerName']?.toString() ?? '-',
+          widths[3],
+          wrap: true,
+        ),
+        _bodyCell(
+          item['ProgramName']?.toString() ?? '-',
+          widths[4],
+          wrap: true,
+        ),
+        _bodyCell(item['LocationName']?.toString() ?? '-', widths[5]),
+        _bodyCell(formatDate(item['QCDateIn']?.toString() ?? '-'), widths[6]),
+        _bodyCell(
+          formatDate(item['ReworkDateOut']?.toString() ?? '-'),
+          widths[7],
+        ),
+        _bodyCell(
+          formatDate(item['FinalDateReceivedInQC']?.toString() ?? '-'),
+          widths[8],
+        ),
+        _bodyCell(formatDate(item['QCOut']?.toString() ?? '-'), widths[9]),
+        _bodyCell(
+          item['QAComments']?.toString() ?? '',
+          widths[10],
+          wrap: true,
+        ),
+        _bodyCell(
+          formatDateTime(item['LastEdit']?.toString() ?? '-'),
+          widths[11],
+          wrap: true,
+        ),
+        _actionDataCell(item, widths[12]),
+      ],
+    );
+  }
+
+  List<double> _plainTableWidths(double availableWidth) {
+    final base = List<double>.from(_baseColWidths);
+    final total = base.fold<double>(0, (sum, w) => sum + w);
+    if (availableWidth <= total) return base;
+    final scale = availableWidth / total;
+    return base.map((w) => w * scale).toList();
+  }
+
   Widget buildTable() {
     final rows = _pagedHistory;
     final leftWidths = _baseColWidths.take(3).toList();
     final leftWidth = leftWidths.fold<double>(0, (sum, w) => sum + w);
     final actionWidth = _baseColWidths[12];
 
-    return LayoutBuilder(
+    return Responsive.hideScrollbars(
+      context,
+      LayoutBuilder(
       builder: (context, constraints) {
         final reserved = leftWidth + actionWidth;
+        final tooNarrow = constraints.maxWidth < reserved + 48;
+        final isPhone = MediaQuery.sizeOf(context).width < 700;
+
+        final contentH = _rowHeight + (_rowHeight * rows.length);
+        final maxH = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : contentH;
+        final tableH = contentH > maxH ? maxH : contentH;
+
+        if (tooNarrow || isPhone) {
+          final widths = _plainTableWidths(constraints.maxWidth);
+          final tableWidth = widths.fold<double>(0, (sum, w) => sum + w);
+          return SizedBox(
+            width: constraints.maxWidth,
+            height: tableH,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              controller: _middleHorizontalScroll,
+              child: SizedBox(
+                width: tableWidth,
+                height: tableH,
+                child: Column(
+                  children: [
+                    _buildPlainHeaderRow(widths),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: _middleVerticalScroll,
+                        itemCount: rows.length,
+                        itemExtent: _rowHeight,
+                        itemBuilder: (context, index) {
+                          return _buildPlainDataRow(rows[index], widths);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
         final middleAvailable = (constraints.maxWidth - reserved).clamp(
           0.0,
           double.infinity,
@@ -498,77 +696,135 @@ class _QAEditState extends State<QAEdit> {
         final middleWidths = _scaledMiddleWidths(middleAvailable);
         final middleWidth = middleWidths.fold<double>(0, (sum, w) => sum + w);
 
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              width: leftWidth,
-              child: Column(
-                children: [
-                  _leftHeader(leftWidths),
-                  Expanded(
-                    child: ListView.builder(
-                      controller: _leftVerticalScroll,
-                      itemCount: rows.length,
-                      itemExtent: _rowHeight,
-                      itemBuilder: (context, index) {
-                        return _leftDataRow(rows[index], leftWidths);
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                controller: _middleHorizontalScroll,
-                child: SizedBox(
-                  width: middleWidth,
-                  child: Column(
-                    children: [
-                      _middleHeader(middleWidths),
-                      Expanded(
-                        child: ListView.builder(
-                          controller: _middleVerticalScroll,
-                          itemCount: rows.length,
-                          itemExtent: _rowHeight,
-                          itemBuilder: (context, index) {
-                            return _middleDataRow(rows[index], middleWidths);
-                          },
-                        ),
+        return SizedBox(
+          width: constraints.maxWidth,
+          height: tableH,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                width: leftWidth,
+                child: Column(
+                  children: [
+                    _leftHeader(leftWidths),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: _leftVerticalScroll,
+                        itemCount: rows.length,
+                        itemExtent: _rowHeight,
+                        itemBuilder: (context, index) {
+                          return _leftDataRow(rows[index], leftWidths);
+                        },
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  controller: _middleHorizontalScroll,
+                  child: SizedBox(
+                    width: middleWidth,
+                    child: Column(
+                      children: [
+                        _middleHeader(middleWidths),
+                        Expanded(
+                          child: ListView.builder(
+                            controller: _middleVerticalScroll,
+                            itemCount: rows.length,
+                            itemExtent: _rowHeight,
+                            itemBuilder: (context, index) {
+                              return _middleDataRow(
+                                rows[index],
+                                middleWidths,
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            SizedBox(
-              width: actionWidth,
-              child: Column(
-                children: [
-                  _actionHeader(actionWidth),
-                  Expanded(
-                    child: ListView.builder(
-                      controller: _actionsVerticalScroll,
-                      itemCount: rows.length,
-                      itemExtent: _rowHeight,
-                      itemBuilder: (context, index) {
-                        return _actionDataCell(rows[index], actionWidth);
-                      },
+              SizedBox(
+                width: actionWidth,
+                child: Column(
+                  children: [
+                    _actionHeader(actionWidth),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: _actionsVerticalScroll,
+                        itemCount: rows.length,
+                        itemExtent: _rowHeight,
+                        itemBuilder: (context, index) {
+                          return _actionDataCell(rows[index], actionWidth);
+                        },
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
+    ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = MediaQuery.sizeOf(context).width >= 700;
+    final r = Responsive.of(context);
+    final sopField = TextField(
+      controller: SOPController,
+      style: TextStyle(fontSize: r.searchFieldFontSize),
+      decoration: InputDecoration(
+        hintText: 'Search in table...',
+        hintStyle: TextStyle(fontSize: r.searchFieldFontSize),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: r.searchFieldContentPaddingV,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(r.fieldRadius),
+          borderSide: BorderSide(
+            color: isTablet ? const Color(0xFFBDBDBD) : const Color(0xFF2196F3),
+            width: isTablet ? 1 : 1.5,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(r.fieldRadius),
+          borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2),
+        ),
+      ),
+      textInputAction: TextInputAction.search,
+      onSubmitted: (_) => _runSearch(),
+    );
+    final searchButton = SizedBox(
+      height: isTablet ? null : r.searchButtonHeight,
+      child: ElevatedButton.icon(
+        onPressed: _runSearch,
+        icon: Icon(Icons.search, size: r.searchIconSize),
+        label: Text(
+          'Search',
+          style: TextStyle(
+            fontSize: r.searchButtonFontSize,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF1E88E5),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(r.fieldRadius),
+          ),
+        ),
+      ),
+    );
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: const CommonAppBar(),
@@ -578,62 +834,59 @@ class _QAEditState extends State<QAEdit> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFD1D5DB)),
-              ),
-              child: Row(
-                children: [
-                  const Text(
-                    'Search SOP to QA Edit',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(width: 16),
-                  SizedBox(
-                    width: 280,
-                    child: TextField(
-                      controller: SOPController,
-                      decoration: const InputDecoration(
-                        hintText: 'Search in table...',
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(4)),
-                          borderSide: BorderSide(color: Color(0xFFBDBDBD)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(4)),
-                          borderSide: BorderSide(
-                            color: Color(0xFF1565C0),
-                            width: 2,
+            child: isTablet
+                ? Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFD1D5DB)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Flexible(
+                          child: Text(
+                            'Search SOP to QA Edit',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ),
-                      textInputAction: TextInputAction.search,
-                      onSubmitted: (_) => _runSearch(),
+                        const SizedBox(width: 16),
+                        SizedBox(width: 280, child: sopField),
+                        const SizedBox(width: 12),
+                        searchButton,
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    onPressed: _runSearch,
-                    icon: const Icon(Icons.search, size: 20),
-                    label: const Text('Search'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E88E5),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Search SOP to QA Edit',
+                        style: TextStyle(
+                          fontSize: r.pageTitleSize,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
+                      SizedBox(height: r.sectionGap),
+                      SizedBox(
+                        height: r.searchButtonHeight,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(child: sopField),
+                            const SizedBox(width: 8),
+                            searchButton,
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
           ),
           const SizedBox(height: 10),
           if (isLoading)
@@ -644,16 +897,26 @@ class _QAEditState extends State<QAEdit> {
             )
           else
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    isTablet ? 16 : 12,
+                    0,
+                    isTablet ? 16 : 12,
+                    isTablet ? 16 : 12,
+                  ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(child: buildTable()),
+                    // loose = table only as tall as rows (or max), so pager
+                    // stays ~12px under the table — not a big empty body.
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: buildTable(),
+                    ),
                     if (_filteredHistory.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Align(
-                        alignment: Alignment.centerLeft,
+                        alignment: Alignment.centerRight,
                         child: PaginationBar(
                           currentPage: _currentPage.clamp(1, _totalPages),
                           totalPages: _totalPages,

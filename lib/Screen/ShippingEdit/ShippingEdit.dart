@@ -3,7 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/ShippingEdit/Components/ShippingEditEntry.dart';
 import 'package:overview_app/Screen/ShippingIn/Services/ShippingInService.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
+import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 class ShippingEdit extends StatefulWidget {
@@ -18,6 +20,82 @@ class _ShippingEditState extends State<ShippingEdit> {
   final ScrollController _bodyHorizontalScroll = ScrollController();
   List<Map<String, dynamic>> shippingEditHistory = [];
   bool isLoading = false;
+
+  int? _sortColumnIndex;
+  bool _sortAscending = true;
+
+  static const List<String> _sortKeys = [
+    'sopNum',
+    'poNum',
+    'odd',
+    'customer',
+    'program',
+    'location',
+    'shippingDateIn',
+    'lastEditedOn',
+  ];
+
+  List<Map<String, dynamic>> get _sortedHistory {
+    if (_sortColumnIndex == null ||
+        _sortColumnIndex! < 0 ||
+        _sortColumnIndex! >= _sortKeys.length) {
+      return shippingEditHistory;
+    }
+    final key = _sortKeys[_sortColumnIndex!];
+    final rows = List<Map<String, dynamic>>.from(shippingEditHistory);
+    rows.sort((a, b) {
+      final cmp = _compareValues(a[key], b[key], key);
+      if (cmp != 0) return _sortAscending ? cmp : -cmp;
+      final sa = a['sopNum']?.toString() ?? '';
+      final sb = b['sopNum']?.toString() ?? '';
+      return sa.compareTo(sb);
+    });
+    return rows;
+  }
+
+  DateTime? _asDateTime(dynamic raw) {
+    if (raw == null) return null;
+    final text = raw.toString().trim();
+    if (text.isEmpty ||
+        text == '-' ||
+        text == '*' ||
+        text.startsWith('0001-01-01')) {
+      return null;
+    }
+    return DateTime.tryParse(text);
+  }
+
+  int _compareValues(dynamic a, dynamic b, String key) {
+    final isDate = key == 'odd' ||
+        key == 'shippingDateIn' ||
+        key == 'lastEditedOn';
+    if (isDate) {
+      final da = _asDateTime(a);
+      final db = _asDateTime(b);
+      if (da != null && db != null) return da.compareTo(db);
+      if (da != null) return -1;
+      if (db != null) return 1;
+      return 0;
+    }
+    final sa = a?.toString().trim() ?? '';
+    final sb = b?.toString().trim() ?? '';
+    final ia = int.tryParse(sa);
+    final ib = int.tryParse(sb);
+    if (ia != null && ib != null) return ia.compareTo(ib);
+    return sa.toLowerCase().compareTo(sb.toLowerCase());
+  }
+
+  void _onSort(int columnIndex) {
+    if (columnIndex < 0 || columnIndex >= _sortKeys.length) return;
+    setState(() {
+      if (_sortColumnIndex == columnIndex) {
+        _sortAscending = !_sortAscending;
+      } else {
+        _sortColumnIndex = columnIndex;
+        _sortAscending = true;
+      }
+    });
+  }
 
   Future<void> GetShippingEditHistory() async {
     await Dioservices.setToken();
@@ -144,26 +222,54 @@ class _ShippingEditState extends State<ShippingEdit> {
   double _tableContentWidth(double availableWidth) =>
       availableWidth > _minTableWidth ? availableWidth : _minTableWidth;
 
-  Widget _headerCell(String text, double width) {
+  Widget _headerCell(String text, double width, {int? sortIndex}) {
+    final sortable = sortIndex != null;
+    final active = sortable && _sortColumnIndex == sortIndex;
+    final up = !active || _sortAscending;
+
     return SizedBox(
       width: width,
       height: 56,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: _tableHeaderColor,
-          border: Border.all(color: Colors.grey, width: 0.5),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Center(
-            child: Text(
-              text,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+      child: Material(
+        color: _tableHeaderColor,
+        child: InkWell(
+          onTap: sortable ? () => _onSort(sortIndex) : null,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey, width: 0.5),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        text,
+                        textAlign: TextAlign.left,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    if (sortable) ...[
+                      const SizedBox(width: 3),
+                      Icon(
+                        up ? Icons.arrow_upward : Icons.arrow_downward,
+                        size: 12,
+                        color: active
+                            ? Colors.white
+                            : const Color(0x99B8C8E8),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -187,13 +293,13 @@ class _ShippingEditState extends State<ShippingEdit> {
       width: width,
       constraints: const BoxConstraints(minHeight: 56),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      alignment: Alignment.center,
+      alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey, width: 0.5),
       ),
       child: Text(
         displayText,
-        textAlign: TextAlign.center,
+        textAlign: TextAlign.left,
         softWrap: wrap,
         maxLines: wrap ? null : 1,
         overflow: wrap ? TextOverflow.visible : TextOverflow.ellipsis,
@@ -207,7 +313,11 @@ class _ShippingEditState extends State<ShippingEdit> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (var i = 0; i < _headers.length; i++)
-          _headerCell(_headers[i], widths[i]),
+          _headerCell(
+            _headers[i],
+            widths[i],
+            sortIndex: i < _sortKeys.length ? i : null,
+          ),
       ],
     );
   }
@@ -281,7 +391,9 @@ class _ShippingEditState extends State<ShippingEdit> {
   }
 
   Widget buildTable() {
-    return LayoutBuilder(
+    return Responsive.hideScrollbars(
+      context,
+      LayoutBuilder(
       builder: (context, constraints) {
         final contentWidth = _tableContentWidth(constraints.maxWidth);
         final columnWidths = _columnWidthsFor(constraints.maxWidth);
@@ -304,7 +416,7 @@ class _ShippingEditState extends State<ShippingEdit> {
                   child: SizedBox(
                     width: contentWidth,
                     child: Column(
-                      children: shippingEditHistory
+                      children: _sortedHistory
                           .map(
                             (item) => _buildTableDataRow(item, columnWidths),
                           )
@@ -317,6 +429,7 @@ class _ShippingEditState extends State<ShippingEdit> {
           ],
         );
       },
+    ),
     );
   }
 
@@ -349,15 +462,7 @@ class _ShippingEditState extends State<ShippingEdit> {
       onPressed: () async {
         final sopNumber = SOPController.text.trim();
         if (sopNumber.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Please enter SOP number',
-                style: TextStyle(color: Colors.white),
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
+          AppToast.error(context, 'Please enter SOP number');
           return;
         }
 
@@ -373,7 +478,7 @@ class _ShippingEditState extends State<ShippingEdit> {
         }
       },
       icon: const Icon(Icons.search, size: 20),
-      label: const Text('Search for Entry'),
+      label: Text(isTablet ? 'Search for Entry' : 'Search'),
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF1E88E5),
         foregroundColor: Colors.white,
@@ -428,9 +533,17 @@ class _ShippingEditState extends State<ShippingEdit> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  sopField,
-                  const SizedBox(height: 12),
-                  searchButton,
+                  SizedBox(
+                    height: 44,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: sopField),
+                        const SizedBox(width: 8),
+                        searchButton,
+                      ],
+                    ),
+                  ),
                 ],
               ),
             const SizedBox(height: 12),

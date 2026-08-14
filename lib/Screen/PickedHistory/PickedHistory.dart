@@ -39,14 +39,86 @@ class _PickedHistoryState extends State<PickedHistory> {
   static const int _pageSize = 200;
   int _currentPage = 1;
 
+  int? _sortColumnIndex;
+  bool _sortAscending = true;
+
   /// Base column widths (original Status width).
   static const List<double> _bomColWidths = [130, 160, 200, 100, 120];
 
+  List<ItemModel> get _sortedItems {
+    if (_sortColumnIndex == null ||
+        _sortColumnIndex! < 0 ||
+        _sortColumnIndex! > 4) {
+      return items;
+    }
+    final rows = List<ItemModel>.from(items);
+    rows.sort((a, b) {
+      final cmp = _compareItems(a, b, _sortColumnIndex!);
+      if (cmp != 0) return _sortAscending ? cmp : -cmp;
+      return a.sopNumber.compareTo(b.sopNumber);
+    });
+    return rows;
+  }
+
+  DateTime? _asDateTime(String raw) {
+    final text = raw.trim();
+    if (text.isEmpty ||
+        text == '-' ||
+        text == '*' ||
+        text.startsWith('0001-01-01')) {
+      return null;
+    }
+    return DateTime.tryParse(text);
+  }
+
+  int _compareItems(ItemModel a, ItemModel b, int columnIndex) {
+    switch (columnIndex) {
+      case 0:
+        final ia = int.tryParse(a.sopNumber);
+        final ib = int.tryParse(b.sopNumber);
+        if (ia != null && ib != null) return ia.compareTo(ib);
+        return a.sopNumber.toLowerCase().compareTo(b.sopNumber.toLowerCase());
+      case 1:
+        return a.fixtureNumber.toLowerCase().compareTo(
+          b.fixtureNumber.toLowerCase(),
+        );
+      case 2:
+        final da = _asDateTime(a.dateChanged);
+        final db = _asDateTime(b.dateChanged);
+        if (da != null && db != null) return da.compareTo(db);
+        if (da != null) return -1;
+        if (db != null) return 1;
+        return a.dateChanged.toLowerCase().compareTo(
+          b.dateChanged.toLowerCase(),
+        );
+      case 3:
+        return a.picked.toLowerCase().compareTo(b.picked.toLowerCase());
+      case 4:
+        return a.status.toLowerCase().compareTo(b.status.toLowerCase());
+      default:
+        return 0;
+    }
+  }
+
+  void _onSort(int columnIndex) {
+    if (columnIndex < 0 || columnIndex > 4) return;
+    setState(() {
+      if (_sortColumnIndex == columnIndex) {
+        _sortAscending = !_sortAscending;
+      } else {
+        _sortColumnIndex = columnIndex;
+        _sortAscending = true;
+      }
+      _currentPage = 1;
+    });
+  }
+
   List<ItemModel> get _visibleItems {
+    final sorted = _sortedItems;
     final start = (_currentPage - 1) * _pageSize;
-    if (start >= items.length) return [];
-    final end = (start + _pageSize).clamp(0, items.length);
-    return items.sublist(start, end);
+    if (start >= sorted.length) return [];
+    final end = (start + _pageSize).clamp(0, sorted.length);
+    return sorted.sublist(start, end);
   }
 
   int get _totalPages {
@@ -222,30 +294,51 @@ class _PickedHistoryState extends State<PickedHistory> {
     required double fontSize,
     required double height,
     required double hPad,
+    required int sortIndex,
   }) {
     final borderColor = Colors.grey.shade300;
+    final active = _sortColumnIndex == sortIndex;
+    final up = !active || _sortAscending;
+
     return SizedBox(
       width: w,
       height: height,
-      child: Container(
-        alignment: Alignment.centerLeft,
-        padding: EdgeInsets.symmetric(horizontal: hPad),
-        decoration: BoxDecoration(
-          color: const Color.fromARGB(255, 57, 73, 95),
-          border: Border(
-            right: BorderSide(color: borderColor),
-            bottom: BorderSide(color: borderColor),
-          ),
-        ),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: fontSize,
-            height: 1.0,
-            color: Colors.white,
+      child: Material(
+        color: const Color.fromARGB(255, 57, 73, 95),
+        child: InkWell(
+          onTap: () => _onSort(sortIndex),
+          child: Container(
+            alignment: Alignment.centerLeft,
+            padding: EdgeInsets.symmetric(horizontal: hPad),
+            decoration: BoxDecoration(
+              border: Border(
+                right: BorderSide(color: borderColor),
+                bottom: BorderSide(color: borderColor),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: fontSize,
+                      height: 1.0,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 3),
+                Icon(
+                  up ? Icons.arrow_upward : Icons.arrow_downward,
+                  size: 12,
+                  color: active ? Colors.white : const Color(0x99B8C8E8),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -374,6 +467,7 @@ class _PickedHistoryState extends State<PickedHistory> {
                                             fontSize: density.fontSize,
                                             height: density.headerH,
                                             hPad: density.hPad,
+                                            sortIndex: 0,
                                           ),
                                           _bomHeaderCell(
                                             "Fixture Number",
@@ -381,6 +475,7 @@ class _PickedHistoryState extends State<PickedHistory> {
                                             fontSize: density.fontSize,
                                             height: density.headerH,
                                             hPad: density.hPad,
+                                            sortIndex: 1,
                                           ),
                                           _bomHeaderCell(
                                             "Date Changed",
@@ -388,6 +483,7 @@ class _PickedHistoryState extends State<PickedHistory> {
                                             fontSize: density.fontSize,
                                             height: density.headerH,
                                             hPad: density.hPad,
+                                            sortIndex: 2,
                                           ),
                                           _bomHeaderCell(
                                             "Picked",
@@ -395,6 +491,7 @@ class _PickedHistoryState extends State<PickedHistory> {
                                             fontSize: density.fontSize,
                                             height: density.headerH,
                                             hPad: density.hPad,
+                                            sortIndex: 3,
                                           ),
                                           _bomHeaderCell(
                                             "Status",
@@ -402,6 +499,7 @@ class _PickedHistoryState extends State<PickedHistory> {
                                             fontSize: density.fontSize,
                                             height: density.headerH,
                                             hPad: density.hPad,
+                                            sortIndex: 4,
                                           ),
                                         ],
                                       ),
@@ -467,9 +565,12 @@ class _PickedHistoryState extends State<PickedHistory> {
                                 );
                               }
 
-                              return SingleChildScrollView(
+                              return Responsive.hideScrollbars(
+                                context,
+                                SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
                                 child: table,
+                                ),
                               );
                             },
                           ),

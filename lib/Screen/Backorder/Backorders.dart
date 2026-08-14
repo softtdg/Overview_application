@@ -4,7 +4,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:overview_app/Screen/Backorder/Services/BackorderService.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
+import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:overview_app/Widgets/pagination_bar.dart';
 
@@ -239,14 +241,21 @@ class _BackordersTableState extends State<Backorders> {
   }
 
   Widget _heading(String text) {
-    return Center(
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Text(
+          text,
+          textAlign: TextAlign.left,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+            height: 1.15,
+          ),
         ),
       ),
     );
@@ -254,7 +263,7 @@ class _BackordersTableState extends State<Backorders> {
 
   DataColumn2 _fixedColumn(String text, {required double width}) {
     return DataColumn2(
-      headingRowAlignment: MainAxisAlignment.center,
+      headingRowAlignment: MainAxisAlignment.start,
       fixedWidth: width,
       label: SizedBox(width: width, child: _heading(text)),
     );
@@ -262,7 +271,7 @@ class _BackordersTableState extends State<Backorders> {
 
   DataColumn2 _scrollColumn(String text, {required double minWidth}) {
     return DataColumn2(
-      headingRowAlignment: MainAxisAlignment.center,
+      headingRowAlignment: MainAxisAlignment.start,
       minWidth: minWidth,
       size: ColumnSize.S,
       label: _heading(text),
@@ -297,7 +306,7 @@ class _BackordersTableState extends State<Backorders> {
   Widget _tableTextCell(
     String text, {
     double? width = 90,
-    TextAlign align = TextAlign.center,
+    TextAlign align = TextAlign.left,
     int maxLines = 5,
     FontWeight fontWeight = FontWeight.w500,
   }) {
@@ -354,7 +363,7 @@ class _BackordersTableState extends State<Backorders> {
         return SizedBox(
           width: cellWidth,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: child,
           ),
         );
@@ -369,7 +378,7 @@ class _BackordersTableState extends State<Backorders> {
     bool showTooltip = false,
   }) {
     final content = Align(
-      alignment: Alignment.center,
+      alignment: Alignment.centerLeft,
       child: _tableTextCell(text, width: null, maxLines: maxLines),
     );
 
@@ -588,9 +597,7 @@ class _BackordersTableState extends State<Backorders> {
 
     if (byTdgpn.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("No received qty changes to save")),
-      );
+      AppToast.error(context, "No received qty changes to save");
       return;
     }
 
@@ -610,34 +617,30 @@ class _BackordersTableState extends State<Backorders> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Saved successfully")));
+      AppToast.success(context, "Saved successfully");
 
       await _getCriticalItemList();
     } on DioException catch (e) {
-      final serverMessage = e.response?.data;
       // print("ERROR SAVING CHANGES: ${e.message}");
-      // print("SERVER RESPONSE: $serverMessage");
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Save failed: ${serverMessage ?? e.message}")),
+      AppToast.errorFrom(
+        context,
+        e,
+        fallback: 'Save failed',
       );
     } catch (e) {
       print("ERROR SAVING CHANGES: $e");
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Save failed: $e")));
+      AppToast.errorFrom(context, e, fallback: 'Save failed');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = MediaQuery.of(context).size.width >= 700;
+    final isTablet = MediaQuery.sizeOf(context).width >= 700;
+    final r = Responsive.of(context);
 
     const tableBorderColor = Color(0xFFD1D5DB);
-    const clearBlue = Color(0xFF5BA3E0);
     const navy = Color(0xFF2F3E55);
     const saveGreen = Color(0xFF15803D);
 
@@ -653,75 +656,99 @@ class _BackordersTableState extends State<Backorders> {
     final searchField = TextField(
       controller: _searchController,
       onChanged: _filterRows,
+      style: TextStyle(fontSize: r.searchFieldFontSize),
       decoration: InputDecoration(
-        hintText: "Search",
+        hintText: 'Search in table...',
+        hintStyle: TextStyle(fontSize: r.searchFieldFontSize),
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(
+        contentPadding: EdgeInsets.symmetric(
           horizontal: 14,
-          vertical: 12,
+          vertical: r.searchFieldContentPaddingV,
         ),
+        suffixIcon: _searchController.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Clear',
+                onPressed: _clearSearch,
+                icon: const Icon(Icons.clear, size: 20),
+              ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+          borderRadius: BorderRadius.circular(r.fieldRadius),
+          borderSide: BorderSide(
+            color: isTablet ? const Color(0xFFBDBDBD) : const Color(0xFF2196F3),
+            width: isTablet ? 1 : 1.5,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: Color(0xFF607D99), width: 1.5),
+          borderRadius: BorderRadius.circular(r.fieldRadius),
+          borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2),
         ),
       ),
     );
 
-    final clearButton = OutlinedButton(
-      onPressed: _clearSearch,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: clearBlue,
-        side: const BorderSide(color: clearBlue),
-        backgroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      ),
-      child: const Text("Clear", style: TextStyle(fontWeight: FontWeight.w600)),
-    );
-
-    final addManualButton = ElevatedButton.icon(
-      onPressed: () {},
-      icon: const Icon(Icons.add, size: 18),
-      label: const Text("Add Manually Entry"),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: navy,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      ),
-    );
-
-    final saveButton = ElevatedButton.icon(
-      onPressed: _saveChanges,
-      icon: const Icon(Icons.save, size: 18),
-      label: const Text("Save"),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: saveGreen,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+    final addManualButton = SizedBox(
+      height: isTablet ? null : r.searchButtonHeight,
+      child: ElevatedButton.icon(
+        onPressed: () {},
+        icon: Icon(Icons.add, size: r.searchIconSize),
+        label: Text(
+          'Add Manually Entry',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: isTablet ? 14 : r.searchButtonFontSize,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: navy,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(r.fieldRadius),
+          ),
+        ),
       ),
     );
 
-    final headerBar = Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-        borderRadius: BorderRadius.circular(4),
+    final saveButton = SizedBox(
+      height: isTablet ? null : r.searchButtonHeight,
+      child: ElevatedButton.icon(
+        onPressed: _saveChanges,
+        icon: Icon(Icons.save, size: r.searchIconSize),
+        label: Text(
+          'Save',
+          style: TextStyle(
+            fontSize: isTablet ? 14 : r.searchButtonFontSize,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: saveGreen,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(r.fieldRadius),
+          ),
+        ),
       ),
-      child: isTablet
-          ? Row(
+    );
+
+    final headerBar = isTablet
+        ? Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
               children: [
                 const Text(
-                  "Backorder",
+                  'Backorder',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
@@ -730,36 +757,35 @@ class _BackordersTableState extends State<Backorders> {
                 ),
                 const SizedBox(width: 16),
                 SizedBox(width: 280, child: searchField),
-                const SizedBox(width: 10),
-                clearButton,
                 const Spacer(),
                 addManualButton,
                 const SizedBox(width: 10),
                 saveButton,
               ],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  "Backorder",
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1F2937),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                searchField,
-                const SizedBox(height: 10),
-                clearButton,
-                const SizedBox(height: 10),
-                addManualButton,
-                const SizedBox(height: 10),
-                saveButton,
-              ],
             ),
-    );
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Backorder',
+                style: TextStyle(
+                  fontSize: r.pageTitleSize,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              SizedBox(height: r.sectionGap),
+              searchField,
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(flex: 2, child: addManualButton),
+                  const SizedBox(width: 8),
+                  Expanded(flex: 1, child: saveButton),
+                ],
+              ),
+            ],
+          );
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -789,9 +815,24 @@ class _BackordersTableState extends State<Backorders> {
                                   ),
                                 ),
                                 child: ClipRRect(
-                                  child: DataTable2(
+                                  child: Theme(
+                                    data: Theme.of(context).copyWith(
+                                      scrollbarTheme: const ScrollbarThemeData(
+                                        thickness: WidgetStatePropertyAll(0),
+                                        thumbVisibility:
+                                            WidgetStatePropertyAll(false),
+                                        trackVisibility:
+                                            WidgetStatePropertyAll(false),
+                                        crossAxisMargin: 0,
+                                        mainAxisMargin: 0,
+                                        minThumbLength: 0,
+                                      ),
+                                    ),
+                                    child: Responsive.hideScrollbars(
+                                      context,
+                                      DataTable2(
                                     fixedTopRows: 1,
-                                    fixedLeftColumns: 3,
+                                    fixedLeftColumns: isTablet ? 3 : 0,
                                     fixedColumnsColor: Colors.white,
                                     fixedCornerColor: const Color(0xFF344963),
                                     showCheckboxColumn: false,
@@ -806,6 +847,8 @@ class _BackordersTableState extends State<Backorders> {
                                     columnSpacing: 0,
                                     horizontalMargin: 0,
                                     dividerThickness: 1,
+                                    isHorizontalScrollBarVisible: false,
+                                    isVerticalScrollBarVisible: false,
                                     minWidth: _tableMinWidth,
                                     border: tableBorder,
                                     columns: _columns(),
@@ -978,7 +1021,9 @@ class _BackordersTableState extends State<Backorders> {
                                     }).toList(),
                                   ),
                                 ),
+                                ),
                               ),
+                            ),
                             ),
                             if (_rows.isNotEmpty)
                               Container(

@@ -247,6 +247,14 @@ class Responsive {
     return const [130, 300, 180, 84, 84, 120, 220];
   }
 
+  /// Hides platform scrollbars while still allowing swipe / drag.
+  static Widget hideScrollbars(BuildContext context, Widget child) {
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+      child: child,
+    );
+  }
+
   /// Width for each card when laid out in [cardColumns] columns.
   double cardWidthFor(double availableWidth) {
     final cols = cardColumns;

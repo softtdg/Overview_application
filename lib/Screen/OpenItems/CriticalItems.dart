@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Screen/OpenItems/Components/Query.dart';
 import 'package:overview_app/Screen/OpenItems/Services/OpenItemsServices.dart';
+import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
+import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:overview_app/Widgets/pagination_bar.dart';
 import 'package:overview_app/Screen/Public-Search/PublicSearch.dart';
@@ -26,14 +28,21 @@ class CriticalItems extends StatefulWidget {
 class _CriticalItemsState extends State<CriticalItems> {
   static const double _noticeColumnWidth = 180;
   static const double _noticeCellHorizontalPadding = 8;
+  static const double _noticeCellVerticalPadding = 8;
   static const double _noticeMinSubRowHeight = 52;
   static const double _actionColumnWidth = 56;
   static const int _pickedColumnIndex = 11;
   static const int _sopColumnIndex = 0;
   static const int _oddColumnIndex = 1;
   static const int _leadHandColumnIndex = 2;
+  static const int _assemblerColumnIndex = 3;
   static const int _fixtureColumnIndex = 4;
-  static const int _deptColumnIndex = 13;
+  static const int _descColumnIndex = 5;
+  static const int _qtyColumnIndex = 6;
+  static const int _hoursColumnIndex = 7;
+  static const int _totalTimeColumnIndex = 8;
+  static const int _amountColumnIndex = 9;
+  static const int _inventoryCommentColumnIndex = 10;
   final String username = 'John Doe';
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _tableVerticalScroll = ScrollController();
@@ -310,6 +319,14 @@ class _CriticalItemsState extends State<CriticalItems> {
     return DateTime(y, mo, d);
   }
 
+  double _numValue(Map<String, dynamic> row, List<String> keys) {
+    return double.tryParse(_pick(row, keys).replaceAll(',', '')) ?? 0;
+  }
+
+  double _totalBuildTime(Map<String, dynamic> row) {
+    return _numValue(row, ['Quantity']) * _numValue(row, ['Hours']);
+  }
+
   int _compareForActiveSort(Map<String, dynamic> a, Map<String, dynamic> b) {
     final i = _sortColumnIndex;
     if (i == null) return 0;
@@ -332,22 +349,44 @@ class _CriticalItemsState extends State<CriticalItems> {
           'ODD',
         ]).toLowerCase().compareTo(_pickPath(b, ['SOP', 'ODD']).toLowerCase());
       case _leadHandColumnIndex:
-        return _pickPath(a, ['SOP', 'LeadHandName']).toLowerCase().compareTo(
-          _pickPath(b, ['SOP', 'LeadHandName']).toLowerCase(),
+        return _pickPath(a, [
+          'SOP',
+          'ProductionLogEntry',
+          'LeadHand',
+          'LeadHandName',
+        ]).toLowerCase().compareTo(
+          _pickPath(b, [
+            'SOP',
+            'ProductionLogEntry',
+            'LeadHand',
+            'LeadHandName',
+          ]).toLowerCase(),
+        );
+      case _assemblerColumnIndex:
+        return _pickPath(a, ['Assembler', 'Name']).toLowerCase().compareTo(
+          _pickPath(b, ['Assembler', 'Name']).toLowerCase(),
         );
       case _fixtureColumnIndex:
         return _pick(a, [
           'FixtureNumber',
         ]).toLowerCase().compareTo(_pick(b, ['FixtureNumber']).toLowerCase());
-      case _deptColumnIndex:
-        return _buildNotices(a)
-            .map((n) => _valueText(n['dept']))
-            .join(' ')
+      case _descColumnIndex:
+        return _pick(a, ['FixtureDescription']).toLowerCase().compareTo(
+          _pick(b, ['FixtureDescription']).toLowerCase(),
+        );
+      case _qtyColumnIndex:
+        return _numValue(a, ['Quantity']).compareTo(_numValue(b, ['Quantity']));
+      case _hoursColumnIndex:
+        return _numValue(a, ['Hours']).compareTo(_numValue(b, ['Hours']));
+      case _totalTimeColumnIndex:
+        return _totalBuildTime(a).compareTo(_totalBuildTime(b));
+      case _amountColumnIndex:
+        return _numValue(a, ['Amount']).compareTo(_numValue(b, ['Amount']));
+      case _inventoryCommentColumnIndex:
+        return _pick(a, ['InventoryCommentsForProduction'])
             .toLowerCase()
             .compareTo(
-              _buildNotices(
-                b,
-              ).map((n) => _valueText(n['dept'])).join(' ').toLowerCase(),
+              _pick(b, ['InventoryCommentsForProduction']).toLowerCase(),
             );
       case _pickedColumnIndex:
         return _pickedSortKey(a).compareTo(_pickedSortKey(b));
@@ -405,12 +444,13 @@ class _CriticalItemsState extends State<CriticalItems> {
     return noticeValues.map((value) {
       final painter = TextPainter(
         text: TextSpan(text: value, style: textStyle),
-        textAlign: TextAlign.center,
+        textAlign: TextAlign.left,
         textDirection: TextDirection.ltr,
         textScaler: textScaler,
       )..layout(maxWidth: maxTextWidth);
 
-      final needed = painter.height + 16;
+      final needed =
+          painter.height + (_noticeCellVerticalPadding * 2) + 8;
       return needed < _noticeMinSubRowHeight ? _noticeMinSubRowHeight : needed;
     }).toList();
   }
@@ -421,7 +461,7 @@ class _CriticalItemsState extends State<CriticalItems> {
     required Color backgroundColor,
     List<Color>? rowBackgrounds,
     List<double>? rowHeights,
-    TextAlign textAlign = TextAlign.center,
+    TextAlign textAlign = TextAlign.left,
   }) {
     final perRowBg =
         rowBackgrounds != null && rowBackgrounds.length == values.length;
@@ -440,59 +480,72 @@ class _CriticalItemsState extends State<CriticalItems> {
             ? constraints.maxWidth
             : width;
 
+        final h = constraints.hasBoundedHeight && constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : null;
+
         if (values.isEmpty) {
           return SizedBox(
             width: w,
-            height: _noticeMinSubRowHeight,
+            height: h ?? _noticeMinSubRowHeight,
             child: ColoredBox(color: cellFillColor),
           );
         }
 
-        return ColoredBox(
-          color: cellFillColor,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: values.asMap().entries.map((entry) {
-              final index = entry.key;
-              final value = entry.value;
-              final isLast = index == values.length - 1;
-              final rowHeight =
-                  rowHeights != null && index < rowHeights.length
-                  ? rowHeights[index]
-                  : _noticeMinSubRowHeight;
-              final rowBg = perRowBg ? rowBackgrounds[index] : null;
+        return SizedBox(
+          width: w,
+          height: h,
+          child: ColoredBox(
+            color: cellFillColor,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ...values.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final value = entry.value;
+                  final isLast = index == values.length - 1;
+                  final rowHeight =
+                      rowHeights != null && index < rowHeights.length
+                      ? rowHeights[index]
+                      : _noticeMinSubRowHeight;
+                  final rowBg = perRowBg ? rowBackgrounds[index] : null;
 
-              return Container(
-                width: w,
-                height: rowHeight,
-                alignment: textAlign == TextAlign.left
-                    ? Alignment.centerLeft
-                    : textAlign == TextAlign.right
-                        ? Alignment.centerRight
-                        : Alignment.center,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: _noticeCellHorizontalPadding,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: rowBg,
-                  border: isLast
-                      ? null
-                      : const Border(
-                          bottom: BorderSide(color: Colors.white, width: 0.6),
-                        ),
-                ),
-                child: _highlightedText(
-                  value,
-                  textAlign: textAlign,
-                  softWrap: true,
-                  maxLines: 10,
-                  overflow: TextOverflow.clip,
-                  fontWeight: FontWeight.w500,
-                ),
-              );
-            }).toList(),
+                  return Container(
+                    width: w,
+                    height: rowHeight,
+                    alignment: textAlign == TextAlign.left
+                        ? Alignment.centerLeft
+                        : textAlign == TextAlign.right
+                            ? Alignment.centerRight
+                            : Alignment.center,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: _noticeCellHorizontalPadding,
+                      vertical: _noticeCellVerticalPadding,
+                    ),
+                    decoration: BoxDecoration(
+                      color: rowBg,
+                      border: isLast
+                          ? null
+                          : const Border(
+                              bottom: BorderSide(
+                                color: Color(0xFFD1D5DB),
+                                width: 1,
+                              ),
+                            ),
+                    ),
+                    child: _highlightedText(
+                      value,
+                      textAlign: textAlign,
+                      softWrap: true,
+                      maxLines: 10,
+                      overflow: TextOverflow.clip,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  );
+                }),
+                if (h != null) const Spacer(),
+              ],
+            ),
           ),
         );
       },
@@ -600,14 +653,21 @@ class _CriticalItemsState extends State<CriticalItems> {
   }
 
   Widget _heading(String text) {
-    return Center(
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Text(
+          text,
+          textAlign: TextAlign.left,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+            height: 1.15,
+          ),
         ),
       ),
     );
@@ -618,27 +678,28 @@ class _CriticalItemsState extends State<CriticalItems> {
       color: Colors.white,
       fontWeight: FontWeight.w700,
       fontSize: 12,
+      height: 1.15,
     );
     final active = _sortColumnIndex == columnIndex;
     final up = !active || _sortAscending;
-    return Center(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Flexible(
+          Expanded(
             child: Text(
               text,
-              textAlign: TextAlign.center,
-              maxLines: 4,
+              textAlign: TextAlign.left,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: style,
             ),
           ),
-          const SizedBox(width: 3),
+          const SizedBox(width: 2),
           Icon(
             up ? Icons.arrow_upward : Icons.arrow_downward,
             size: 11,
-            color: const Color(0x99B8C8E8),
+            color: active ? Colors.white : const Color(0x99B8C8E8),
           ),
         ],
       ),
@@ -656,38 +717,112 @@ class _CriticalItemsState extends State<CriticalItems> {
     final label =
         cutomLabels ??
         (sortKey != null ? _sortableHeading(text, sortKey) : _heading(text));
-    final colWidth = fixedWidth ?? minWidth;
     return DataColumn2(
-      headingRowAlignment: MainAxisAlignment.center,
+      headingRowAlignment: MainAxisAlignment.start,
       minWidth: minWidth,
       fixedWidth: fixedWidth,
-      label: SizedBox(width: colWidth, child: label),
+      label: label,
       onSort: onSort,
     );
   }
 
-  List<DataColumn2> _criticalDataColumns() {
+  List<double> _columnBaseWidths({
+    required bool includeAction,
+    required bool compact,
+  }) {
     return [
-      _column('SOP', minWidth: 56, sortKey: 0, onSort: _onSort),
-      _column('ODD', minWidth: 90, sortKey: 1, onSort: _onSort),
-      _column('Lead\nHand', minWidth: 82, sortKey: 2, onSort: _onSort),
-      _column('Assembler', minWidth: 90),
-      _column('Fixture', minWidth: 120, sortKey: 4, onSort: _onSort),
-      _column('Desc', minWidth: 170),
-      _column('Qty', minWidth: 40),
-      _column('Time To\nBuild/Per\nUnit', minWidth: 88),
-      _column('Total\nTime To\nBuild', minWidth: 92),
-      _column('Amount', minWidth: 70),
-      _column('Inventory\nComment', minWidth: 130),
-      _column('Picked', minWidth: 58, sortKey: 11, onSort: _onSort),
-      _column('Date Sent', minWidth: 90),
-      _column('Dept', minWidth: 88, sortKey: 13, onSort: _onSort),
-      _column(
-        'Notice',
-        minWidth: _noticeColumnWidth,
-        fixedWidth: _noticeColumnWidth,
+      compact ? 64 : 56,
+      compact ? 88 : 90,
+      compact ? 92 : 82,
+      90,
+      120,
+      compact ? 140 : 170,
+      48,
+      compact ? 64 : 88,
+      compact ? 64 : 92,
+      70,
+      compact ? 110 : 130,
+      64,
+      90,
+      72,
+      _noticeColumnWidth,
+      compact ? 140 : 180,
+      if (includeAction) _actionColumnWidth,
+    ];
+  }
+
+  List<double> _fitColumnWidths({
+    required double available,
+    required bool includeAction,
+    required bool compact,
+  }) {
+    final bases = _columnBaseWidths(
+      includeAction: includeAction,
+      compact: compact,
+    );
+    final total = bases.fold<double>(0, (a, b) => a + b);
+    if (total <= 0 || available <= 0) return bases;
+    final scale = available / total;
+    final widths = bases.map((w) => w * scale).toList();
+    final sum = widths.fold<double>(0, (a, b) => a + b);
+    widths[widths.length - 1] += available - sum;
+    return widths;
+  }
+
+  List<DataColumn2> _criticalDataColumns({
+    required List<double> widths,
+    required bool includeAction,
+    required bool compact,
+  }) {
+    DataColumn2 col(
+      int index,
+      String text, {
+      int? sortKey,
+      DataColumnSortCallback? onSort,
+    }) {
+      final w = widths[index];
+      return _column(
+        text,
+        minWidth: w,
+        fixedWidth: w,
+        sortKey: sortKey,
+        onSort: onSort,
+      );
+    }
+
+    return [
+      col(0, 'SOP', sortKey: 0, onSort: _onSort),
+      col(1, 'ODD', sortKey: 1, onSort: _onSort),
+      col(2, compact ? 'Lead Hand' : 'Lead\nHand', sortKey: 2, onSort: _onSort),
+      col(3, 'Assembler', sortKey: 3, onSort: _onSort),
+      col(4, 'Fixture', sortKey: 4, onSort: _onSort),
+      col(5, 'Desc', sortKey: 5, onSort: _onSort),
+      col(6, 'Qty', sortKey: 6, onSort: _onSort),
+      col(
+        7,
+        compact ? 'Time' : 'Time To\nBuild/Per\nUnit',
+        sortKey: 7,
+        onSort: _onSort,
       ),
-      _column('Response', minWidth: 180),
+      col(
+        8,
+        compact ? 'Total' : 'Total\nTime To\nBuild',
+        sortKey: 8,
+        onSort: _onSort,
+      ),
+      col(9, 'Amount', sortKey: 9, onSort: _onSort),
+      col(
+        10,
+        compact ? 'Comment' : 'Inventory\nComment',
+        sortKey: 10,
+        onSort: _onSort,
+      ),
+      col(11, 'Picked', sortKey: 11, onSort: _onSort),
+      col(12, 'Date Sent'),
+      col(13, 'Dept'),
+      col(14, 'Notice'),
+      col(15, 'Response'),
+      if (includeAction) col(16, 'Action'),
     ];
   }
 
@@ -703,23 +838,29 @@ class _CriticalItemsState extends State<CriticalItems> {
 
   Widget _buildFixtureCell(Map<String, dynamic> row) {
     final fixture = _pick(row, ['FixtureNumber']);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: GestureDetector(
-          onTap: () {
-            final f = fixture.trim();
-            if (f.isEmpty) return;
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => Publicsearch(fixtureNumber: f),
-              ),
-            );
-          },
-          child: Container(
-            width: 76,
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cellW = constraints.hasBoundedWidth && constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : 76.0;
+        final boxW = min(76.0, max(24.0, cellW - 8));
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+            child: GestureDetector(
+              onTap: () {
+                final f = fixture.trim();
+                if (f.isEmpty) return;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => Publicsearch(fixtureNumber: f),
+                  ),
+                );
+              },
+              child: Container(
+                width: boxW,
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
             decoration: BoxDecoration(
               border: Border.all(color: const Color(0xFF39495F)),
               borderRadius: BorderRadius.circular(6),
@@ -736,6 +877,8 @@ class _CriticalItemsState extends State<CriticalItems> {
           ),
         ),
       ),
+        );
+      },
     );
   }
 
@@ -744,10 +887,9 @@ class _CriticalItemsState extends State<CriticalItems> {
       onPressed: () {
         final sopLeadHandEntryId = _pick(row, ['SOPLeadHandEntryId']);
         if (sopLeadHandEntryId.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('SOP Lead Hand Entry Id not found for this row.'),
-            ),
+          AppToast.error(
+            context,
+            'SOP Lead Hand Entry Id not found for this row.',
           );
           return;
         }
@@ -776,7 +918,10 @@ class _CriticalItemsState extends State<CriticalItems> {
     );
   }
 
-  Widget _buildStickyActionsPane(List<Map<String, dynamic>> groupedRows) {
+  Widget _buildStickyActionsPane(
+    List<Map<String, dynamic>> groupedRows, {
+    required double noticeWidth,
+  }) {
     const borderColor = Color(0xFFD1D5DB);
     return SizedBox(
       width: _actionColumnWidth,
@@ -785,7 +930,7 @@ class _CriticalItemsState extends State<CriticalItems> {
           Container(
             height: 52,
             width: _actionColumnWidth,
-            alignment: Alignment.center,
+            alignment: Alignment.centerLeft,
             decoration: const BoxDecoration(
               color: Color(0xFF344963),
               border: Border(
@@ -794,7 +939,7 @@ class _CriticalItemsState extends State<CriticalItems> {
             ),
             child: const Text(
               'Action',
-              textAlign: TextAlign.center,
+              textAlign: TextAlign.left,
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
@@ -815,7 +960,11 @@ class _CriticalItemsState extends State<CriticalItems> {
                 final row = group['row'] as Map<String, dynamic>;
                 final isDisabled = row['Disabled'] == true;
                 return Container(
-                  height: _dataRowHeightForGroup(group, context),
+                  height: _dataRowHeightForGroup(
+                    group,
+                    context,
+                    noticeWidth: noticeWidth,
+                  ),
                   width: _actionColumnWidth,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
@@ -840,17 +989,20 @@ class _CriticalItemsState extends State<CriticalItems> {
 
   double _dataRowHeightForGroup(
     Map<String, dynamic> group,
-    BuildContext context,
-  ) {
+    BuildContext context, {
+    double? noticeWidth,
+  }) {
     final notices = group['notices'] as List<Map<String, dynamic>>;
     final noticeValues = _noticeValues(notices, 'notice', hideDash: true);
     if (noticeValues.isEmpty) return 52.0;
     final noticeRowHeights = _noticeRowHeights(
       noticeValues: noticeValues,
-      noticeWidth: _noticeColumnWidth,
+      noticeWidth: noticeWidth ?? _noticeColumnWidth,
       textScaler: MediaQuery.textScalerOf(context),
     );
-    final totalHeight = noticeRowHeights.fold<double>(0, (a, b) => a + b);
+    final totalHeight =
+        noticeRowHeights.fold<double>(0, (a, b) => a + b) +
+        (noticeValues.length > 1 ? (noticeValues.length - 1) * 0.6 : 0);
     return max(52.0, totalHeight);
   }
 
@@ -938,7 +1090,7 @@ class _CriticalItemsState extends State<CriticalItems> {
   Widget _tableTextCell(
     String text, {
     double? width,
-    TextAlign align = TextAlign.center,
+    TextAlign align = TextAlign.left,
     int maxLines = 5,
     FontWeight fontWeight = FontWeight.w500,
   }) {
@@ -950,15 +1102,21 @@ class _CriticalItemsState extends State<CriticalItems> {
                 : null);
         return SizedBox(
           width: maxW,
+          height: constraints.hasBoundedHeight && constraints.maxHeight.isFinite
+              ? constraints.maxHeight
+              : null,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            child: _highlightedText(
-              _wrapFriendly(text),
-              textAlign: align,
-              maxLines: maxLines,
-              softWrap: true,
-              overflow: TextOverflow.ellipsis,
-              fontWeight: fontWeight,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: _highlightedText(
+                _wrapFriendly(text),
+                textAlign: align,
+                maxLines: maxLines,
+                softWrap: true,
+                overflow: TextOverflow.ellipsis,
+                fontWeight: fontWeight,
+              ),
             ),
           ),
         );
@@ -1052,6 +1210,7 @@ class _CriticalItemsState extends State<CriticalItems> {
   @override
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.sizeOf(context).width >= 700;
+    final r = Responsive.of(context);
     final searchField = TextField(
       controller: _searchController,
       textInputAction: TextInputAction.search,
@@ -1066,27 +1225,28 @@ class _CriticalItemsState extends State<CriticalItems> {
           });
         }
       },
+      style: TextStyle(fontSize: r.searchFieldFontSize),
       decoration: InputDecoration(
         hintText: 'Search in table...',
+        hintStyle: TextStyle(fontSize: r.searchFieldFontSize),
         contentPadding: EdgeInsets.symmetric(
           horizontal: 14,
-          vertical: isTablet ? 12 : 14,
+          vertical: r.searchFieldContentPaddingV,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+          borderRadius: BorderRadius.circular(r.fieldRadius),
           borderSide: BorderSide(
             color: isTablet ? const Color(0xFFBDBDBD) : const Color(0xFF2196F3),
-            width: isTablet ? 1 : 2,
+            width: isTablet ? 1 : 1.5,
           ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(isTablet ? 4 : 12),
+          borderRadius: BorderRadius.circular(r.fieldRadius),
           borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2),
         ),
       ),
     );
     final groupedRows = _groupRowsForDisplay(_pagedRows);
-    final tableColumns = _criticalDataColumns();
     const tableBorderColor = Color(0xFFD1D5DB);
     final tableBorder = TableBorder(
       top: const BorderSide(color: tableBorderColor, width: 1),
@@ -1106,7 +1266,7 @@ class _CriticalItemsState extends State<CriticalItems> {
       // let the keyboard overlay the bottom instead.
       resizeToAvoidBottomInset: false,
       body: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(isTablet ? 12 : 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1154,35 +1314,42 @@ class _CriticalItemsState extends State<CriticalItems> {
                 children: [
                   Text(
                     widget.pageTitle,
-                    style: const TextStyle(
-                      fontSize: 30,
+                    style: TextStyle(
+                      fontSize: r.pageTitleSize,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  searchField,
-                  const SizedBox(height: 12),
-                  Center(
-                    child: SizedBox(
-                      width: 170,
-                      height: 46,
-                      child: ElevatedButton(
-                        onPressed: _runSearch,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF3A4F6B),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                  SizedBox(height: r.sectionGap),
+                  SizedBox(
+                    height: r.searchButtonHeight,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: searchField),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: _runSearch,
+                          icon: Icon(Icons.search, size: r.searchIconSize),
+                          label: Text(
+                            'Search',
+                            style: TextStyle(
+                              fontSize: r.searchButtonFontSize,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1E88E5),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                r.fieldRadius,
+                              ),
+                            ),
                           ),
                         ),
-                        child: const Text(
-                          'Search',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
+                      ],
                     ),
                   ),
                 ],
@@ -1215,13 +1382,37 @@ class _CriticalItemsState extends State<CriticalItems> {
                               ),
                             ),
                             child: ClipRRect(
-                              child: Row(
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final includeAction = !isTablet;
+                                  final compact = !isTablet;
+                                  final actionW =
+                                      isTablet ? _actionColumnWidth : 0.0;
+                                  final available =
+                                      (constraints.maxWidth - actionW)
+                                          .clamp(0.0, double.infinity);
+                                  final colWidths = _fitColumnWidths(
+                                    available: available,
+                                    includeAction: includeAction,
+                                    compact: compact,
+                                  );
+                                  final noticeW = colWidths[14];
+                                  final dateW = colWidths[12];
+                                  final deptW = colWidths[13];
+                                  final responseW = colWidths[15];
+                                  final tableColumns = _criticalDataColumns(
+                                    widths: colWidths,
+                                    includeAction: includeAction,
+                                    compact: compact,
+                                  );
+                                  return Row(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Expanded(
                                     child: Theme(
                                       data: Theme.of(context).copyWith(
-                                        scrollbarTheme: const ScrollbarThemeData(
+                                        scrollbarTheme:
+                                            const ScrollbarThemeData(
                                           thickness: WidgetStatePropertyAll(0),
                                           thumbVisibility:
                                               WidgetStatePropertyAll(false),
@@ -1238,7 +1429,6 @@ class _CriticalItemsState extends State<CriticalItems> {
                                         ).copyWith(scrollbars: false),
                                         child: DataTable2(
                                       fixedTopRows: 1,
-                                      fixedLeftColumns: 3,
                                       scrollController: _tableVerticalScroll,
                                       showCheckboxColumn: false,
                                       sortColumnIndex: _sortColumnIndex,
@@ -1253,14 +1443,15 @@ class _CriticalItemsState extends State<CriticalItems> {
                                         const Color(0xFFF0F1F3),
                                       ),
                                       fixedCornerColor: const Color(0xFF344963),
-                                      headingRowHeight: 52,
+                                      headingRowHeight: isTablet ? 52 : 48,
                                       dataRowHeight: 52,
                                       columnSpacing: 0,
                                       horizontalMargin: 0,
                                       dividerThickness: 1,
                                       isHorizontalScrollBarVisible: false,
                                       isVerticalScrollBarVisible: false,
-                                      minWidth: 1550,
+                                      minWidth: available,
+                                      fixedLeftColumns: 0,
                                       border: tableBorder,
                                       columns: tableColumns,
                                       rows: groupedRows.map((group) {
@@ -1304,7 +1495,7 @@ class _CriticalItemsState extends State<CriticalItems> {
                                   );
                                   final noticeRowHeights = _noticeRowHeights(
                                     noticeValues: noticeValues,
-                                    noticeWidth: _noticeColumnWidth,
+                                    noticeWidth: noticeW,
                                     textScaler: MediaQuery.textScalerOf(
                                       context,
                                     ),
@@ -1314,6 +1505,7 @@ class _CriticalItemsState extends State<CriticalItems> {
                                     specificRowHeight: _dataRowHeightForGroup(
                                       group,
                                       context,
+                                      noticeWidth: noticeW,
                                     ),
                                     color: WidgetStateProperty.all(
                                       isDisabled
@@ -1427,7 +1619,7 @@ class _CriticalItemsState extends State<CriticalItems> {
                                       ),
                                       DataCell(
                                         _stackedNoticeCell(
-                                          width: 90,
+                                          width: dateW,
                                           values: dateValues,
                                           backgroundColor: noticeBg,
                                           rowHeights: noticeRowHeights,
@@ -1435,7 +1627,7 @@ class _CriticalItemsState extends State<CriticalItems> {
                                       ),
                                       DataCell(
                                         _stackedNoticeCell(
-                                          width: 88,
+                                          width: deptW,
                                           values: deptValues,
                                           backgroundColor: noticeBg,
                                           rowHeights: noticeRowHeights,
@@ -1443,7 +1635,7 @@ class _CriticalItemsState extends State<CriticalItems> {
                                       ),
                                       DataCell(
                                         _stackedNoticeCell(
-                                          width: _noticeColumnWidth,
+                                          width: noticeW,
                                           values: noticeValues,
                                           backgroundColor: noticeBg,
                                           rowHeights: noticeRowHeights,
@@ -1452,7 +1644,7 @@ class _CriticalItemsState extends State<CriticalItems> {
                                       ),
                                       DataCell(
                                         _stackedNoticeCell(
-                                          width: 180,
+                                          width: responseW,
                                           values: responseValues,
                                           backgroundColor: notices.isEmpty
                                               ? Colors.transparent
@@ -1462,6 +1654,15 @@ class _CriticalItemsState extends State<CriticalItems> {
                                           rowHeights: noticeRowHeights,
                                         ),
                                       ),
+                                      if (!isTablet)
+                                        DataCell(
+                                          Center(
+                                            child: _buildActionButton(
+                                              row,
+                                              isDisabled: isDisabled,
+                                            ),
+                                          ),
+                                        ),
                                     ],
                                   );
                                 }).toList(),
@@ -1469,8 +1670,14 @@ class _CriticalItemsState extends State<CriticalItems> {
                                       ),
                                     ),
                                   ),
-                                  _buildStickyActionsPane(groupedRows),
+                                  if (isTablet)
+                                    _buildStickyActionsPane(
+                                      groupedRows,
+                                      noticeWidth: noticeW,
+                                    ),
                                 ],
+                              );
+                                },
                               ),
                             ),
                           ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/MPF/Services/MPFServices.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -263,17 +264,13 @@ class _PickListState extends State<PickList> {
     if (_inventoryDownloading) return;
 
     if (_sheetRows.isEmpty || _rawSheetData.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No pick list data available')),
-      );
+      AppToast.error(context, 'No pick list data available');
       return;
     }
 
     final requestedBy = selectedMpfRequestedBy?.trim() ?? '';
     if (requestedBy.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('MPF Requested By is required')),
-      );
+      AppToast.error(context, 'MPF Requested By is required');
       return;
     }
 
@@ -340,34 +337,24 @@ class _PickListState extends State<PickList> {
 
       if (sheetData.isEmpty) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No editable (non-gray) rows to download'),
-          ),
-        );
+        AppToast.error(context, 'No editable (non-gray) rows to download');
         return;
       }
 
       if (!hasAtLeastOneMpfQty) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Please enter at least one MPF quantity when MPF is enabled',
-            ),
-          ),
+        AppToast.error(
+          context,
+          'Please enter at least one MPF quantity when MPF is enabled',
         );
         return;
       }
 
       if (hasMissingCommentForMpfQty) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Comments are required for all items with MPF quantities',
-            ),
-          ),
+        AppToast.error(
+          context,
+          'Comments are required for all items with MPF quantities',
         );
         return;
       }
@@ -416,14 +403,11 @@ class _PickListState extends State<PickList> {
       if (ok) {
         _margaretDialog();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              root is Map && root['message'] != null
-                  ? root['message'].toString()
-                  : 'Failed to create inventory pick list',
-            ),
-          ),
+        AppToast.error(
+          context,
+          root is Map && root['message'] != null
+              ? root['message'].toString()
+              : 'Failed to create inventory pick list',
         );
       }
     } catch (e) {
@@ -433,9 +417,7 @@ class _PickListState extends State<PickList> {
       if (e is DioException && e.response?.data is Map) {
         message = e.response!.data['message']?.toString() ?? message;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      AppToast.error(context, message);
     } finally {
       if (mounted) setState(() => _inventoryDownloading = false);
     }
@@ -556,11 +538,10 @@ class _PickListState extends State<PickList> {
       final user = await _currentUser();
       if (user.isEmpty) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('User not found. Please log in again.'),
-            duration: Duration(seconds: 5),
-          ),
+        AppToast.error(
+          context,
+          'User not found. Please log in again.',
+          duration: const Duration(seconds: 5),
         );
         return;
       }
@@ -585,12 +566,9 @@ class _PickListState extends State<PickList> {
       final data = root['data'];
       if (data is! Map) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              root['message']?.toString() ?? 'Live PDM returned no data',
-            ),
-          ),
+        AppToast.error(
+          context,
+          root['message']?.toString() ?? 'Live PDM returned no data',
         );
         return;
       }
@@ -610,8 +588,10 @@ class _PickListState extends State<PickList> {
         }
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), duration: const Duration(seconds: 6)),
+      AppToast.error(
+        context,
+        message,
+        duration: const Duration(seconds: 6),
       );
     }
   }

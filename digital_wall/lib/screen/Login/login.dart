@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../widgets/AppToast.dart';
 import '../../widgets/dropdown.dart';
 import '../Dashboard/dashboard.dart';
 
@@ -35,9 +36,7 @@ class _LoginState extends State<Login> {
     // print("uname: $username, password: $password, role: $role");
 
     if (username.isEmpty || password.isEmpty || role.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
+      AppToast.error(context, 'Please fill all fields');
       return;
     }
 
@@ -90,20 +89,14 @@ class _LoginState extends State<Login> {
           // print('Navigation completed successfully');
         } catch (e) {
           // print('Navigation error: $e');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Navigation error: $e')),
-          );
+          AppToast.error(context, 'Navigation error');
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Enter valid Username and Password!')),
-        );
+        AppToast.error(context, 'Enter valid Username and Password!');
       }
     } catch (e) {
       print('Login error: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Login failed: $e')));
+      AppToast.error(context, 'Login failed');
     }
   }
 

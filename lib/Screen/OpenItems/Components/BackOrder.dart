@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:overview_app/Screen/OpenItems/Services/OpenItemsServices.dart';
 import 'package:overview_app/Screen/Public-Search/PublicSearch.dart';
+import 'package:overview_app/Utils/responsive.dart';
+import 'package:overview_app/Widgets/AppToast.dart';
 
 /// Table header background (dark blue-gray).
 const Color _kTableHeaderBg = Color(0xFF3C4B64);
@@ -695,7 +697,9 @@ class _BackOrderState extends State<BackOrder> {
 
         return SizedBox(
           width: viewportWidth,
-          child: SingleChildScrollView(
+          child: Responsive.hideScrollbars(
+            context,
+            SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             physics: const ClampingScrollPhysics(),
             clipBehavior: Clip.hardEdge,
@@ -703,6 +707,7 @@ class _BackOrderState extends State<BackOrder> {
             child: SizedBox(
               width: contentWidth,
               child: child,
+            ),
             ),
           ),
         );
@@ -1725,23 +1730,15 @@ class _BackOrderState extends State<BackOrder> {
     try {
       await OpenItemsServices().CriticalUpdate(payload: payload);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Updated successfully')));
+      AppToast.success(context, 'Updated successfully');
       (widget.onUpdateEntry ?? () {})();
     } on DioException catch (e) {
-      final serverMessage = e.response?.data;
       // debugPrint('CriticalUpdate failed: ${e.message}');
-      // debugPrint('CriticalUpdate response: $serverMessage');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Update failed: ${serverMessage ?? e.message}')),
-      );
+      AppToast.errorFrom(context, e, fallback: 'Update failed');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Update failed: $e')));
+      AppToast.errorFrom(context, e, fallback: 'Update failed');
     }
   }
 

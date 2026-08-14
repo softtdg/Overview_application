@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/QAIn/Services/QAInService.dart';
+import 'package:overview_app/Utils/api_date.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
+import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 class QAInEditEntry extends StatefulWidget {
@@ -14,19 +16,32 @@ class QAInEditEntry extends StatefulWidget {
 class _QAInEditEntryState extends State<QAInEditEntry> {
   Map<String, dynamic> QAInEditData = {};
   final QAInService _service = QAInService();
-  bool isLoading = false;
+  bool isLoading = true;
   final SOPController = TextEditingController();
 
   Future<void> GetQAInSOPById() async {
+    setState(() {
+      isLoading = true;
+      QAInEditData = {};
+    });
     try {
       final response = await _service.QAInSOPById(widget.SOPId);
-      QAInEditData = response.data['data'];
-      SOPController.text = QAInEditData['SOPNum']?.toString() ?? '';
+      if (!mounted) return;
+      final data = response.data['data'];
       setState(() {
+        QAInEditData = data is Map
+            ? Map<String, dynamic>.from(data)
+            : <String, dynamic>{};
+        SOPController.text = QAInEditData['SOPNum']?.toString() ?? '';
         isLoading = false;
       });
     } catch (e) {
-      throw Exception('Failed to fetch QA In SOP by ID: $e');
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        QAInEditData = {};
+      });
+      AppToast.error(context, 'Failed to load QA In entry');
     }
   }
 
@@ -48,12 +63,13 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
       print("RESPONSE OF QAIN EDIT : $resposne");
       await GetQAInSOPById();
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: const Text("Updated Successfully")));
+      AppToast.success(context, "Updated Successfully");
       Navigator.pop(context, true);
     } catch (e) {
       print('Error updating QA In entry: $e');
+      if (mounted) {
+        AppToast.error(context, 'Failed to update QA In entry');
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -63,13 +79,22 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
     }
   }
 
+  DateTime? _parseEditableDate(dynamic raw) => ApiDate.parse(raw);
+
   Future<DateTime?> _pickDateWithStyledPicker(DateTime? initialDate) {
     const pickerAccent = Color.fromARGB(255, 57, 73, 95);
+    final firstDate = DateTime(2000);
+    final lastDate = DateTime(2100);
+    final now = DateTime.now();
+    var safeInitial = initialDate ?? now;
+    if (safeInitial.isBefore(firstDate)) safeInitial = now;
+    if (safeInitial.isAfter(lastDate)) safeInitial = lastDate;
+
     return showDatePicker(
       context: context,
-      initialDate: initialDate ?? DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      initialDate: safeInitial,
+      firstDate: firstDate,
+      lastDate: lastDate,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -136,14 +161,9 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
   }
 
   String formatDate(dynamic date) {
-    if (date == null) return "-";
-    try {
-      String dateStr = date.toString();
-      DateTime parsedDate = DateTime.parse(dateStr);
-      return DateFormat('dd-MM-yyyy').format(parsedDate);
-    } catch (e) {
-      return "";
-    }
+    final parsed = ApiDate.parse(date);
+    if (parsed == null) return '01-01-0001';
+    return DateFormat('dd-MM-yyyy').format(parsed);
   }
 
   Widget buildTable() {
@@ -164,10 +184,11 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 60,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "SOP",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -179,10 +200,11 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 70,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "PO Num",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -194,10 +216,11 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 90,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "ODD",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -209,10 +232,11 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 260,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Customer",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -224,10 +248,11 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 100,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Prgm",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -239,10 +264,11 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 90,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Loc.",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -254,10 +280,11 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 140,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "QC In",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -269,10 +296,11 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 140,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "RW QC Out",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -284,10 +312,11 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 140,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Final Date Received In QC",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -299,10 +328,11 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 140,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "QC Out",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -314,10 +344,11 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 140,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Comments",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -338,7 +369,7 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
                           child: TextFormField(
                             controller: SOPController,
                             readOnly: true,
-                            textAlign: TextAlign.center,
+                            textAlign: TextAlign.left,
                             style: TextStyle(fontSize: 12),
                             decoration: InputDecoration(
                               isDense: true,
@@ -370,10 +401,11 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 70,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: Text(
                               QAInEditData['PONum']?.toString() ?? '',
-                              textAlign: TextAlign.center,
+                              textAlign: TextAlign.left,
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
@@ -382,10 +414,11 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 90,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: Text(
                               formatDate(QAInEditData['ODD']?.toString()),
-                              textAlign: TextAlign.center,
+                              textAlign: TextAlign.left,
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
@@ -394,10 +427,11 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 260,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: Text(
                               QAInEditData['CustomerName']?.toString() ?? '',
-                              textAlign: TextAlign.center,
+                              textAlign: TextAlign.left,
                               softWrap: true,
                               maxLines: null,
                               overflow: TextOverflow.visible,
@@ -409,10 +443,11 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 100,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: Text(
                               QAInEditData['ProgramName']?.toString() ?? '',
-                              textAlign: TextAlign.center,
+                              textAlign: TextAlign.left,
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
@@ -421,10 +456,11 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 90,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: Text(
                               QAInEditData['Location']?.toString() ?? '',
-                              textAlign: TextAlign.center,
+                              textAlign: TextAlign.left,
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
@@ -434,13 +470,14 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 140,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: InkWell(
                               onTap: () async {
                                 final pickedDate =
                                     await _pickDateWithStyledPicker(
-                                      DateTime.tryParse(
-                                        QAInEditData['QCDateIn'] ?? '',
+                                      _parseEditableDate(
+                                        QAInEditData['QCDateIn'],
                                       ),
                                     );
 
@@ -465,13 +502,14 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 140,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: InkWell(
                               onTap: () async {
                                 final pickedDate =
                                     await _pickDateWithStyledPicker(
-                                      DateTime.tryParse(
-                                        QAInEditData['ReworkDateOut'] ?? '',
+                                      _parseEditableDate(
+                                        QAInEditData['ReworkDateOut'],
                                       ),
                                     );
 
@@ -496,14 +534,14 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 140,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: InkWell(
                               onTap: () async {
                                 final pickedDate =
                                     await _pickDateWithStyledPicker(
-                                      DateTime.tryParse(
-                                        QAInEditData['FinalDateReceivedInQC'] ??
-                                            '',
+                                      _parseEditableDate(
+                                        QAInEditData['FinalDateReceivedInQC'],
                                       ),
                                     );
 
@@ -530,13 +568,14 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 140,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: InkWell(
                               onTap: () async {
                                 final pickedDate =
                                     await _pickDateWithStyledPicker(
-                                      DateTime.tryParse(
-                                        QAInEditData['QCOut'] ?? '',
+                                      _parseEditableDate(
+                                        QAInEditData['QCOut'],
                                       ),
                                     );
 
@@ -561,7 +600,7 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
                           child: TextFormField(
                             initialValue:
                                 QAInEditData['QAComments']?.toString() ?? '',
-                            textAlign: TextAlign.center,
+                            textAlign: TextAlign.left,
                             style: TextStyle(fontSize: 12),
                             decoration: InputDecoration(
                               isDense: true,
@@ -624,64 +663,59 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
 
               const SizedBox(height: 20),
 
-              isLoading
-                  ? SizedBox(
-                      height: 220,
-                      child: Center(child: AppLoader())
-                    )
-                  : buildTable(),
-
-              SizedBox(height: 20),
-
-              SizedBox(
-                width: 200,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: QAInEditData.isEmpty ? null : () => handleUpdate(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1565C0),
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: const Color(0xFF1565C0),
-                    disabledForegroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
+              if (isLoading)
+                const SizedBox(
+                  height: 280,
+                  child: Center(child: AppLoader()),
+                )
+              else ...[
+                buildTable(),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: 200,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed:
+                        QAInEditData.isEmpty ? null : () => handleUpdate(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1565C0),
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: const Color(0xFF1565C0),
+                      disabledForegroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      elevation: 8,
+                      shadowColor: Colors.black.withOpacity(0.35),
+                      surfaceTintColor: Colors.transparent,
                     ),
-                    elevation: 8,
-                    shadowColor: Colors.black.withOpacity(0.35),
-                    surfaceTintColor: Colors.transparent,
-                  ),
-                  child: isLoading
-                      ? const SizedBox(
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(color: Colors.white),
-                        )
-                      : const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: Icon(
-                                Icons.save,
-                                size: 20,
-                                color: Colors.white,
-                              ),
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Update Entry',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                          child: Icon(
+                            Icons.save,
+                            size: 20,
+                            color: Colors.white,
+                          ),
                         ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Update Entry',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

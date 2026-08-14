@@ -5,6 +5,7 @@ import 'package:overview_app/Screen/SOPSearch/Services/SOPSearchService.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
+import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:overview_app/Widgets/card.dart';
 import 'package:intl/intl.dart';
@@ -44,9 +45,7 @@ class _SOPSearchState extends State<SOPSearch> {
 
     // check emptry sop search
     if (sopNumber.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Enter SOP Number")));
+      AppToast.error(context, "Please enter SOP number");
       return;
     }
 
@@ -64,11 +63,8 @@ class _SOPSearchState extends State<SOPSearch> {
         sopData = response.data["data"];
       });
 
-      // ScaffoldMessenger.of(
-      //   context,
-      // ).showSnackBar(SnackBar(content: Text("Data Loaded")));
-
-      // print("SOP Search Data From SOPSearch --===---==--->: $response");
+      if (!mounted) return;
+      AppToast.success(context, "Data Loaded");
     } catch (e) {
       print("SOP Error --------> $e");
 
@@ -79,9 +75,9 @@ class _SOPSearchState extends State<SOPSearch> {
         print("SOP Error Data --------> ${e.response}");
       }
 
-      // ScaffoldMessenger.of(
-      //   context,
-      // ).showSnackBar(SnackBar(content: Text("Failed to fetch SOP")));
+      if (mounted) {
+        AppToast.error(context, "Failed to fetch SOP");
+      }
     }
     setState(() {
       isLoading = false;
@@ -143,7 +139,9 @@ class _SOPSearchState extends State<SOPSearch> {
   static const Color _fixtureButtonColor = Color(0xFF1A73E8);
 
   Widget _fixtureDataTable(List<dynamic> fixtures) {
-    return LayoutBuilder(
+    return Responsive.hideScrollbars(
+      context,
+      LayoutBuilder(
       builder: (context, constraints) {
         final r = Responsive.of(context);
         final headerStyle = TextStyle(
@@ -202,6 +200,7 @@ class _SOPSearchState extends State<SOPSearch> {
           ),
         );
       },
+    ),
     );
   }
 
@@ -347,9 +346,17 @@ class _SOPSearchState extends State<SOPSearch> {
       children: [
         title,
         SizedBox(height: r.isCompactPhone ? 8 : 10),
-        sopField,
-        SizedBox(height: r.isCompactPhone ? 8 : 10),
-        searchButton,
+        SizedBox(
+          height: r.searchButtonHeight,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: sopField),
+              const SizedBox(width: 8),
+              searchButton,
+            ],
+          ),
+        ),
       ],
     );
   }

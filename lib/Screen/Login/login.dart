@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:overview_app/Screen/SOPSearch/sopSearch.dart';
+import 'package:overview_app/Widgets/AppToast.dart';
 import 'LoginService/loginService.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -48,9 +49,7 @@ class _LoginPageState extends State<LoginPage> {
 
     // 1. Check empty fields
     if (uname.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Enter username and password")));
+      AppToast.error(context, "Enter username and password");
       return;
     }
 
@@ -76,9 +75,7 @@ class _LoginPageState extends State<LoginPage> {
 
       // print("SAVED TOKEN: ${prefs.getString("token")}");
       // 3. Success message
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Login Successful")));
+      AppToast.success(context, "Login Successful");
 
       // 4. Go to next page
       Navigator.pushReplacement(
@@ -88,9 +85,7 @@ class _LoginPageState extends State<LoginPage> {
     } catch (e) {
       print("LOGIN ERROR: $e");
       // 5. Error message
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Login Failed")));
+      AppToast.error(context, "Login Failed");
     }
 
     // 6. Stop loading

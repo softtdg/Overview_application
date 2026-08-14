@@ -3,6 +3,7 @@ import 'package:overview_app/Screen/OpenItems/Components/BackOrder.dart';
 import 'package:overview_app/Screen/OpenItems/Services/OpenItemsServices.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
+import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 class SearchOpenItems extends StatefulWidget {
@@ -62,9 +63,7 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
 
     // check emptry sop search
     if (SOPNumber.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Enter SOP Number")));
+      AppToast.error(context, "Please enter SOP number");
       return;
     }
 
@@ -86,15 +85,11 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
         selectedOpenItem = null;
       });
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("SOP found")));
+      AppToast.success(context, "SOP found");
     } catch (e) {
       debugPrint("Error in Search Open Items: $e");
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Search failed: $e")));
+      AppToast.errorFrom(context, e, fallback: 'Search failed');
     } finally {
       if (!mounted) return;
       setState(() {
@@ -347,77 +342,166 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
                                   ),
                                 ),
                               ),
-                              SizedBox(
-                                width: searchControlWidth,
-                                child: TextField(
-                                  controller: SearchController,
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: Colors.white,
-                                    hintText: 'Enter SOP Number (e.g., 70101)',
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey,
-                                        width: 1,
+                              if (isTablet) ...[
+                                SizedBox(
+                                  width: searchControlWidth,
+                                  child: TextField(
+                                    controller: SearchController,
+                                    decoration: InputDecoration(
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      hintText: 'Enter SOP Number (e.g., 70101)',
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: const BorderSide(
+                                          color: Colors.grey,
+                                          width: 1,
+                                        ),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFF1565C0),
+                                          width: 2,
+                                        ),
                                       ),
                                     ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(
-                                        color: Color(0xFF1565C0),
-                                        width: 2,
+                                    textInputAction: TextInputAction.search,
+                                    onSubmitted: (_) => handleSOPSearch(),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  width: searchButtonWidth,
+                                  child: SizedBox(
+                                    height: 45,
+                                    child: ElevatedButton(
+                                      onPressed: isLoading
+                                          ? null
+                                          : handleSOPSearch,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color.fromARGB(
+                                          255,
+                                          57,
+                                          73,
+                                          95,
+                                        ),
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
                                       ),
+                                      child: isLoading
+                                          ? const SizedBox(
+                                              width: 22,
+                                              height: 22,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.5,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : const Text(
+                                              'Search',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
                                     ),
                                   ),
-                                  textInputAction: TextInputAction.search,
-                                  onSubmitted: (_) => handleSOPSearch(),
                                 ),
-                              ),
-                              const SizedBox(height: 10),
-                              SizedBox(
-                                width: searchButtonWidth,
-                                child: SizedBox(
+                              ] else
+                                SizedBox(
                                   height: 45,
-                                  child: ElevatedButton(
-                                    onPressed: isLoading
-                                        ? null
-                                        : handleSOPSearch,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Color.fromARGB(
-                                        255,
-                                        57,
-                                        73,
-                                        95,
-                                      ),
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    child: isLoading
-                                        ? const SizedBox(
-                                            width: 22,
-                                            height: 22,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2.5,
-                                              color: Colors.white,
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(
+                                        child: TextField(
+                                          controller: SearchController,
+                                          decoration: InputDecoration(
+                                            filled: true,
+                                            fillColor: Colors.white,
+                                            hintText: 'Enter SOP Number',
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              borderSide: BorderSide.none,
                                             ),
-                                          )
-                                        : const Text(
-                                            "Search",
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
+                                            enabledBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              borderSide: const BorderSide(
+                                                color: Colors.grey,
+                                                width: 1,
+                                              ),
+                                            ),
+                                            focusedBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              borderSide: const BorderSide(
+                                                color: Color(0xFF1565C0),
+                                                width: 2,
+                                              ),
                                             ),
                                           ),
+                                          textInputAction:
+                                              TextInputAction.search,
+                                          onSubmitted: (_) =>
+                                              handleSOPSearch(),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      ElevatedButton(
+                                        onPressed: isLoading
+                                            ? null
+                                            : handleSOPSearch,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor:
+                                              const Color.fromARGB(
+                                            255,
+                                            57,
+                                            73,
+                                            95,
+                                          ),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                        ),
+                                        child: isLoading
+                                            ? const SizedBox(
+                                                width: 22,
+                                                height: 22,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                  strokeWidth: 2.5,
+                                                  color: Colors.white,
+                                                ),
+                                              )
+                                            : const Text(
+                                                'Search',
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ),
                               const SizedBox(height: 20),
                               if (isLoading)
                                 const Padding(

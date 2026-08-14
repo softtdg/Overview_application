@@ -1,9 +1,10 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/InventoryPickedLog/Services/InventoryPickedLogService.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
+import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 String _formatDisplayDate(String raw) {
@@ -15,28 +16,7 @@ String _formatDisplayDate(String raw) {
 }
 
 String _inventoryActionErrorMessage(Object e) {
-  if (e is DioException) {
-    final data = e.response?.data;
-    // debugPrint('inventory action HTTP ${e.response?.statusCode} body: $data');
-    if (data is Map) {
-      for (final key in ['message', 'error', 'msg', 'detail']) {
-        final v = data[key];
-        if (v != null && v.toString().trim().isNotEmpty) {
-          return v.toString();
-        }
-      }
-      final errors = data['errors'];
-      if (errors is List && errors.isNotEmpty) {
-        return errors.first.toString();
-      }
-    } else if (data is String && data.trim().isNotEmpty) {
-      return data;
-    }
-    if (e.message != null && e.message!.trim().isNotEmpty) {
-      return e.message!;
-    }
-  }
-  return e.toString();
+  return AppToast.friendlyMessage(e, fallback: 'Action failed');
 }
 
 List<Map<String, dynamic>> _deepCopyMapList(List<dynamic> list) {
@@ -258,12 +238,9 @@ class ViewPickedLogState extends State<ViewPickedLog> {
     if (isActionLoading || isLoading) return;
     if (_sheetDataForSubmit.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Pick list is still loading or has no line items. Wait and try again.',
-          ),
-        ),
+      AppToast.error(
+        context,
+        'Pick list is still loading or has no line items. Wait and try again.',
       );
       return;
     }
@@ -280,16 +257,12 @@ class ViewPickedLogState extends State<ViewPickedLog> {
           ? response.data['message'].toString()
           : 'Inventory accepted successfully';
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      AppToast.success(context, message);
       await fetchData();
     } catch (e) {
       debugPrint('AcceptInventory error: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_inventoryActionErrorMessage(e))));
+      AppToast.error(context, _inventoryActionErrorMessage(e));
     } finally {
       if (mounted) {
         setState(() {
@@ -303,12 +276,9 @@ class ViewPickedLogState extends State<ViewPickedLog> {
     if (isActionLoading || isLoading) return;
     if (_sheetDataForSubmit.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Pick list is still loading or has no line items. Wait and try again.',
-          ),
-        ),
+      AppToast.error(
+        context,
+        'Pick list is still loading or has no line items. Wait and try again.',
       );
       return;
     }
@@ -325,16 +295,12 @@ class ViewPickedLogState extends State<ViewPickedLog> {
           ? response.data['message'].toString()
           : 'Inventory rejected successfully';
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      AppToast.success(context, message);
       await fetchData();
     } catch (e) {
       debugPrint('RejectInventory error: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_inventoryActionErrorMessage(e))));
+      AppToast.error(context, _inventoryActionErrorMessage(e));
     } finally {
       if (mounted) {
         setState(() {
@@ -767,7 +733,9 @@ class ViewPickedLogState extends State<ViewPickedLog> {
       height: tableHeight,
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(border: Border.all(color: borderColor)),
-      child: LayoutBuilder(
+      child: Responsive.hideScrollbars(
+        context,
+        LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -793,6 +761,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
             ),
           );
         },
+      ),
       ),
     );
   }

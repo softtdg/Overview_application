@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:overview_app/Screen/QAOut/Services/QAOutService.dart';
+import 'package:overview_app/Utils/api_date.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
+import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 class QAOutEditEntry extends StatefulWidget {
@@ -34,6 +36,9 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
       // print("QA Out SOP By ID Response: ${response.data['data']}");
     } catch (e) {
       print("Error fetching QA Out SOP by ID: $e");
+      if (mounted) {
+        AppToast.error(context, 'Failed to load QA Out entry');
+      }
     } finally {
       setState(() {
         isLoading = false;
@@ -56,12 +61,13 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
       };
       final response = await _service.UpdateQAOutEntry(payload);
       print("UPDATE QA OUT ENTRY RESPONSE: ${response.data['data']}");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("QA Out entry updated successfully")),
-      );
+      AppToast.success(context, "QA Out entry updated successfully");
       Navigator.pop(context, true);
     } catch (e) {
       print("Error updating QA Out entry: $e");
+      if (mounted) {
+        AppToast.error(context, 'Failed to update QA Out entry');
+      }
     } finally {
       setState(() {
         isLoading = false;
@@ -75,13 +81,22 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
     GetQAOutSOPById();
   }
 
+  DateTime? _parseEditableDate(dynamic raw) => ApiDate.parse(raw);
+
   Future<DateTime?> _pickDateWithStyledPicker(DateTime? initialDate) {
     const pickerAccent = Color.fromARGB(255, 57, 73, 95);
+    final firstDate = DateTime(2000);
+    final lastDate = DateTime(2100);
+    final now = DateTime.now();
+    var safeInitial = initialDate ?? now;
+    if (safeInitial.isBefore(firstDate)) safeInitial = now;
+    if (safeInitial.isAfter(lastDate)) safeInitial = lastDate;
+
     return showDatePicker(
       context: context,
-      initialDate: initialDate ?? DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      initialDate: safeInitial,
+      firstDate: firstDate,
+      lastDate: lastDate,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -142,14 +157,9 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
   }
 
   String formatDate(dynamic date) {
-    if (date == null) return "-";
-    try {
-      String dateStr = date.toString();
-      DateTime parsedDate = DateTime.parse(dateStr);
-      return DateFormat('dd-MM-yyyy').format(parsedDate);
-    } catch (e) {
-      return "";
-    }
+    final parsed = ApiDate.parse(date);
+    if (parsed == null) return '01-01-0001';
+    return DateFormat('dd-MM-yyyy').format(parsed);
   }
 
   Widget buildTable() {
@@ -170,10 +180,11 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 60,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "SOP",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -185,10 +196,11 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 70,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "PO Num",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -200,10 +212,11 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 90,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "ODD",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -215,10 +228,11 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 260,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Customer",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -230,10 +244,11 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 100,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Prgm",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -245,10 +260,11 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 90,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Loc.",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -260,10 +276,11 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 140,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "QC In",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -275,10 +292,11 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 140,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "RW QC Out",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -290,10 +308,11 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 140,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Final Date Received In QC",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -305,10 +324,11 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 140,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "QC Out",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -320,10 +340,11 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
             DataColumn(
               label: SizedBox(
                 width: 140,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     "Comments",
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -344,7 +365,7 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                           child: TextFormField(
                             controller: SOPController,
                             readOnly: true,
-                            textAlign: TextAlign.center,
+                            textAlign: TextAlign.left,
                             style: TextStyle(fontSize: 12),
                             decoration: InputDecoration(
                               isDense: true,
@@ -376,10 +397,11 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 70,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: Text(
                               QAOutEditData['PoNum']?.toString() ?? '',
-                              textAlign: TextAlign.center,
+                              textAlign: TextAlign.left,
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
@@ -388,10 +410,11 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 90,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: Text(
                               formatDate(QAOutEditData['ODD']?.toString()),
-                              textAlign: TextAlign.center,
+                              textAlign: TextAlign.left,
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
@@ -400,10 +423,11 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 260,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: Text(
                               QAOutEditData['CustomerName']?.toString() ?? '',
-                              textAlign: TextAlign.center,
+                              textAlign: TextAlign.left,
                               softWrap: true,
                               maxLines: null,
                               overflow: TextOverflow.visible,
@@ -415,10 +439,11 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 100,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: Text(
                               QAOutEditData['ProgramName']?.toString() ?? '',
-                              textAlign: TextAlign.center,
+                              textAlign: TextAlign.left,
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
@@ -427,10 +452,11 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 90,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: Text(
                               QAOutEditData['Location']?.toString() ?? '',
-                              textAlign: TextAlign.center,
+                              textAlign: TextAlign.left,
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
@@ -440,13 +466,14 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 140,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: InkWell(
                               onTap: () async {
                                 final pickedDate =
                                     await _pickDateWithStyledPicker(
-                                      DateTime.tryParse(
-                                        QAOutEditData['QCDateIn'] ?? '',
+                                      _parseEditableDate(
+                                        QAOutEditData['QCDateIn'],
                                       ),
                                     );
 
@@ -471,13 +498,14 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 140,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: InkWell(
                               onTap: () async {
                                 final pickedDate =
                                     await _pickDateWithStyledPicker(
-                                      DateTime.tryParse(
-                                        QAOutEditData['ReworkDateOut'] ?? '',
+                                      _parseEditableDate(
+                                        QAOutEditData['ReworkDateOut'],
                                       ),
                                     );
 
@@ -502,14 +530,14 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 140,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: InkWell(
                               onTap: () async {
                                 final pickedDate =
                                     await _pickDateWithStyledPicker(
-                                      DateTime.tryParse(
-                                        QAOutEditData['FinalDateReceivedInQC'] ??
-                                            '',
+                                      _parseEditableDate(
+                                        QAOutEditData['FinalDateReceivedInQC'],
                                       ),
                                     );
 
@@ -536,13 +564,14 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                       DataCell(
                         SizedBox(
                           width: 140,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: InkWell(
                               onTap: () async {
                                 final pickedDate =
                                     await _pickDateWithStyledPicker(
-                                      DateTime.tryParse(
-                                        QAOutEditData['QCOut'] ?? '',
+                                      _parseEditableDate(
+                                        QAOutEditData['QCOut'],
                                       ),
                                     );
 
@@ -567,7 +596,7 @@ class _QAOutEditEntryState extends State<QAOutEditEntry> {
                           child: TextFormField(
                             initialValue:
                                 QAOutEditData['QAComments']?.toString() ?? '',
-                            textAlign: TextAlign.center,
+                            textAlign: TextAlign.left,
                             style: TextStyle(fontSize: 12),
                             decoration: InputDecoration(
                               isDense: true,

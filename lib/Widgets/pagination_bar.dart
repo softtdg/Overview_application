@@ -33,7 +33,23 @@ class PaginationBar extends StatelessWidget {
   final int? toItem;
   final int? totalItems;
 
-  static List<int?> _pageNumbersToShow(int current, int last) {
+  static List<int?> _pageNumbersToShow(
+    int current,
+    int last, {
+    required bool compact,
+  }) {
+    if (compact) {
+      if (last <= 5) {
+        return List<int?>.generate(last, (i) => i + 1);
+      }
+      if (current <= 3) {
+        return [1, 2, 3, null, last];
+      }
+      if (current >= last - 2) {
+        return [1, null, last - 2, last - 1, last];
+      }
+      return [1, null, current, null, last];
+    }
     if (last <= 7) {
       return List<int?>.generate(last, (i) => i + 1);
     }
@@ -122,16 +138,18 @@ class PaginationBar extends StatelessWidget {
       );
     }
 
-    final pages = _pageNumbersToShow(c, last);
+    final pages = _pageNumbersToShow(c, last, compact: isNarrow);
 
     final pagerRow = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        iconBtn(
-          icon: Icons.first_page,
-          onTap: canBack ? () => onPageChanged(1) : null,
-        ),
-        SizedBox(width: gap),
+        if (!isNarrow) ...[
+          iconBtn(
+            icon: Icons.first_page,
+            onTap: canBack ? () => onPageChanged(1) : null,
+          ),
+          SizedBox(width: gap),
+        ],
         iconBtn(
           icon: Icons.chevron_left,
           onTap: canBack ? () => onPageChanged(c - 1) : null,
@@ -160,11 +178,13 @@ class PaginationBar extends StatelessWidget {
           icon: Icons.chevron_right,
           onTap: canFwd ? () => onPageChanged(c + 1) : null,
         ),
-        SizedBox(width: gap),
-        iconBtn(
-          icon: Icons.last_page,
-          onTap: canFwd ? () => onPageChanged(last) : null,
-        ),
+        if (!isNarrow) ...[
+          SizedBox(width: gap),
+          iconBtn(
+            icon: Icons.last_page,
+            onTap: canFwd ? () => onPageChanged(last) : null,
+          ),
+        ],
       ],
     );
 
@@ -197,6 +217,7 @@ class PaginationBar extends StatelessWidget {
     final summary = hasSummary
         ? Text(
             'Showing $fromItem to $toItem of $totalItems results',
+            textAlign: isNarrow ? TextAlign.center : TextAlign.left,
             style: TextStyle(
               color: Colors.grey.shade600,
               fontSize: isNarrow ? 12 : 14,
@@ -218,18 +239,19 @@ class PaginationBar extends StatelessWidget {
       );
     }
 
-    // Phone: summary left-aligned above, pager right-aligned when it fits.
+    // Phone: summary and pager both centered; scale pager down if needed.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
         if (summary != null) ...[
-          Align(alignment: Alignment.centerLeft, child: summary),
+          summary,
           const SizedBox(height: 8),
         ],
-        Align(
-          alignment: Alignment.centerRight,
-          child: buildScrollablePager(centerWhenFits: false),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.center,
+          child: pagerRow,
         ),
       ],
     );

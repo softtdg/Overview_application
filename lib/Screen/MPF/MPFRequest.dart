@@ -5,6 +5,7 @@ import 'package:overview_app/Screen/MPF/Components/picklist.dart';
 import 'package:overview_app/Screen/MPF/Services/MPFServices.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
+import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -34,8 +35,6 @@ class _MPFRequestState extends State<MPFRequest> {
   bool _showPartBox = false;
   String? _mpfRequestedBy;
   final List<_PartItem> _partItems = [_PartItem()];
-  OverlayEntry? _errorToastEntry;
-  Timer? _errorToastTimer;
 
   static const _mpfRequestedByList = [
     "GEORGEK",
@@ -199,75 +198,11 @@ class _MPFRequestState extends State<MPFRequest> {
   }
 
   void _hideValidationError() {
-    _errorToastTimer?.cancel();
-    _errorToastTimer = null;
-    _errorToastEntry?.remove();
-    _errorToastEntry = null;
+    AppToast.hide();
   }
 
   void _showValidationError(String message) {
-    if (!mounted) return;
-    _hideValidationError();
-
-    final overlay = Overlay.of(context);
-    _errorToastEntry = OverlayEntry(
-      builder: (context) {
-        return Positioned(
-          top: MediaQuery.of(context).padding.top + 72,
-          right: 16,
-          child: Material(
-            color: Colors.transparent,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 360),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFC62828),
-                  borderRadius: BorderRadius.circular(4),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.18),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    InkWell(
-                      onTap: _hideValidationError,
-                      child: const Icon(
-                        Icons.close,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Text(
-                        message,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-
-    overlay.insert(_errorToastEntry!);
-    _errorToastTimer = Timer(const Duration(seconds: 3), _hideValidationError);
+    AppToast.error(context, message);
   }
 
   bool _validateMpfRequest() {
@@ -506,8 +441,82 @@ class _MPFRequestState extends State<MPFRequest> {
     });
   }
 
+  Widget _expandIfWide(bool wide, Widget child) {
+    return wide ? Expanded(child: child) : child;
+  }
+
+  Widget _buildMpfRequestedByField({double? width}) {
+    Widget dropdown = DropdownButtonFormField<String>(
+      value: _mpfRequestedBy,
+      isExpanded: true,
+      dropdownColor: Colors.white,
+      hint: const Text('Select MPF Requested By'),
+      decoration: InputDecoration(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: Color(0xFF1976D2), width: 1.5),
+        ),
+      ),
+      items: _mpfRequestedByList
+          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+          .toList(),
+      onChanged: (value) {
+        setState(() => _mpfRequestedBy = value);
+      },
+    );
+    if (width != null) {
+      dropdown = SizedBox(width: width, child: dropdown);
+    }
+
+    Widget? otherField;
+    if (_mpfRequestedBy == "Other") {
+      Widget field = TextField(
+        controller: _mpfRequestedByOtherController,
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: 'Enter MPF Requested By',
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 10,
+          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4),
+            borderSide: const BorderSide(color: Color(0xFF1976D2), width: 1.5),
+          ),
+        ),
+      );
+      if (width != null) {
+        field = SizedBox(width: width, child: field);
+      }
+      otherField = field;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _requiredLabel('MPF Requested By'),
+        const SizedBox(height: 8),
+        dropdown,
+        if (otherField != null) ...[
+          const SizedBox(height: 12),
+          _requiredLabel('Other (MPF Requested By)'),
+          const SizedBox(height: 8),
+          otherField,
+        ],
+      ],
+    );
+  }
+
   Widget _buildPartItem(int index) {
     final item = _partItems[index];
+    final isWide = MediaQuery.sizeOf(context).width >= 700;
     OutlineInputBorder fieldBorder() => OutlineInputBorder(
       borderRadius: BorderRadius.circular(4),
       borderSide: BorderSide(color: _borderColor),
@@ -559,11 +568,13 @@ class _MPFRequestState extends State<MPFRequest> {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
+          Flex(
+            direction: isWide ? Axis.horizontal : Axis.vertical,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
+              _expandIfWide(
+                isWide,
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _requiredLabel('Part No'),
@@ -599,9 +610,10 @@ class _MPFRequestState extends State<MPFRequest> {
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
+              SizedBox(width: isWide ? 16 : 0, height: isWide ? 0 : 16),
+              _expandIfWide(
+                isWide,
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _requiredLabel('Qty'),
@@ -623,9 +635,10 @@ class _MPFRequestState extends State<MPFRequest> {
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
+              SizedBox(width: isWide ? 16 : 0, height: isWide ? 0 : 16),
+              _expandIfWide(
+                isWide,
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _requiredLabel('Comment'),
@@ -1078,6 +1091,7 @@ class _MPFRequestState extends State<MPFRequest> {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = MediaQuery.sizeOf(context).width >= 700;
     final isValid = _validation == _SopValidation.valid;
     final isInvalid = _validation == _SopValidation.invalid;
     final fieldColor = isValid
@@ -1100,7 +1114,7 @@ class _MPFRequestState extends State<MPFRequest> {
       appBar: const CommonAppBar(),
       drawer: const CommonDrawer(),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(isTablet ? 24 : 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1121,7 +1135,7 @@ class _MPFRequestState extends State<MPFRequest> {
 
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(isTablet ? 24 : 16),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(6),
@@ -1138,13 +1152,14 @@ class _MPFRequestState extends State<MPFRequest> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  Flex(
+                    direction: isTablet ? Axis.horizontal : Axis.vertical,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // SOP Number field
-                      Expanded(
-                        flex: 1,
-                        child: Column(
+                      _expandIfWide(
+                        isTablet,
+                        Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
@@ -1214,12 +1229,15 @@ class _MPFRequestState extends State<MPFRequest> {
                         ),
                       ),
 
-                      const SizedBox(width: 16),
+                      SizedBox(
+                        width: isTablet ? 16 : 0,
+                        height: isTablet ? 0 : 16,
+                      ),
 
                       // project name field
-                      Expanded(
-                        flex: 1,
-                        child: Column(
+                      _expandIfWide(
+                        isTablet,
+                        Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
@@ -1398,11 +1416,13 @@ class _MPFRequestState extends State<MPFRequest> {
                           style: TextStyle(color: Color(0xFF6C757D)),
                         ),
                         const SizedBox(height: 20),
-                        Row(
+                        Flex(
+                          direction: isTablet ? Axis.horizontal : Axis.vertical,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Column(
+                            _expandIfWide(
+                              isTablet,
+                              Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
@@ -1442,9 +1462,13 @@ class _MPFRequestState extends State<MPFRequest> {
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
+                            SizedBox(
+                              width: isTablet ? 16 : 0,
+                              height: isTablet ? 0 : 16,
+                            ),
+                            _expandIfWide(
+                              isTablet,
+                              Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
@@ -1520,7 +1544,9 @@ class _MPFRequestState extends State<MPFRequest> {
                           _invalidFixtureDialog(),
                         ],
                         const SizedBox(height: 20),
-                        Row(
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 8,
                           children: [
                             ElevatedButton(
                               onPressed: fixtureValid ? () {} : null,
@@ -1575,7 +1601,7 @@ class _MPFRequestState extends State<MPFRequest> {
               const SizedBox(height: 20),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(20),
+                padding: EdgeInsets.all(isTablet ? 20 : 12),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border.all(color: Colors.grey),
@@ -1584,11 +1610,43 @@ class _MPFRequestState extends State<MPFRequest> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        const Expanded(
-                          child: Text(
+                    if (isTablet)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              "MPF Request Items",
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: _titleColor,
+                              ),
+                            ),
+                          ),
+                          _buildMpfRequestedByField(width: 220),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              setState(() => _partItems.add(_PartItem()));
+                            },
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text("Add Row"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1976D2),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
                             "MPF Request Items",
                             style: TextStyle(
                               fontSize: 20,
@@ -1596,97 +1654,28 @@ class _MPFRequestState extends State<MPFRequest> {
                               color: _titleColor,
                             ),
                           ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _requiredLabel('MPF Requested By'),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: 220,
-                              child: DropdownButtonFormField<String>(
-                                value: _mpfRequestedBy,
-                                isExpanded: true,
-                                dropdownColor: Colors.white,
-                                hint: const Text('Select MPF Requested By'),
-                                decoration: InputDecoration(
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 10,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(4),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF1976D2),
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                ),
-                                items: _mpfRequestedByList
-                                    .map(
-                                      (e) => DropdownMenuItem(
-                                        value: e,
-                                        child: Text(e),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (value) {
-                                  setState(() => _mpfRequestedBy = value);
-                                },
-                              ),
-                            ),
-                            if (_mpfRequestedBy == "Other") ...[
-                              const SizedBox(height: 12),
-                              _requiredLabel('Other (MPF Requested By)'),
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                width: 220,
-                                child: TextField(
-                                  controller: _mpfRequestedByOtherController,
-                                  decoration: InputDecoration(
-                                    isDense: true,
-                                    hintText: 'Enter MPF Requested By',
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(4),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFF1976D2),
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                  ),
+                          const SizedBox(height: 16),
+                          _buildMpfRequestedByField(),
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                setState(() => _partItems.add(_PartItem()));
+                              },
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text("Add Row"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1976D2),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
                                 ),
                               ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(width: 12),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            setState(() => _partItems.add(_PartItem()));
-                          },
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text("Add Row"),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1976D2),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
                     const SizedBox(height: 20),
                     for (int i = 0; i < _partItems.length; i++) ...[
                       _buildPartItem(i),
