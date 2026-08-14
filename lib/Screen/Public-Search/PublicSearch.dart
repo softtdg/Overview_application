@@ -8,7 +8,6 @@ import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/services.dart';
 
 class ItemModel {
   final String tdgPn;
@@ -55,6 +54,9 @@ class _PublicSearchState extends State<Publicsearch> {
   final ScrollController _tableVerticalScrollController = ScrollController();
   final ScrollController _tableHorizontalBodyController = ScrollController();
   final TextEditingController PublicSearchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  bool _useNumericKeyboard = true;
+  bool _showCustomKeyboard = false;
   Map<String, dynamic> result = {};
   List<ItemModel> items = [];
   List<Map<String, dynamic>> sopList = [];
@@ -69,12 +71,58 @@ class _PublicSearchState extends State<Publicsearch> {
   void initState() {
     super.initState();
     _bodyScrollController.addListener(_enforceBodyVerticalScrollLimit);
+    _searchFocusNode.addListener(_onSearchFocusChanged);
     loadUserName();
     final passed = widget.fixtureNumber?.toString().trim();
     if (passed != null && passed.isNotEmpty) {
       PublicSearchController.text = passed;
       performSearch();
     }
+  }
+
+  void _onSearchFocusChanged() {
+    if (!mounted) return;
+    setState(() {
+      _showCustomKeyboard = _searchFocusNode.hasFocus && !hasSearched;
+      if (_searchFocusNode.hasFocus) {
+        _useNumericKeyboard = true;
+      }
+    });
+  }
+
+  void _insertSearchText(String value) {
+    final text = PublicSearchController.text;
+    final selection = PublicSearchController.selection;
+    final start = selection.start >= 0 ? selection.start : text.length;
+    final end = selection.end >= 0 ? selection.end : text.length;
+    final newText = text.replaceRange(start, end, value);
+    PublicSearchController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: start + value.length),
+    );
+  }
+
+  void _backspaceSearchText() {
+    final text = PublicSearchController.text;
+    final selection = PublicSearchController.selection;
+    if (text.isEmpty) return;
+
+    if (selection.isValid && !selection.isCollapsed) {
+      final newText = text.replaceRange(selection.start, selection.end, '');
+      PublicSearchController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.start),
+      );
+      return;
+    }
+
+    final cursor = selection.baseOffset >= 0 ? selection.baseOffset : text.length;
+    if (cursor <= 0) return;
+    final newText = text.replaceRange(cursor - 1, cursor, '');
+    PublicSearchController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: cursor - 1),
+    );
   }
 
   void _enforceBodyVerticalScrollLimit() {
@@ -107,6 +155,10 @@ class _PublicSearchState extends State<Publicsearch> {
   }
 
   Future<void> performSearch() async {
+    _searchFocusNode.unfocus();
+    setState(() {
+      _showCustomKeyboard = false;
+    });
     if (_fixtureNumberInput.isEmpty) {
       ScaffoldMessenger.of(
         context,
@@ -152,6 +204,8 @@ class _PublicSearchState extends State<Publicsearch> {
     _tableHorizontalBodyController.dispose();
     _scrollController.dispose();
     PublicSearchController.dispose();
+    _searchFocusNode.removeListener(_onSearchFocusChanged);
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -306,40 +360,48 @@ class _PublicSearchState extends State<Publicsearch> {
             padding: EdgeInsets.all(r.sopCardPadding),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.max,
               children: [
                 Text(
                   "SOP",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: r.sopCardLabelSize,
                     color: Colors.black,
                     fontWeight: FontWeight.w500,
-                    height: 1.2,
+                    height: 1.15,
                   ),
                 ),
                 SizedBox(height: r.isPhone ? 2 : 4),
                 Text(
                   sop,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: r.sopCardNumberSize,
                     fontWeight: FontWeight.bold,
-                    height: 1.2,
+                    height: 1.15,
                   ),
                 ),
-                // Small fixed gap instead of Spacer (Spacer caused large empty space).
-                const SizedBox(height: 8),
+                SizedBox(height: r.isPhone ? 4 : 8),
                 Text(
                   "Date: $date",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: r.sopCardMetaSize,
-                    height: 1.2,
+                    height: 1.15,
                   ),
                 ),
                 Text(
                   "Qty: $qty",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: r.sopCardMetaSize,
-                    height: 1.2,
+                    height: 1.15,
                   ),
                 ),
               ],
@@ -588,22 +650,25 @@ class _PublicSearchState extends State<Publicsearch> {
       drawer: const CommonDrawer(),
       backgroundColor: Colors.white,
 
-      body: Container(
-        color: Colors.white,
-        child: Scrollbar(
-          controller: _bodyScrollController,
-          thumbVisibility: r.isDesktop,
-          trackVisibility: r.isDesktop,
-          child: SingleChildScrollView(
-            controller: _bodyScrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.symmetric(
-              horizontal: r.pagePaddingH,
-              vertical: r.pagePaddingV,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+      body: Column(
+        children: [
+          Expanded(
+            child: Container(
+              color: Colors.white,
+              child: Scrollbar(
+                controller: _bodyScrollController,
+                thumbVisibility: r.isDesktop,
+                trackVisibility: r.isDesktop,
+                child: SingleChildScrollView(
+                  controller: _bodyScrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: r.pagePaddingH,
+                    vertical: r.pagePaddingV,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                 Align(
                   alignment: hasSearched
                       ? Alignment.centerLeft
@@ -670,12 +735,10 @@ class _PublicSearchState extends State<Publicsearch> {
                         ),
                         child: TextField(
                           controller: PublicSearchController,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'[0-9-]'),
-                            ),
-                          ],
+                          focusNode: _searchFocusNode,
+                          readOnly: true,
+                          showCursor: true,
+                          keyboardType: TextInputType.none,
                           style: TextStyle(fontSize: r.searchFieldFontSize),
                           textAlignVertical: TextAlignVertical.center,
                           decoration: InputDecoration(
@@ -712,8 +775,12 @@ class _PublicSearchState extends State<Publicsearch> {
                               ),
                             ),
                           ),
-                          textInputAction: TextInputAction.search,
-                          onSubmitted: (_) => performSearch(),
+                          onTap: () {
+                            setState(() {
+                              _showCustomKeyboard = true;
+                              _useNumericKeyboard = true;
+                            });
+                          },
                         ),
                       ),
                     ),
@@ -827,6 +894,225 @@ class _PublicSearchState extends State<Publicsearch> {
                     ),
                 ],
               ],
+            ),
+          ),
+        ),
+            ),
+          ),
+          if (_showCustomKeyboard && !hasSearched)
+            _FixtureSearchKeyboard(
+              isNumeric: _useNumericKeyboard,
+              onToggleMode: () {
+                setState(() {
+                  _useNumericKeyboard = !_useNumericKeyboard;
+                });
+              },
+              onKey: _insertSearchText,
+              onBackspace: _backspaceSearchText,
+              onSearch: performSearch,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FixtureSearchKeyboard extends StatelessWidget {
+  final bool isNumeric;
+  final VoidCallback onToggleMode;
+  final ValueChanged<String> onKey;
+  final VoidCallback onBackspace;
+  final VoidCallback onSearch;
+
+  const _FixtureSearchKeyboard({
+    required this.isNumeric,
+    required this.onToggleMode,
+    required this.onKey,
+    required this.onBackspace,
+    required this.onSearch,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    return Material(
+      color: const Color(0xFFD1D5DB),
+      elevation: 8,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(6, 8, 6, 8 + bottomInset),
+        child: isNumeric ? _buildNumericPad() : _buildAlphaPad(),
+      ),
+    );
+  }
+
+  Widget _buildNumericPad() {
+    const rows = [
+      ['1', '2', '3'],
+      ['4', '5', '6'],
+      ['7', '8', '9'],
+      ['ABC', '0', '-'],
+    ];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final row in rows)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                for (final key in row)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child: _keyButton(
+                        label: key,
+                        onTap: () {
+                          if (key == 'ABC') {
+                            onToggleMode();
+                          } else {
+                            onKey(key);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        Row(
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: _keyButton(
+                  label: '⌫',
+                  onTap: onBackspace,
+                  isAction: true,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: _keyButton(
+                  label: 'Search',
+                  onTap: onSearch,
+                  isPrimary: true,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAlphaPad() {
+    const rows = [
+      ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+      ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+      ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
+    ];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final row in rows)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                for (final key in row)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: _keyButton(
+                        label: key,
+                        onTap: () => onKey(key),
+                        compact: true,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        Row(
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: _keyButton(
+                  label: '123',
+                  onTap: onToggleMode,
+                  isAction: true,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: _keyButton(
+                  label: '-',
+                  onTap: () => onKey('-'),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: _keyButton(
+                  label: '⌫',
+                  onTap: onBackspace,
+                  isAction: true,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: _keyButton(
+                  label: 'Search',
+                  onTap: onSearch,
+                  isPrimary: true,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _keyButton({
+    required String label,
+    required VoidCallback onTap,
+    bool isAction = false,
+    bool isPrimary = false,
+    bool compact = false,
+  }) {
+    final bg = isPrimary
+        ? const Color(0xFF1E88E5)
+        : isAction
+            ? const Color(0xFFB0B7C3)
+            : Colors.white;
+    final fg = isPrimary ? Colors.white : const Color(0xFF1A1A1A);
+    return SizedBox(
+      height: compact ? 40 : 48,
+      child: Material(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: compact ? 14 : 18,
+                fontWeight: FontWeight.w600,
+                color: fg,
+              ),
             ),
           ),
         ),

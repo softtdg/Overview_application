@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:overview_app/Screen/ShippingOut/Components/ShippingOutTable.dart';
 import 'package:overview_app/Screen/ShippingOut/Services/ShippingOutServices.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 class EditShippingOutEntry extends StatefulWidget {
@@ -14,6 +16,7 @@ class EditShippingOutEntry extends StatefulWidget {
 
 class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
   List<Map<String, dynamic>> SOPByIdData = [];
+  List<Map<String, dynamic>> ShippingOutHistory = [];
   final ShippingOutService _service = ShippingOutService();
   final SOPController = TextEditingController();
   final POController = TextEditingController();
@@ -33,6 +36,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
   List<Map<String, dynamic>> prodMgrOptions = [];
   String? selectedProdMgr;
   bool isLoading = true;
+  bool isHistoryLoading = true;
 
   Future<void> GetSOPById() async {
     await Dioservices.setToken();
@@ -46,7 +50,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
         SOPByIdData = List<Map<String, dynamic>>.from(data);
         isLoading = false;
       });
-      debugPrint("SOP by ID data: $SOPByIdData");
+      // debugPrint("SOP by ID data: $SOPByIdData");
     } catch (e) {
       debugPrint("Error fetching SOP by ID: $e");
       setState(() {
@@ -122,6 +126,28 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
       // debugPrint("Prod Mgr data: $data");
     } catch (e) {
       debugPrint("Error fetching Prod Mgr: $e");
+    }
+  }
+
+  Future<void> GetShippingOutHistory() async {
+    await Dioservices.setToken();
+    setState(() {
+      isHistoryLoading = true;
+    });
+    try {
+      final response = await _service.ShippingOutHistory();
+      final data = response.data['data'];
+      if (!mounted) return;
+      setState(() {
+        ShippingOutHistory = List<Map<String, dynamic>>.from(data);
+        isHistoryLoading = false;
+      });
+    } catch (e) {
+      debugPrint("Error fetching shipping out history: $e");
+      if (!mounted) return;
+      setState(() {
+        isHistoryLoading = false;
+      });
     }
   }
 
@@ -212,28 +238,77 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
     GetSOPById();
     GetLocations();
     GetProgMgr();
+    GetShippingOutHistory();
+  }
+
+  @override
+  void dispose() {
+    SOPController.dispose();
+    POController.dispose();
+    ODDController.dispose();
+    CustomerController.dispose();
+    ProgramController.dispose();
+    LocationController.dispose();
+    SOPEntryDateInController.dispose();
+    SOPOrderEntryOutController.dispose();
+    ProdMgrController.dispose();
+    FinalDeliveryDateController.dispose();
+    CommentsController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openHistoryEdit(Map<String, dynamic> item) async {
+    final sopId = item['SOPId']?.toString() ?? '';
+    if (sopId.isEmpty || sopId == widget.SOPId) return;
+    final updated = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => EditShippingOutEntry(SOPId: sopId)),
+    );
+    if (updated == true && mounted) {
+      await GetShippingOutHistory();
+    }
+  }
+
+  bool _isMinDate(dynamic date) {
+    if (date == null) return false;
+    final dateStr = date.toString().trim();
+    if (dateStr.isEmpty || dateStr.toLowerCase() == 'null') return false;
+    return dateStr.startsWith('0001-01-01');
+  }
+
+  bool _isNullOrEmptyDate(dynamic date) {
+    if (date == null) return true;
+    final dateStr = date.toString().trim();
+    return dateStr.isEmpty || dateStr.toLowerCase() == 'null';
   }
 
   String formatDate(dynamic date) {
-    if (date == null) return "-";
+    // null or API min value → placeholder
+    if (_isNullOrEmptyDate(date) || _isMinDate(date)) return 'dd-mm-yyyy';
     try {
-      String dateStr = date.toString();
-      if (dateStr.startsWith("0001-01-01")) {
-        return "*";
-      }
-      DateTime parsedDate = DateTime.parse(dateStr);
-      return DateFormat('dd/MM/yyyy').format(parsedDate);
+      final parsedDate = DateTime.parse(date.toString());
+      return DateFormat('dd-MM-yyyy').format(parsedDate);
     } catch (e) {
       debugPrint("Date parse error: $e");
-      return "";
+      return 'dd-mm-yyyy';
     }
+  }
+
+  DateTime _initialPickerDate(dynamic date) {
+    if (_isNullOrEmptyDate(date) || _isMinDate(date)) return DateTime.now();
+    final parsed = DateTime.tryParse(date.toString());
+    if (parsed == null || parsed.year < 2000) return DateTime.now();
+    return parsed;
   }
 
   Future<DateTime?> _pickDateWithStyledPicker(DateTime? initialDate) {
     const pickerAccent = Color.fromARGB(255, 57, 73, 95);
+    final safeInitial = (initialDate == null || initialDate.year < 2000)
+        ? DateTime.now()
+        : initialDate;
     return showDatePicker(
       context: context,
-      initialDate: initialDate ?? DateTime.now(),
+      initialDate: safeInitial,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
       builder: (context, child) {
@@ -276,20 +351,34 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
     );
   }
 
-  Widget _buildDateDisplay(String value) {
+  Widget _buildDateDisplay(dynamic rawDate) {
+    final isPlaceholder =
+        _isNullOrEmptyDate(rawDate) || _isMinDate(rawDate);
+    final value = formatDate(rawDate);
+
     return Container(
+      width: 130,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.calendar_month, size: 16, color: Colors.grey),
-          const SizedBox(width: 4),
-          Text(value, style: const TextStyle(fontSize: 12)),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 12,
+                color: isPlaceholder ? Colors.grey.shade700 : Colors.black87,
+              ),
+            ),
+          ),
+          const Icon(
+            Icons.calendar_today_outlined,
+            size: 16,
+            color: Colors.black87,
+          ),
         ],
       ),
     );
@@ -553,9 +642,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                       child: InkWell(
                         onTap: () async {
                           final pickedDate = await _pickDateWithStyledPicker(
-                            item['ODD'] != null
-                                ? DateTime.tryParse(item['ODD'])
-                                : null,
+                            _initialPickerDate(item['ODD']),
                           );
 
                           if (pickedDate != null) {
@@ -564,9 +651,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                             });
                           }
                         },
-                        child: _buildDateDisplay(
-                          formatDate(item['ODD']?.toString()),
-                        ),
+                        child: _buildDateDisplay(item['ODD']),
                       ),
                     ),
                   ),
@@ -710,7 +795,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                       child: InkWell(
                         onTap: () async {
                           final pickedDate = await _pickDateWithStyledPicker(
-                            DateTime.tryParse(item['SOPEntryDateIn'] ?? ''),
+                            _initialPickerDate(item['SOPEntryDateIn']),
                           );
 
                           if (pickedDate != null) {
@@ -721,9 +806,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                             });
                           }
                         },
-                        child: _buildDateDisplay(
-                          formatDate(item['SOPEntryDateIn']?.toString()),
-                        ),
+                        child: _buildDateDisplay(item['SOPEntryDateIn']),
                       ),
                     ),
                   ),
@@ -735,7 +818,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                       child: InkWell(
                         onTap: () async {
                           final pickedDate = await _pickDateWithStyledPicker(
-                            DateTime.tryParse(item['SOPOrderEntryOut'] ?? ''),
+                            _initialPickerDate(item['SOPOrderEntryOut']),
                           );
 
                           if (pickedDate != null) {
@@ -746,9 +829,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                             });
                           }
                         },
-                        child: _buildDateDisplay(
-                          formatDate(item['SOPOrderEntryOut']?.toString()),
-                        ),
+                        child: _buildDateDisplay(item['SOPOrderEntryOut']),
                       ),
                     ),
                   ),
@@ -815,7 +896,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                       child: InkWell(
                         onTap: () async {
                           final pickedDate = await _pickDateWithStyledPicker(
-                            DateTime.tryParse(item['FinalDeliveryDate'] ?? ''),
+                            _initialPickerDate(item['FinalDeliveryDate']),
                           );
 
                           if (pickedDate != null) {
@@ -826,9 +907,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                             });
                           }
                         },
-                        child: _buildDateDisplay(
-                          formatDate(item['FinalDeliveryDate']?.toString()),
-                        ),
+                        child: _buildDateDisplay(item['FinalDeliveryDate']),
                       ),
                     ),
                   ),
@@ -876,88 +955,104 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: const CommonAppBar(showBackButton: true),
-      drawer: const CommonDrawer(),
-      body: Container(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+    final updateButton = Center(
+      child: SizedBox(
+        width: 200,
+        height: 48,
+        child: ElevatedButton(
+          onPressed: SOPByIdData.isEmpty
+              ? null
+              : () => handleUpdateShippingOut(SOPByIdData.first),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF1565C0),
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: const Color(0xFF1565C0),
+            disabledForegroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
+            elevation: 8,
+            shadowColor: Colors.black.withOpacity(0.35),
+            surfaceTintColor: Colors.transparent,
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Align(
-                alignment: Alignment.center,
-                child: Text(
-                  "Update SOP Shipping Out Date",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-
-              SizedBox(height: 20),
-
-              buildTable(),
-
-              SizedBox(height: 20),
-
               SizedBox(
-                width: 200,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: SOPByIdData.isEmpty
-                      ? null
-                      : () => handleUpdateShippingOut(SOPByIdData.first),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1565C0),
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: const Color(0xFF1565C0),
-                    disabledForegroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    elevation: 8,
-                    shadowColor: Colors.black.withOpacity(0.35),
-                    surfaceTintColor: Colors.transparent,
-                  ),
-                  child: isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(color: Colors.white),
-                        )
-                      : const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: Icon(
-                                Icons.save,
-                                size: 20,
-                                color: Colors.white,
-                              ),
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Update Entry',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
+                width: 20,
+                height: 20,
+                child: Icon(Icons.save, size: 20, color: Colors.white),
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Update Entry',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: const CommonAppBar(showBackButton: true),
+      drawer: const CommonDrawer(),
+      body: isLoading
+          ? const Center(child: AppLoader())
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+              child: CustomScrollView(
+                physics: const ClampingScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Align(
+                          alignment: Alignment.center,
+                          child: Text(
+                            "Update SOP Shipping Out Date",
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        buildTable(),
+                        const SizedBox(height: 20),
+                        updateButton,
+                        const SizedBox(height: 16),
+                        const Text(
+                          'SOP History',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                  SliverFillRemaining(
+                    hasScrollBody: true,
+                    child: isHistoryLoading
+                        ? const Center(child: AppLoader())
+                        : ShippingOutTable(
+                            rows: ShippingOutHistory,
+                            onEdit: _openHistoryEdit,
+                          ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }
