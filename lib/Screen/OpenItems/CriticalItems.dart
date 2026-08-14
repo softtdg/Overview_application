@@ -1101,6 +1101,10 @@ class _CriticalItemsState extends State<CriticalItems> {
       appBar: CommonAppBar(),
       drawer: CommonDrawer(),
       backgroundColor: Colors.white,
+      // The table + pagination bar have a fixed minimum height, so letting the
+      // keyboard shrink the body overflows it. Keep the layout full height and
+      // let the keyboard overlay the bottom instead.
+      resizeToAvoidBottomInset: false,
       body: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
