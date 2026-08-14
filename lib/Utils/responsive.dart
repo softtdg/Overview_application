@@ -182,31 +182,32 @@ class Responsive {
   double get sopCardListHeight {
     if (isDesktop) return 110;
     if (isTablet) return isCompactTablet ? 124.0 : 114.0;
-    return isCompactPhone ? 118.0 : 122.0;
+    // Phone needs extra room so Date/Qty don't overflow.
+    return isCompactPhone ? 132.0 : 136.0;
   }
 
   double get sopCardPadding {
     if (isDesktop) return 10;
     if (isTablet) return isCompactTablet ? 12.0 : 10.0;
-    return 12;
+    return isCompactPhone ? 8.0 : 10.0;
   }
 
   double get sopCardLabelSize {
     if (isDesktop) return 12;
     if (isTablet) return isCompactTablet ? 14.0 : 12.0;
-    return 14;
+    return isCompactPhone ? 12.0 : 13.0;
   }
 
   double get sopCardNumberSize {
     if (isDesktop) return 16;
     if (isTablet) return isCompactTablet ? 18.0 : 16.0;
-    return 18;
+    return isCompactPhone ? 16.0 : 17.0;
   }
 
   double get sopCardMetaSize {
     if (isDesktop) return 12;
     if (isTablet) return isCompactTablet ? 14.0 : 12.0;
-    return 14;
+    return isCompactPhone ? 12.0 : 13.0;
   }
 
   // --- Public Search: BOM table ---

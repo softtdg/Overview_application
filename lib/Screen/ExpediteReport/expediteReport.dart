@@ -15,7 +15,7 @@ class ExpediteReport extends StatefulWidget {
 
 class _ExpediteReportState extends State<ExpediteReport> {
   /// React Expedite Report running on your PC.
-  static const String reportUrl = 'http://192.168.1.5:3000/expedite-report';
+  static const String reportUrl = 'http://192.168.1.8:3000/expedite-report';
 
   late final WebViewController _controller;
   bool _isLoading = true;
