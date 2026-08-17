@@ -26,17 +26,17 @@ class CriticalItems extends StatefulWidget {
 }
 
 class _CriticalItemsState extends State<CriticalItems> {
-  static const double _noticeColumnWidth = 180;
+  static const double _noticeColumnWidth = 200;
   static const double _noticeCellHorizontalPadding = 8;
   static const double _noticeCellVerticalPadding = 8;
   static const double _noticeMinSubRowHeight = 52;
-  static const double _actionColumnWidth = 56;
+  static const double _actionColumnWidth = 72;
   static const int _pickedColumnIndex = 11;
   static const int _sopColumnIndex = 0;
   static const int _oddColumnIndex = 1;
-  static const int _leadHandColumnIndex = 2;
-  static const int _assemblerColumnIndex = 3;
-  static const int _fixtureColumnIndex = 4;
+  static const int _fixtureColumnIndex = 2;
+  static const int _leadHandColumnIndex = 3;
+  static const int _assemblerColumnIndex = 4;
   static const int _descColumnIndex = 5;
   static const int _qtyColumnIndex = 6;
   static const int _hoursColumnIndex = 7;
@@ -46,6 +46,7 @@ class _CriticalItemsState extends State<CriticalItems> {
   final String username = 'John Doe';
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _tableVerticalScroll = ScrollController();
+  final ScrollController _tableHorizontalScroll = ScrollController();
   final ScrollController _actionsVerticalScroll = ScrollController();
   List<Map<String, dynamic>> _rows = [];
   List<Map<String, dynamic>> _filteredData = [];
@@ -653,6 +654,7 @@ class _CriticalItemsState extends State<CriticalItems> {
   }
 
   Widget _heading(String text) {
+    final multi = text.contains('\n');
     return Align(
       alignment: Alignment.centerLeft,
       child: Padding(
@@ -660,7 +662,8 @@ class _CriticalItemsState extends State<CriticalItems> {
         child: Text(
           text,
           textAlign: TextAlign.left,
-          maxLines: 2,
+          maxLines: multi ? 3 : 1,
+          softWrap: multi,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: Colors.white,
@@ -682,6 +685,7 @@ class _CriticalItemsState extends State<CriticalItems> {
     );
     final active = _sortColumnIndex == columnIndex;
     final up = !active || _sortAscending;
+    final multi = text.contains('\n');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Row(
@@ -690,7 +694,8 @@ class _CriticalItemsState extends State<CriticalItems> {
             child: Text(
               text,
               textAlign: TextAlign.left,
-              maxLines: 2,
+              maxLines: multi ? 3 : 1,
+              softWrap: multi,
               overflow: TextOverflow.ellipsis,
               style: style,
             ),
@@ -730,28 +735,31 @@ class _CriticalItemsState extends State<CriticalItems> {
     required bool includeAction,
     required bool compact,
   }) {
+    // Order: SOP, ODD, Fixture are sticky (fixedLeftColumns: 3).
     return [
-      compact ? 64 : 56,
-      compact ? 88 : 90,
-      compact ? 92 : 82,
-      90,
-      120,
-      compact ? 140 : 170,
-      48,
-      compact ? 64 : 88,
-      compact ? 64 : 92,
-      70,
-      compact ? 110 : 130,
-      64,
-      90,
-      72,
-      _noticeColumnWidth,
-      compact ? 140 : 180,
-      if (includeAction) _actionColumnWidth,
+      compact ? 72 : 70, // SOP
+      compact ? 100 : 100, // ODD
+      130, // Fixture
+      compact ? 100 : 96, // Lead Hand
+      110, // Assembler
+      compact ? 160 : 190, // Desc
+      72, // Qty
+      compact ? 76 : 100, // Time
+      compact ? 76 : 100, // Total
+      90, // Amount
+      compact ? 130 : 150, // Comment
+      84, // Picked
+      100, // Date Sent
+      110, // Dept (Purchasing)
+      _noticeColumnWidth, // Notice
+      compact ? 160 : 200, // Response
+      if (includeAction) _actionColumnWidth, // Action
     ];
   }
 
-  List<double> _fitColumnWidths({
+  /// Readable column widths. Never shrink below base — when the viewport is
+  /// narrower, DataTable2 scrolls horizontally instead of crushing text.
+  List<double> _columnWidthsFor({
     required double available,
     required bool includeAction,
     required bool compact,
@@ -761,7 +769,7 @@ class _CriticalItemsState extends State<CriticalItems> {
       compact: compact,
     );
     final total = bases.fold<double>(0, (a, b) => a + b);
-    if (total <= 0 || available <= 0) return bases;
+    if (total <= 0 || available <= total) return bases;
     final scale = available / total;
     final widths = bases.map((w) => w * scale).toList();
     final sum = widths.fold<double>(0, (a, b) => a + b);
@@ -791,33 +799,38 @@ class _CriticalItemsState extends State<CriticalItems> {
     }
 
     return [
-      col(0, 'SOP', sortKey: 0, onSort: _onSort),
-      col(1, 'ODD', sortKey: 1, onSort: _onSort),
-      col(2, compact ? 'Lead Hand' : 'Lead\nHand', sortKey: 2, onSort: _onSort),
-      col(3, 'Assembler', sortKey: 3, onSort: _onSort),
-      col(4, 'Fixture', sortKey: 4, onSort: _onSort),
-      col(5, 'Desc', sortKey: 5, onSort: _onSort),
-      col(6, 'Qty', sortKey: 6, onSort: _onSort),
+      col(0, 'SOP', sortKey: _sopColumnIndex, onSort: _onSort),
+      col(1, 'ODD', sortKey: _oddColumnIndex, onSort: _onSort),
+      col(2, 'Fixture', sortKey: _fixtureColumnIndex, onSort: _onSort),
+      col(
+        3,
+        compact ? 'Lead Hand' : 'Lead\nHand',
+        sortKey: _leadHandColumnIndex,
+        onSort: _onSort,
+      ),
+      col(4, 'Assembler', sortKey: _assemblerColumnIndex, onSort: _onSort),
+      col(5, 'Desc', sortKey: _descColumnIndex, onSort: _onSort),
+      col(6, 'Qty', sortKey: _qtyColumnIndex, onSort: _onSort),
       col(
         7,
         compact ? 'Time' : 'Time To\nBuild/Per\nUnit',
-        sortKey: 7,
+        sortKey: _hoursColumnIndex,
         onSort: _onSort,
       ),
       col(
         8,
         compact ? 'Total' : 'Total\nTime To\nBuild',
-        sortKey: 8,
+        sortKey: _totalTimeColumnIndex,
         onSort: _onSort,
       ),
-      col(9, 'Amount', sortKey: 9, onSort: _onSort),
+      col(9, 'Amount', sortKey: _amountColumnIndex, onSort: _onSort),
       col(
         10,
         compact ? 'Comment' : 'Inventory\nComment',
-        sortKey: 10,
+        sortKey: _inventoryCommentColumnIndex,
         onSort: _onSort,
       ),
-      col(11, 'Picked', sortKey: 11, onSort: _onSort),
+      col(11, 'Picked', sortKey: _pickedColumnIndex, onSort: _onSort),
       col(12, 'Date Sent'),
       col(13, 'Dept'),
       col(14, 'Notice'),
@@ -1202,6 +1215,7 @@ class _CriticalItemsState extends State<CriticalItems> {
   @override
   void dispose() {
     _tableVerticalScroll.dispose();
+    _tableHorizontalScroll.dispose();
     _actionsVerticalScroll.dispose();
     _searchController.dispose();
     super.dispose();
@@ -1391,11 +1405,14 @@ class _CriticalItemsState extends State<CriticalItems> {
                                   final available =
                                       (constraints.maxWidth - actionW)
                                           .clamp(0.0, double.infinity);
-                                  final colWidths = _fitColumnWidths(
+                                  final colWidths = _columnWidthsFor(
                                     available: available,
                                     includeAction: includeAction,
                                     compact: compact,
                                   );
+                                  final tableMinWidth =
+                                      colWidths.fold<double>(0, (a, b) => a + b) +
+                                          1;
                                   final noticeW = colWidths[14];
                                   final dateW = colWidths[12];
                                   final deptW = colWidths[13];
@@ -1430,6 +1447,8 @@ class _CriticalItemsState extends State<CriticalItems> {
                                         child: DataTable2(
                                       fixedTopRows: 1,
                                       scrollController: _tableVerticalScroll,
+                                      horizontalScrollController:
+                                          _tableHorizontalScroll,
                                       showCheckboxColumn: false,
                                       sortColumnIndex: _sortColumnIndex,
                                       sortAscending: _sortAscending,
@@ -1443,6 +1462,7 @@ class _CriticalItemsState extends State<CriticalItems> {
                                         const Color(0xFFF0F1F3),
                                       ),
                                       fixedCornerColor: const Color(0xFF344963),
+                                      fixedColumnsColor: const Color(0xFFF0F1F3),
                                       headingRowHeight: isTablet ? 52 : 48,
                                       dataRowHeight: 52,
                                       columnSpacing: 0,
@@ -1450,8 +1470,8 @@ class _CriticalItemsState extends State<CriticalItems> {
                                       dividerThickness: 1,
                                       isHorizontalScrollBarVisible: false,
                                       isVerticalScrollBarVisible: false,
-                                      minWidth: available,
-                                      fixedLeftColumns: 0,
+                                      minWidth: tableMinWidth,
+                                      fixedLeftColumns: 3,
                                       border: tableBorder,
                                       columns: tableColumns,
                                       rows: groupedRows.map((group) {
@@ -1523,6 +1543,7 @@ class _CriticalItemsState extends State<CriticalItems> {
                                           ),
                                         ),
                                       ),
+                                      DataCell(_buildFixtureCell(row)),
                                       DataCell(
                                         _tableTextCell(
                                           _pickPath(row, [
@@ -1538,7 +1559,6 @@ class _CriticalItemsState extends State<CriticalItems> {
                                           _pickPath(row, ['Assembler', 'Name']),
                                         ),
                                       ),
-                                      DataCell(_buildFixtureCell(row)),
                                       DataCell(
                                         _tableTextCell(
                                           _pick(row, ['FixtureDescription']),
@@ -1724,6 +1744,9 @@ class _CriticalItemsState extends State<CriticalItems> {
                                   ) {
                                     if (_tableVerticalScroll.hasClients) {
                                       _tableVerticalScroll.jumpTo(0);
+                                    }
+                                    if (_tableHorizontalScroll.hasClients) {
+                                      _tableHorizontalScroll.jumpTo(0);
                                     }
                                     if (_actionsVerticalScroll.hasClients) {
                                       _actionsVerticalScroll.jumpTo(0);
