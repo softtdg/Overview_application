@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:overview_app/Screen/Login/login.dart';
+import 'package:overview_app/Services/DioServices.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Dioservices.init();
   runApp(const MyApp());
 }
 

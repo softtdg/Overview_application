@@ -17,6 +17,7 @@ import 'package:overview_app/Screen/ShippingIn/ShippingIn.dart';
 import 'package:overview_app/Screen/Login/login.dart';
 import 'package:overview_app/Screen/ShippingOut/ShippingOut.dart';
 import 'package:digital_wall/digital_wall.dart';
+import 'package:overview_app/Services/api_cache.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Common AppBar
@@ -235,6 +236,7 @@ class CommonDrawer extends StatefulWidget {
                           final prefs = await SharedPreferences.getInstance();
                           await prefs.remove('token');
                           await prefs.remove('UserName');
+                          await ApiCache.instance.clear();
                           if (!context.mounted) return;
                           Navigator.of(context).pushAndRemoveUntil(
                             MaterialPageRoute(builder: (_) => LoginPage()),
