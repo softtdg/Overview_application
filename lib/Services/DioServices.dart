@@ -1,4 +1,6 @@
 import 'package:dio/dio.dart';
+import 'package:overview_app/Services/api_cache.dart';
+import 'package:overview_app/Services/api_cache_interceptor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Dioservices {
@@ -9,8 +11,19 @@ class Dioservices {
     ),
   );
 
+  static bool _initialized = false;
+
+  static Future<void> init() async {
+    if (_initialized) return;
+    _initialized = true;
+    await ApiCache.instance.init();
+    dio.interceptors.removeWhere((i) => i is ApiCacheInterceptor);
+    dio.interceptors.add(ApiCacheInterceptor());
+  }
+
   // Set token before request
   static Future<void> setToken() async {
+    await init();
     final prefs = await SharedPreferences.getInstance();
     String? token = prefs.getString("token");
 
@@ -22,7 +35,5 @@ class Dioservices {
       dio.options.headers.remove("authentication");
       dio.options.headers.remove("Authorization");
     }
-    // print("TOKEN(auth): ${Dioservices.dio.options.headers["authentication"]}");
-    // print("TOKEN(authorization): ${Dioservices.dio.options.headers["Authorization"]}");
   }
 }
