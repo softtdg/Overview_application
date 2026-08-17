@@ -51,19 +51,29 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
     GetSOPSearchData();
   }
 
+  bool _isEmptyShippingDate(dynamic date) {
+    if (date == null) return true;
+    final dateStr = date.toString().trim();
+    if (dateStr.isEmpty || dateStr.toLowerCase() == 'null') return true;
+    return dateStr.startsWith('0001-01-01');
+  }
+
   String formatDate(dynamic date) {
-    if (date == null) return "-";
+    if (_isEmptyShippingDate(date)) return 'mm-dd-yyyy';
     try {
-      String dateStr = date.toString();
-      if (dateStr.startsWith("0001-01-01")) {
-        return "*";
-      }
-      DateTime parsedDate = DateTime.parse(dateStr);
+      final parsedDate = DateTime.parse(date.toString());
       return DateFormat('dd/MM/yyyy').format(parsedDate);
     } catch (e) {
       print("Date parse error: $e");
-      return "";
+      return 'mm-dd-yyyy';
     }
+  }
+
+  DateTime _initialPickerDate(dynamic date) {
+    if (_isEmptyShippingDate(date)) return DateTime.now();
+    final parsed = DateTime.tryParse(date.toString());
+    if (parsed == null || parsed.year < 2000) return DateTime.now();
+    return parsed;
   }
 
   void handleShippingEditDate() async {
@@ -314,9 +324,9 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
                           const pickerAccent = Color.fromARGB(255, 57, 73, 95);
                           DateTime? pickedDate = await showDatePicker(
                             context: context,
-                            initialDate: item['shippingDateIn'] != null
-                                ? DateTime.tryParse(item['shippingDateIn'])
-                                : DateTime.now(),
+                            initialDate: _initialPickerDate(
+                              item['shippingDateIn'],
+                            ),
                             firstDate: DateTime(2000),
                             lastDate: DateTime(2100),
                             builder: (context, child) {
@@ -393,18 +403,24 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.calendar_month,
                                 size: 16,
                                 color: Colors.grey,
                               ),
-                              SizedBox(width: 4),
+                              const SizedBox(width: 4),
                               Text(
-                                formatDate(item['shippingDateIn']?.toString()),
-                                style: TextStyle(fontSize: 12),
+                                formatDate(item['shippingDateIn']),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: _isEmptyShippingDate(
+                                    item['shippingDateIn'],
+                                  )
+                                      ? Colors.grey.shade700
+                                      : Colors.black87,
+                                ),
                               ),
                             ],
                           ),

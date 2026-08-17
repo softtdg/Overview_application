@@ -4,7 +4,7 @@ import 'package:overview_app/Screen/InventoryPickedLog/Services/InventoryPickedL
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
-import 'package:overview_app/Widgets/AppToast.dart';
+// import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 
 String _formatDisplayDate(String raw) {
@@ -15,9 +15,9 @@ String _formatDisplayDate(String raw) {
   return DateFormat('dd-MMM-yy').format(parsed.toLocal());
 }
 
-String _inventoryActionErrorMessage(Object e) {
-  return AppToast.friendlyMessage(e, fallback: 'Action failed');
-}
+// String _inventoryActionErrorMessage(Object e) {
+//   return AppToast.friendlyMessage(e, fallback: 'Action failed');
+// }
 
 List<Map<String, dynamic>> _deepCopyMapList(List<dynamic> list) {
   return list
@@ -234,81 +234,81 @@ class ViewPickedLogState extends State<ViewPickedLog> {
     }
   }
 
-  Future<void> _handlePicked() async {
-    if (isActionLoading || isLoading) return;
-    if (_sheetDataForSubmit.isEmpty) {
-      if (!mounted) return;
-      AppToast.error(
-        context,
-        'Pick list is still loading or has no line items. Wait and try again.',
-      );
-      return;
-    }
-    setState(() {
-      isActionLoading = true;
-    });
-    try {
-      await Dioservices.setToken();
-      final response = await _service.AcceptInventory(
-        widget.id,
-        sheetData: _sheetDataForSubmit,
-      );
-      final message = response.data is Map && response.data['message'] != null
-          ? response.data['message'].toString()
-          : 'Inventory accepted successfully';
-      if (!mounted) return;
-      AppToast.success(context, message);
-      await fetchData();
-    } catch (e) {
-      debugPrint('AcceptInventory error: $e');
-      if (!mounted) return;
-      AppToast.error(context, _inventoryActionErrorMessage(e));
-    } finally {
-      if (mounted) {
-        setState(() {
-          isActionLoading = false;
-        });
-      }
-    }
-  }
+  // Future<void> _handlePicked() async {
+  //   if (isActionLoading || isLoading) return;
+  //   if (_sheetDataForSubmit.isEmpty) {
+  //     if (!mounted) return;
+  //     AppToast.error(
+  //       context,
+  //       'Pick list is still loading or has no line items. Wait and try again.',
+  //     );
+  //     return;
+  //   }
+  //   setState(() {
+  //     isActionLoading = true;
+  //   });
+  //   try {
+  //     await Dioservices.setToken();
+  //     final response = await _service.AcceptInventory(
+  //       widget.id,
+  //       sheetData: _sheetDataForSubmit,
+  //     );
+  //     final message = response.data is Map && response.data['message'] != null
+  //         ? response.data['message'].toString()
+  //         : 'Inventory accepted successfully';
+  //     if (!mounted) return;
+  //     AppToast.success(context, message);
+  //     await fetchData();
+  //   } catch (e) {
+  //     debugPrint('AcceptInventory error: $e');
+  //     if (!mounted) return;
+  //     AppToast.error(context, _inventoryActionErrorMessage(e));
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() {
+  //         isActionLoading = false;
+  //       });
+  //     }
+  //   }
+  // }
 
-  Future<void> _handleVoid() async {
-    if (isActionLoading || isLoading) return;
-    if (_sheetDataForSubmit.isEmpty) {
-      if (!mounted) return;
-      AppToast.error(
-        context,
-        'Pick list is still loading or has no line items. Wait and try again.',
-      );
-      return;
-    }
-    setState(() {
-      isActionLoading = true;
-    });
-    try {
-      await Dioservices.setToken();
-      final response = await _service.RejectInventory(
-        widget.id,
-        sheetData: _sheetDataForSubmit,
-      );
-      final message = response.data is Map && response.data['message'] != null
-          ? response.data['message'].toString()
-          : 'Inventory rejected successfully';
-      if (!mounted) return;
-      AppToast.success(context, message);
-      await fetchData();
-    } catch (e) {
-      debugPrint('RejectInventory error: $e');
-      if (!mounted) return;
-      AppToast.error(context, _inventoryActionErrorMessage(e));
-    } finally {
-      if (mounted) {
-        setState(() {
-          isActionLoading = false;
-        });
-      }
-    }
-  }
+  // Future<void> _handleVoid() async {
+  //   if (isActionLoading || isLoading) return;
+  //   if (_sheetDataForSubmit.isEmpty) {
+  //     if (!mounted) return;
+  //     AppToast.error(
+  //       context,
+  //       'Pick list is still loading or has no line items. Wait and try again.',
+  //     );
+  //     return;
+  //   }
+  //   setState(() {
+  //     isActionLoading = true;
+  //   });
+  //   try {
+  //     await Dioservices.setToken();
+  //     final response = await _service.RejectInventory(
+  //       widget.id,
+  //       sheetData: _sheetDataForSubmit,
+  //     );
+  //     final message = response.data is Map && response.data['message'] != null
+  //         ? response.data['message'].toString()
+  //         : 'Inventory rejected successfully';
+  //     if (!mounted) return;
+  //     AppToast.success(context, message);
+  //     await fetchData();
+  //   } catch (e) {
+  //     debugPrint('RejectInventory error: $e');
+  //     if (!mounted) return;
+  //     AppToast.error(context, _inventoryActionErrorMessage(e));
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() {
+  //         isActionLoading = false;
+  //       });
+  //     }
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -336,61 +336,61 @@ class ViewPickedLogState extends State<ViewPickedLog> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                 const SizedBox(height: 14),
-                Row(
-                  children: [
-                    ElevatedButton(
-                      onPressed: isActionLoading || isLoading
-                          ? null
-                          : _handleVoid,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(
-                          255,
-                          202,
-                          25,
-                          25,
-                        ),
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isMobile ? 14 : 22,
-                          vertical: isMobile ? 10 : 14,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      child: const Text(
-                        'Void',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: isActionLoading || isLoading
-                          ? null
-                          : _handlePicked,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(
-                          255,
-                          10,
-                          136,
-                          41,
-                        ),
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isMobile ? 14 : 22,
-                          vertical: isMobile ? 10 : 14,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      child: const Text(
-                        'Picked',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
+                // Row(
+                //   children: [
+                //     ElevatedButton(
+                //       onPressed: isActionLoading || isLoading
+                //           ? null
+                //           : _handleVoid,
+                //       style: ElevatedButton.styleFrom(
+                //         backgroundColor: const Color.fromARGB(
+                //           255,
+                //           202,
+                //           25,
+                //           25,
+                //         ),
+                //         foregroundColor: Colors.white,
+                //         padding: EdgeInsets.symmetric(
+                //           horizontal: isMobile ? 14 : 22,
+                //           vertical: isMobile ? 10 : 14,
+                //         ),
+                //         shape: RoundedRectangleBorder(
+                //           borderRadius: BorderRadius.circular(4),
+                //         ),
+                //       ),
+                //       child: const Text(
+                //         'Void',
+                //         style: TextStyle(fontWeight: FontWeight.bold),
+                //       ),
+                //     ),
+                //     const SizedBox(width: 12),
+                //     ElevatedButton(
+                //       onPressed: isActionLoading || isLoading
+                //           ? null
+                //           : _handlePicked,
+                //       style: ElevatedButton.styleFrom(
+                //         backgroundColor: const Color.fromARGB(
+                //           255,
+                //           10,
+                //           136,
+                //           41,
+                //         ),
+                //         foregroundColor: Colors.white,
+                //         padding: EdgeInsets.symmetric(
+                //           horizontal: isMobile ? 14 : 22,
+                //           vertical: isMobile ? 10 : 14,
+                //         ),
+                //         shape: RoundedRectangleBorder(
+                //           borderRadius: BorderRadius.circular(4),
+                //         ),
+                //       ),
+                //       child: const Text(
+                //         'Picked',
+                //         style: TextStyle(fontWeight: FontWeight.bold),
+                //       ),
+                //     ),
+                //   ],
+                // ),
                 const SizedBox(height: 18),
                 if (isLoading)
                   const Padding(

@@ -275,6 +275,7 @@ class CommonDrawer extends StatefulWidget {
 
 class _CommonDrawerState extends State<CommonDrawer> {
   String _userName = '';
+  bool _openItemsExpanded = false;
 
   @override
   void initState() {
@@ -311,10 +312,14 @@ class _CommonDrawerState extends State<CommonDrawer> {
     required String title,
     required VoidCallback onTap,
     bool isActive = false,
+    bool isSubItem = false,
   }) {
     const activeColor = Color.fromARGB(255, 84, 178, 241);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 2, 10, 2),
+      padding: EdgeInsets.symmetric(
+        horizontal: isSubItem ? 4 : 10,
+        vertical: 2,
+      ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -324,7 +329,10 @@ class _CommonDrawerState extends State<CommonDrawer> {
           highlightColor: Colors.white.withOpacity(0.06),
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+            padding: EdgeInsets.symmetric(
+              horizontal: isSubItem ? 12 : 12,
+              vertical: isSubItem ? 12 : 13,
+            ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               color: isActive ? Colors.white.withOpacity(0.14) : null,
@@ -353,6 +361,7 @@ class _CommonDrawerState extends State<CommonDrawer> {
         _isActivePage(context, CriticalItems) ||
         _isActivePage(context, OpenItems) ||
         _isActivePage(context, Backorders);
+    final openItemsHighlighted = openItemsActive || _openItemsExpanded;
 
     return Drawer(
       backgroundColor: brand,
@@ -457,34 +466,59 @@ class _CommonDrawerState extends State<CommonDrawer> {
                       dividerColor: Colors.transparent,
                       splashColor: Colors.white.withOpacity(0.12),
                       expansionTileTheme: ExpansionTileThemeData(
-                        iconColor: openItemsActive ? activeColor : Colors.white,
+                        iconColor:
+                            openItemsHighlighted ? activeColor : Colors.white,
                         collapsedIconColor:
-                            openItemsActive ? activeColor : Colors.white70,
-                        textColor: openItemsActive ? activeColor : Colors.white,
+                            openItemsHighlighted ? activeColor : Colors.white70,
+                        textColor:
+                            openItemsHighlighted ? activeColor : Colors.white,
                         collapsedTextColor:
-                            openItemsActive ? activeColor : Colors.white,
+                            openItemsHighlighted ? activeColor : Colors.white,
                       ),
                     ),
                     child: ExpansionTile(
                       initiallyExpanded: openItemsActive,
-                      tilePadding: const EdgeInsets.symmetric(horizontal: 22),
-                      childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-                      iconColor: openItemsActive ? activeColor : Colors.white,
+                      onExpansionChanged: (expanded) {
+                        setState(() => _openItemsExpanded = expanded);
+                      },
+                      tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+                      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      iconColor:
+                          openItemsHighlighted ? activeColor : Colors.white,
                       collapsedIconColor:
-                          openItemsActive ? activeColor : Colors.white70,
-                      title: Text(
-                        'Open Items',
-                        style: TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w600,
-                          color: openItemsActive ? activeColor : Colors.white,
+                          openItemsHighlighted ? activeColor : Colors.white70,
+                      title: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          color: openItemsHighlighted
+                              ? Colors.white.withOpacity(0.14)
+                              : null,
+                        ),
+                        child: Text(
+                          'Open Items',
+                          style: TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: openItemsHighlighted
+                                ? FontWeight.w700
+                                : FontWeight.w600,
+                            color: openItemsHighlighted
+                                ? activeColor
+                                : Colors.white,
+                          ),
                         ),
                       ),
                       children: [
                         Container(
                           width: double.infinity,
-                          margin: const EdgeInsets.only(left: 12),
-                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(10),
@@ -493,23 +527,27 @@ class _CommonDrawerState extends State<CommonDrawer> {
                             children: [
                               _menuItem(
                                 title: 'Search',
+                                isSubItem: true,
                                 isActive:
                                     _isActivePage(context, SearchOpenItems),
                                 onTap: () => _go(context, SearchOpenItems()),
                               ),
                               _menuItem(
                                 title: 'Critical Items',
+                                isSubItem: true,
                                 isActive:
                                     _isActivePage(context, CriticalItems),
                                 onTap: () => _go(context, CriticalItems()),
                               ),
                               _menuItem(
                                 title: 'Open Items',
+                                isSubItem: true,
                                 isActive: _isActivePage(context, OpenItems),
                                 onTap: () => _go(context, OpenItems()),
                               ),
                               _menuItem(
                                 title: 'Backorders',
+                                isSubItem: true,
                                 isActive: _isActivePage(context, Backorders),
                                 onTap: () => _go(context, Backorders()),
                               ),
