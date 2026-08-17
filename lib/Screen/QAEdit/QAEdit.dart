@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:overview_app/Screen/QAEdit/Services/Components/QAEditEntry.dart';
+import 'package:overview_app/Screen/QAEdit/Components/QAEditEntry.dart';
 import 'package:overview_app/Screen/QAEdit/Services/QAEditService.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Utils/api_date.dart';

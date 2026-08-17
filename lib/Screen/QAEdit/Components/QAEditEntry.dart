@@ -636,12 +636,14 @@ class _QAEditEntryState extends State<QAEditEntry> {
       backgroundColor: Colors.white,
       appBar: const CommonAppBar(showBackButton: true),
       drawer: const CommonDrawer(),
-      body: Container(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              const Align(
+      body: isLoading
+          ? const Center(child: AppLoader())
+          : Container(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    const Align(
                 alignment: Alignment.center,
                 child: Text(
                   "Edit SOP",
@@ -653,12 +655,13 @@ class _QAEditEntryState extends State<QAEditEntry> {
                 ),
               ),
 
-              isLoading
-                  ? const SizedBox(
-                      height: 220,
-                      child: Center(child: AppLoader()),
-                    )
-                  : buildTable(),
+              // isLoading
+              //     ? const SizedBox(
+              //         height: 220,
+              //         child: Center(child: AppLoader()),
+              //       )
+              //     : 
+                  buildTable(),
 
               const SizedBox(height: 20),
 
