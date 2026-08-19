@@ -126,8 +126,9 @@ class Responsive {
 
   bool get useInlineSearchHeader => !isPhone;
 
-  /// Equal-height card rows only on true desktop (avoids huge empty cards on tablets).
-  bool get stretchCardRows => isDesktop;
+  /// Equal-height card rows on tablet and desktop — ragged card bottoms in a
+  /// multi-column grid look broken. Phones are single column, so no need.
+  bool get stretchCardRows => !isPhone;
 
   /// Shared height for SOP search field + Search button (keeps them aligned).
   double get searchControlHeight {

@@ -24,19 +24,13 @@ class InfoCard extends StatelessWidget {
     return Container(
       width: fillHeight ? double.infinity : null,
       height: fillHeight ? double.infinity : null,
-      margin: fillHeight
-          ? EdgeInsets.zero
-          : EdgeInsets.only(bottom: r.cardGap),
+      margin: fillHeight ? EdgeInsets.zero : EdgeInsets.only(bottom: r.cardGap),
       padding: EdgeInsets.all(r.cardPadding),
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(r.cardRadius),
         boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 6,
-            offset: Offset(0, 3),
-          ),
+          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
         ],
       ),
       child: Column(
@@ -63,11 +57,21 @@ class InfoCard extends StatelessWidget {
   }
 }
 
+/// Shown when a field has no data, so a row never renders as a blank gap.
+const String kEmptyValue = '\u2014'; // em dash
+
+/// Values the API/formatters use for "nothing here" — all render as [kEmptyValue].
+bool _isEmptyValue(String value) {
+  final v = value.trim();
+  return v.isEmpty || v == '*' || v == '-' || v.toLowerCase() == 'null';
+}
+
 Widget infoRow(String label, String value, {BuildContext? context}) {
   return Builder(
     builder: (ctx) {
       final r = Responsive.of(context ?? ctx);
       final fontSize = r.bodyFontSize;
+      final isEmpty = _isEmptyValue(value);
 
       return Padding(
         padding: EdgeInsets.symmetric(vertical: r.rowVerticalPadding),
@@ -78,7 +82,8 @@ Widget infoRow(String label, String value, {BuildContext? context}) {
               flex: 2,
               child: Text(
                 label,
-                style: TextStyle(color: Colors.black, fontSize: fontSize),
+                // Muted label so the value is what the eye lands on.
+                style: TextStyle(color: Colors.black87, fontSize: fontSize),
                 softWrap: true,
               ),
             ),
@@ -86,10 +91,11 @@ Widget infoRow(String label, String value, {BuildContext? context}) {
             Expanded(
               flex: 3,
               child: Text(
-                value,
+                isEmpty ? kEmptyValue : value,
                 style: TextStyle(
-                  fontWeight: FontWeight.w600,
+                  fontWeight: isEmpty ? FontWeight.w400 : FontWeight.w600,
                   fontSize: fontSize,
+                  color: isEmpty ? Colors.black38 : Colors.black,
                 ),
                 textAlign: TextAlign.right,
                 softWrap: true,

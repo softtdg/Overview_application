@@ -7,7 +7,9 @@ import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
+import 'package:overview_app/Widgets/SopKeypad.dart';
 import 'package:overview_app/Widgets/card.dart';
+import 'package:overview_app/Widgets/ScrollFade.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -19,6 +21,9 @@ class SOPSearch extends StatefulWidget {
 class _SOPSearchState extends State<SOPSearch> {
   // controller for take a input
   final TextEditingController SOPController = TextEditingController();
+
+  /// Drives the in-app keypad: it is shown only while the SOP field has focus.
+  final FocusNode SOPFocusNode = FocusNode();
   bool isLoading = false;
   Map<String, dynamic>? sopData;
   String username = "";
@@ -36,10 +41,26 @@ class _SOPSearchState extends State<SOPSearch> {
   void initState() {
     super.initState();
     loadUserName();
+    SOPFocusNode.addListener(_onSOPFocusChanged);
   }
+
+  @override
+  void dispose() {
+    SOPFocusNode.removeListener(_onSOPFocusChanged);
+    SOPFocusNode.dispose();
+    SOPController.dispose();
+    super.dispose();
+  }
+
+  void _onSOPFocusChanged() => setState(() {});
+
+  bool get _keypadVisible => SopKeypad.isTouchPlatform && SOPFocusNode.hasFocus;
 
   void handleSOPSearch() async {
     if (isLoading) return;
+
+    // Close the keypad so results are not hidden behind it.
+    SOPFocusNode.unfocus();
 
     String sopNumber = SOPController.text.trim();
 
@@ -85,19 +106,19 @@ class _SOPSearchState extends State<SOPSearch> {
   }
 
   String formatDate(dynamic date) {
-    if (date == null) return "-";
+    if (date == null) return kEmptyValue;
 
     try {
       String dateStr = date.toString();
       if (dateStr.startsWith("0001-01-01")) {
-        return "*";
+        return kEmptyValue;
       }
       DateTime parsedDate = DateTime.parse(dateStr);
 
       return DateFormat('dd/MM/yyyy').format(parsedDate);
     } catch (e) {
       print("Date parse error: $e");
-      return "";
+      return kEmptyValue;
     }
   }
 
@@ -142,65 +163,69 @@ class _SOPSearchState extends State<SOPSearch> {
     return Responsive.hideScrollbars(
       context,
       LayoutBuilder(
-      builder: (context, constraints) {
-        final r = Responsive.of(context);
-        final headerStyle = TextStyle(
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-          fontSize: r.bodyFontSize,
-        );
-        final cellStyle = TextStyle(fontSize: r.bodyFontSize);
+        builder: (context, constraints) {
+          final r = Responsive.of(context);
+          final headerStyle = TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            fontSize: r.bodyFontSize,
+          );
+          final cellStyle = TextStyle(fontSize: r.bodyFontSize);
 
-        return Padding(
-          padding: EdgeInsets.symmetric(
-            vertical: r.isPhone ? 8 : 16,
-          ),
-          child: SizedBox(
-            width: constraints.maxWidth,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                child: DataTable(
-                  border: TableBorder.all(color: Colors.black, width: 1),
-                  headingRowColor: WidgetStateProperty.all(
-                    _fixtureTableHeaderColor,
-                  ),
-                  headingTextStyle: headerStyle,
-                  dataTextStyle: cellStyle,
-                  dataRowMinHeight: r.isPhone ? 36 : 48,
-                  dataRowMaxHeight: r.isPhone ? 56 : 64,
-                  headingRowHeight: r.isPhone ? 40 : 56,
-                  columnSpacing: r.isPhone ? 16 : 24,
-                  horizontalMargin: r.isPhone ? 12 : 24,
-                  dataRowColor: WidgetStateProperty.all(Colors.white),
-                  columns: [
-                    DataColumn(label: Text('Fixture', style: headerStyle)),
-                    DataColumn(label: Text('Desc', style: headerStyle)),
-                    DataColumn(
-                      label: Text(
-                        'Time To Build/Per Unit',
-                        style: headerStyle,
+          return Padding(
+            padding: EdgeInsets.symmetric(vertical: r.isPhone ? 8 : 16),
+            child: SizedBox(
+              width: constraints.maxWidth,
+              child: HorizontalScrollFade(
+                builder: (context, hCtrl) => SingleChildScrollView(
+                  controller: hCtrl,
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                    child: DataTable(
+                      border: TableBorder.all(color: Colors.black, width: 1),
+                      headingRowColor: WidgetStateProperty.all(
+                        _fixtureTableHeaderColor,
                       ),
+                      headingTextStyle: headerStyle,
+                      dataTextStyle: cellStyle,
+                      dataRowMinHeight: r.isPhone ? 36 : 48,
+                      dataRowMaxHeight: r.isPhone ? 56 : 64,
+                      headingRowHeight: r.isPhone ? 40 : 56,
+                      columnSpacing: r.isPhone ? 16 : 24,
+                      horizontalMargin: r.isPhone ? 12 : 24,
+                      dataRowColor: WidgetStateProperty.all(Colors.white),
+                      columns: [
+                        DataColumn(label: Text('Fixture', style: headerStyle)),
+                        DataColumn(label: Text('Desc', style: headerStyle)),
+                        DataColumn(
+                          label: Text(
+                            'Time To Build/Per Unit',
+                            style: headerStyle,
+                          ),
+                        ),
+                        DataColumn(
+                          label: Text(
+                            'Total Time To Build',
+                            style: headerStyle,
+                          ),
+                        ),
+                        DataColumn(label: Text('Currency', style: headerStyle)),
+                        DataColumn(label: Text('Qty', style: headerStyle)),
+                        DataColumn(label: Text('Amount', style: headerStyle)),
+                      ],
+                      rows: [
+                        for (final raw in fixtures)
+                          _fixtureDataRow(raw as Map<String, dynamic>),
+                      ],
                     ),
-                    DataColumn(
-                      label: Text('Total Time To Build', style: headerStyle),
-                    ),
-                    DataColumn(label: Text('Currency', style: headerStyle)),
-                    DataColumn(label: Text('Qty', style: headerStyle)),
-                    DataColumn(label: Text('Amount', style: headerStyle)),
-                  ],
-                  rows: [
-                    for (final raw in fixtures)
-                      _fixtureDataRow(raw as Map<String, dynamic>),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-      },
-    ),
+          );
+        },
+      ),
     );
   }
 
@@ -278,12 +303,7 @@ class _SOPSearchState extends State<SOPSearch> {
     for (var i = 0; i < cards.length; i += columns) {
       final end = i + columns <= cards.length ? i + columns : cards.length;
       rows.add(
-        _sopCardRow(
-          cards.sublist(i, end),
-          cardWidth,
-          gap,
-          stretch: stretch,
-        ),
+        _sopCardRow(cards.sublist(i, end), cardWidth, gap, stretch: stretch),
       );
       if (end < cards.length) {
         rows.add(SizedBox(height: gap));
@@ -299,8 +319,9 @@ class _SOPSearchState extends State<SOPSearch> {
     required bool stretch,
   }) {
     final row = Row(
-      crossAxisAlignment:
-          stretch ? CrossAxisAlignment.stretch : CrossAxisAlignment.start,
+      crossAxisAlignment: stretch
+          ? CrossAxisAlignment.stretch
+          : CrossAxisAlignment.start,
       children: [
         for (var j = 0; j < chunk.length; j++) ...[
           if (j > 0) SizedBox(width: gap),
@@ -466,7 +487,7 @@ class _SOPSearchState extends State<SOPSearch> {
               ],
             ),
             InfoCard(
-              title: "QUALITY CONTROL",
+              title: "SHIPPING",
               color: const Color.fromRGBO(218, 247, 166, 1),
               fillHeight: stretchCards,
               children: [
@@ -483,8 +504,9 @@ class _SOPSearchState extends State<SOPSearch> {
     // Fixed control height — keep field & button identical.
     final controlHeight = r.searchControlHeight;
     final fieldWidth = r.isPhone ? double.infinity : r.searchFieldMaxWidth;
-    final borderColor =
-        r.isPhone ? const Color(0xFF2196F3) : const Color(0xFFBDBDBD);
+    final borderColor = r.isPhone
+        ? const Color(0xFF2196F3)
+        : const Color(0xFFBDBDBD);
 
     final sopField = SizedBox(
       width: r.isPhone ? null : fieldWidth,
@@ -502,6 +524,12 @@ class _SOPSearchState extends State<SOPSearch> {
         ),
         child: TextField(
           controller: SOPController,
+          focusNode: SOPFocusNode,
+          // TextInputType.none keeps the OS keyboard closed on phones/tablets
+          // while the caret stays visible for the in-app keypad.
+          keyboardType: KeypadInput.keyboardType(),
+          showCursor: true,
+          textCapitalization: TextCapitalization.characters,
           style: TextStyle(fontSize: r.searchFieldFontSize),
           textAlignVertical: TextAlignVertical.center,
           decoration: InputDecoration(
@@ -528,8 +556,10 @@ class _SOPSearchState extends State<SOPSearch> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(fieldRadius),
-              borderSide:
-                  const BorderSide(color: Color(0xFF1565C0), width: 1.5),
+              borderSide: const BorderSide(
+                color: Color(0xFF1565C0),
+                width: 1.5,
+              ),
             ),
           ),
           textInputAction: TextInputAction.search,
@@ -557,7 +587,9 @@ class _SOPSearchState extends State<SOPSearch> {
           minimumSize: Size(88, controlHeight),
           fixedSize: Size.fromHeight(controlHeight),
           padding: EdgeInsets.symmetric(horizontal: r.isPhone ? 16 : 12),
-          visualDensity: r.isPhone ? VisualDensity.standard : VisualDensity.compact,
+          visualDensity: r.isPhone
+              ? VisualDensity.standard
+              : VisualDensity.compact,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(fieldRadius),
@@ -570,6 +602,13 @@ class _SOPSearchState extends State<SOPSearch> {
       backgroundColor: Colors.white,
       appBar: const CommonAppBar(),
       drawer: CommonDrawer(),
+      bottomSheet: _keypadVisible
+          ? SopKeypad(
+              controller: SOPController,
+              onSubmit: handleSOPSearch,
+              onClose: () => SOPFocusNode.unfocus(),
+            )
+          : null,
       body: LayoutBuilder(
         builder: (context, constraints) {
           final contentWidth = (constraints.maxWidth - (r.pagePaddingH * 2))
@@ -582,9 +621,13 @@ class _SOPSearchState extends State<SOPSearch> {
               child: Align(
                 alignment: Alignment.topCenter,
                 child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: r.pagePaddingH,
-                    vertical: r.pagePaddingV,
+                  padding: EdgeInsets.fromLTRB(
+                    r.pagePaddingH,
+                    r.pagePaddingV,
+                    r.pagePaddingH,
+                    // Leave room so the keypad never covers the last result.
+                    r.pagePaddingV +
+                        (_keypadVisible ? SopKeypad.heightFor(context) : 0),
                   ),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(maxWidth: r.contentMaxWidth),

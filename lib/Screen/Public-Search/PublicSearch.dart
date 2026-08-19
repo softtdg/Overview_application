@@ -117,7 +117,9 @@ class _PublicSearchState extends State<Publicsearch> {
       return;
     }
 
-    final cursor = selection.baseOffset >= 0 ? selection.baseOffset : text.length;
+    final cursor = selection.baseOffset >= 0
+        ? selection.baseOffset
+        : text.length;
     if (cursor <= 0) return;
     final newText = text.replaceRange(cursor - 1, cursor, '');
     PublicSearchController.value = TextEditingValue(
@@ -389,19 +391,13 @@ class _PublicSearchState extends State<Publicsearch> {
                   "Date: $date",
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: r.sopCardMetaSize,
-                    height: 1.15,
-                  ),
+                  style: TextStyle(fontSize: r.sopCardMetaSize, height: 1.15),
                 ),
                 Text(
                   "Qty: $qty",
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: r.sopCardMetaSize,
-                    height: 1.15,
-                  ),
+                  style: TextStyle(fontSize: r.sopCardMetaSize, height: 1.15),
                 ),
               ],
             ),
@@ -622,9 +618,7 @@ class _PublicSearchState extends State<Publicsearch> {
     final media = MediaQuery.of(context);
     final bodyViewportHeight =
         media.size.height - media.padding.vertical - kToolbarHeight;
-    final estimatedHeaderPx = r.isPhone
-        ? 300.0
-        : (r.isTablet ? 320.0 : 340.0);
+    final estimatedHeaderPx = r.isPhone ? 300.0 : (r.isTablet ? 320.0 : 340.0);
     final tableBoxHeight = (bodyViewportHeight - estimatedHeaderPx + 120).clamp(
       r.isPhone ? 200.0 : 240.0,
       r.isDesktop ? 680.0 : (r.isTablet ? 520.0 : 420.0),
@@ -668,234 +662,247 @@ class _PublicSearchState extends State<Publicsearch> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                Align(
-                  alignment: hasSearched
-                      ? Alignment.centerLeft
-                      : Alignment.center,
-                  child: Text(
-                    "Public Search",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: r.isPhone ? 22 : r.pageTitleSize + 4,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-
-                if (hasSearched) ...[
-                  SizedBox(height: r.isPhone ? 8 : 10),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: SizedBox(
-                      height: r.searchControlHeight,
-                      child: ElevatedButton.icon(
-                        onPressed: _handleNewSearch,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2563EB),
-                          foregroundColor: Colors.white,
-                          elevation: 1,
-                          shadowColor: Colors.black.withOpacity(0.05),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: r.isPhone ? 12 : 14,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                        ),
-                        icon: Icon(Icons.search, size: r.searchIconSize),
-                        label: Text(
-                          "New Search",
-                          style: TextStyle(
-                            fontSize: r.searchButtonFontSize,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-
-                if (!hasSearched) ...[
-                  Center(
-                    child: SizedBox(
-                      width: searchFieldWidth,
-                      height: r.searchControlHeight,
-                      child: Theme(
-                        data: Theme.of(context).copyWith(
-                          inputDecorationTheme: InputDecorationTheme(
-                            isDense: !r.isPhone,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: r.searchFieldContentPaddingV,
-                            ),
-                            constraints: const BoxConstraints(),
-                          ),
-                        ),
-                        child: TextField(
-                          controller: PublicSearchController,
-                          focusNode: _searchFocusNode,
-                          readOnly: true,
-                          showCursor: true,
-                          keyboardType: TextInputType.none,
-                          style: TextStyle(fontSize: r.searchFieldFontSize),
-                          textAlignVertical: TextAlignVertical.center,
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.white,
-                            isDense: !r.isPhone,
-                            hintText: 'Enter Fixture Number',
-                            hintStyle: TextStyle(
-                              fontSize: r.searchFieldFontSize,
-                            ),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: r.searchFieldContentPaddingV,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.circular(r.fieldRadius),
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.circular(r.fieldRadius),
-                              borderSide: const BorderSide(
-                                color: Color.fromARGB(255, 22, 129, 218),
-                                width: 1.5,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.circular(r.fieldRadius),
-                              borderSide: const BorderSide(
-                                color: Colors.blue,
-                                width: 1.5,
-                              ),
-                            ),
-                          ),
-                          onTap: () {
-                            setState(() {
-                              _showCustomKeyboard = true;
-                              _useNumericKeyboard = true;
-                            });
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: r.isPhone ? 8 : 10),
-
-                  Center(
-                    child: SizedBox(
-                      height: r.searchControlHeight,
-                      width: r.isPhone ? 160 : 160,
-                      child: ElevatedButton(
-                        onPressed: (isSopLoading || isTableLoading)
-                            ? null
-                            : performSearch,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              const Color.fromARGB(255, 57, 73, 95),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          minimumSize: Size(0, r.searchControlHeight),
-                          fixedSize: Size.fromHeight(r.searchControlHeight),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: r.isPhone ? 16 : 12,
-                          ),
-                          visualDensity: r.isPhone
-                              ? VisualDensity.standard
-                              : VisualDensity.compact,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(r.fieldRadius),
-                          ),
-                        ),
+                      Align(
+                        alignment: hasSearched
+                            ? Alignment.centerLeft
+                            : Alignment.center,
                         child: Text(
-                          "Search",
+                          "Public Search",
                           style: TextStyle(
-                            fontSize: r.searchButtonFontSize,
+                            color: Colors.black,
+                            fontSize: r.isPhone ? 22 : r.pageTitleSize + 4,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                ],
 
-                SizedBox(height: r.sectionGap),
-
-                if (hasSearched)
-                  Text(
-                    "Available SOPs",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: r.sectionTitleSize,
-                    ),
-                  ),
-
-                SizedBox(height: r.sectionGap),
-                if (isSopLoading)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 32),
-                    child: Center(child: AppLoader()),
-                  )
-                else ...[
-                  SizedBox(
-                    height: hasSearched ? r.sopCardListHeight : 0,
-                    child: !hasSearched
-                        ? const SizedBox.shrink()
-                        : sopList.isEmpty
-                        ? Center(
-                            child: Text(
-                              "No SOPs available for this fixture",
-                              style: TextStyle(fontSize: r.bodyFontSize),
+                      if (hasSearched) ...[
+                        SizedBox(height: r.isPhone ? 8 : 10),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: SizedBox(
+                            height: r.searchControlHeight,
+                            child: ElevatedButton.icon(
+                              onPressed: _handleNewSearch,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2563EB),
+                                foregroundColor: Colors.white,
+                                elevation: 1,
+                                shadowColor: Colors.black.withOpacity(0.05),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: r.isPhone ? 12 : 14,
+                                ),
+                                visualDensity: VisualDensity.compact,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                              icon: Icon(Icons.search, size: r.searchIconSize),
+                              label: Text(
+                                "New Search",
+                                style: TextStyle(
+                                  fontSize: r.searchButtonFontSize,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
-                          )
-                        : ListView.builder(
-                            clipBehavior: Clip.none,
-                            padding: EdgeInsets.zero,
-                            controller: _scrollController,
-                            scrollDirection: Axis.horizontal,
-                            itemCount: sopList.length,
-                            itemBuilder: (context, index) {
-                              final item = sopList[index];
-
-                              return _buildSOPCard(
-                                item["SOPNum"]?.toString() ?? "-",
-                                formatDate(item["ODD"]),
-                                item["Quantity"]?.toString() ?? "-",
-                                r,
-                              );
-                            },
                           ),
+                        ),
+                      ],
+
+                      if (!hasSearched) ...[
+                        Center(
+                          child: SizedBox(
+                            width: searchFieldWidth,
+                            height: r.searchControlHeight,
+                            child: Theme(
+                              data: Theme.of(context).copyWith(
+                                inputDecorationTheme: InputDecorationTheme(
+                                  isDense: !r.isPhone,
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: r.searchFieldContentPaddingV,
+                                  ),
+                                  constraints: const BoxConstraints(),
+                                ),
+                              ),
+                              child: TextField(
+                                controller: PublicSearchController,
+                                focusNode: _searchFocusNode,
+                                readOnly: true,
+                                showCursor: true,
+                                keyboardType: TextInputType.none,
+                                style: TextStyle(
+                                  fontSize: r.searchFieldFontSize,
+                                ),
+                                textAlignVertical: TextAlignVertical.center,
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  isDense: !r.isPhone,
+                                  hintText: 'Enter Fixture Number',
+                                  hintStyle: TextStyle(
+                                    fontSize: r.searchFieldFontSize,
+                                  ),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: r.searchFieldContentPaddingV,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      r.fieldRadius,
+                                    ),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      r.fieldRadius,
+                                    ),
+                                    borderSide: const BorderSide(
+                                      color: Color.fromARGB(255, 22, 129, 218),
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      r.fieldRadius,
+                                    ),
+                                    borderSide: const BorderSide(
+                                      color: Colors.blue,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                ),
+                                onTap: () {
+                                  setState(() {
+                                    _showCustomKeyboard = true;
+                                    _useNumericKeyboard = true;
+                                  });
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        SizedBox(height: r.isPhone ? 8 : 10),
+
+                        Center(
+                          child: SizedBox(
+                            height: r.searchControlHeight,
+                            width: r.isPhone ? 160 : 160,
+                            child: ElevatedButton(
+                              onPressed: (isSopLoading || isTableLoading)
+                                  ? null
+                                  : performSearch,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color.fromARGB(
+                                  255,
+                                  57,
+                                  73,
+                                  95,
+                                ),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                minimumSize: Size(0, r.searchControlHeight),
+                                fixedSize: Size.fromHeight(
+                                  r.searchControlHeight,
+                                ),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: r.isPhone ? 16 : 12,
+                                ),
+                                visualDensity: r.isPhone
+                                    ? VisualDensity.standard
+                                    : VisualDensity.compact,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    r.fieldRadius,
+                                  ),
+                                ),
+                              ),
+                              child: Text(
+                                "Search",
+                                style: TextStyle(
+                                  fontSize: r.searchButtonFontSize,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      SizedBox(height: r.sectionGap),
+
+                      if (hasSearched)
+                        Text(
+                          "Available SOPs",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: r.sectionTitleSize,
+                          ),
+                        ),
+
+                      SizedBox(height: r.sectionGap),
+                      if (isSopLoading)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 32),
+                          child: Center(child: AppLoader()),
+                        )
+                      else ...[
+                        SizedBox(
+                          height: hasSearched ? r.sopCardListHeight : 0,
+                          child: !hasSearched
+                              ? const SizedBox.shrink()
+                              : sopList.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    "No SOPs available for this fixture",
+                                    style: TextStyle(fontSize: r.bodyFontSize),
+                                  ),
+                                )
+                              : ListView.builder(
+                                  clipBehavior: Clip.none,
+                                  padding: EdgeInsets.zero,
+                                  controller: _scrollController,
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: sopList.length,
+                                  itemBuilder: (context, index) {
+                                    final item = sopList[index];
+
+                                    return _buildSOPCard(
+                                      item["SOPNum"]?.toString() ?? "-",
+                                      formatDate(item["ODD"]),
+                                      item["Quantity"]?.toString() ?? "-",
+                                      r,
+                                    );
+                                  },
+                                ),
+                        ),
+                        SizedBox(height: r.sectionGap),
+                        if (isTableLoading)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 32),
+                            child: Center(child: AppLoader()),
+                          )
+                        else if (hasSearched)
+                          SizedBox(
+                            height: tableBoxHeight,
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                return _buildBomTable(
+                                  availableWidth: constraints.maxWidth,
+                                  tableHeight: constraints.maxHeight,
+                                  r: r,
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ],
                   ),
-                  SizedBox(height: r.sectionGap),
-                  if (isTableLoading)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 32),
-                      child: Center(child: AppLoader()),
-                    )
-                  else if (hasSearched)
-                    SizedBox(
-                      height: tableBoxHeight,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          return _buildBomTable(
-                            availableWidth: constraints.maxWidth,
-                            tableHeight: constraints.maxHeight,
-                            r: r,
-                          );
-                        },
-                      ),
-                    ),
-                ],
-              ],
-            ),
-          ),
-        ),
+                ),
+              ),
             ),
           ),
           if (_showCustomKeyboard && !hasSearched)
@@ -931,20 +938,47 @@ class _FixtureSearchKeyboard extends StatelessWidget {
     required this.onSearch,
   });
 
+  /// Widest the pad is allowed to get. A 3-column numeric pad stretched
+  /// across a tablet turns every key into an unusable ~400pt-wide bar, so it
+  /// stays much narrower than the 10-column alpha pad.
+  double get _maxPadWidth => isNumeric ? 400 : 780;
+
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
-    return Material(
-      color: const Color(0xFFD1D5DB),
-      elevation: 8,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(6, 8, 6, 8 + bottomInset),
-        child: isNumeric ? _buildNumericPad() : _buildAlphaPad(),
+    final isPhone = MediaQuery.sizeOf(context).width < 600;
+    final pad = isNumeric ? _buildNumericPad(isPhone) : _buildAlphaPad(isPhone);
+
+    // Phone: full-bleed bar, the way a system keyboard sits.
+    if (isPhone) {
+      return Material(
+        color: const Color(0xFFD1D5DB),
+        elevation: 8,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(6, 8, 6, 8 + bottomInset),
+          child: pad,
+        ),
+      );
+    }
+
+    // Tablet/desktop: float a compact pad so the keys stay key-shaped.
+    return Padding(
+      padding: EdgeInsets.fromLTRB(12, 8, 12, 12 + bottomInset),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: _maxPadWidth),
+          child: Material(
+            color: const Color(0xFFD1D5DB),
+            elevation: 12,
+            borderRadius: BorderRadius.circular(18),
+            child: Padding(padding: const EdgeInsets.all(10), child: pad),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildNumericPad() {
+  Widget _buildNumericPad(bool isPhone) {
     const rows = [
       ['1', '2', '3'],
       ['4', '5', '6'],
@@ -965,6 +999,7 @@ class _FixtureSearchKeyboard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 3),
                       child: _keyButton(
                         label: key,
+                        isPhone: isPhone,
                         onTap: () {
                           if (key == 'ABC') {
                             onToggleMode();
@@ -985,6 +1020,7 @@ class _FixtureSearchKeyboard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: _keyButton(
                   label: '⌫',
+                  isPhone: isPhone,
                   onTap: onBackspace,
                   isAction: true,
                 ),
@@ -996,6 +1032,7 @@ class _FixtureSearchKeyboard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: _keyButton(
                   label: 'Search',
+                  isPhone: isPhone,
                   onTap: onSearch,
                   isPrimary: true,
                 ),
@@ -1007,7 +1044,7 @@ class _FixtureSearchKeyboard extends StatelessWidget {
     );
   }
 
-  Widget _buildAlphaPad() {
+  Widget _buildAlphaPad(bool isPhone) {
     const rows = [
       ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
       ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
@@ -1027,6 +1064,7 @@ class _FixtureSearchKeyboard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 2),
                       child: _keyButton(
                         label: key,
+                        isPhone: isPhone,
                         onTap: () => onKey(key),
                         compact: true,
                       ),
@@ -1042,6 +1080,7 @@ class _FixtureSearchKeyboard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: _keyButton(
                   label: '123',
+                  isPhone: isPhone,
                   onTap: onToggleMode,
                   isAction: true,
                 ),
@@ -1052,6 +1091,7 @@ class _FixtureSearchKeyboard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: _keyButton(
                   label: '-',
+                  isPhone: isPhone,
                   onTap: () => onKey('-'),
                 ),
               ),
@@ -1061,6 +1101,7 @@ class _FixtureSearchKeyboard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: _keyButton(
                   label: '⌫',
+                  isPhone: isPhone,
                   onTap: onBackspace,
                   isAction: true,
                 ),
@@ -1072,6 +1113,7 @@ class _FixtureSearchKeyboard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: _keyButton(
                   label: 'Search',
+                  isPhone: isPhone,
                   onTap: onSearch,
                   isPrimary: true,
                 ),
@@ -1086,6 +1128,7 @@ class _FixtureSearchKeyboard extends StatelessWidget {
   Widget _keyButton({
     required String label,
     required VoidCallback onTap,
+    required bool isPhone,
     bool isAction = false,
     bool isPrimary = false,
     bool compact = false,
@@ -1093,11 +1136,11 @@ class _FixtureSearchKeyboard extends StatelessWidget {
     final bg = isPrimary
         ? const Color(0xFF1E88E5)
         : isAction
-            ? const Color(0xFFB0B7C3)
-            : Colors.white;
+        ? const Color(0xFFB0B7C3)
+        : Colors.white;
     final fg = isPrimary ? Colors.white : const Color(0xFF1A1A1A);
     return SizedBox(
-      height: compact ? 40 : 48,
+      height: compact ? (isPhone ? 40 : 46) : (isPhone ? 48 : 58),
       child: Material(
         color: bg,
         borderRadius: BorderRadius.circular(8),
@@ -1108,7 +1151,7 @@ class _FixtureSearchKeyboard extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: compact ? 14 : 18,
+                fontSize: compact ? (isPhone ? 14 : 17) : (isPhone ? 18 : 22),
                 fontWeight: FontWeight.w600,
                 color: fg,
               ),
@@ -1133,4 +1176,3 @@ class _NoScrollbarScrollBehavior extends MaterialScrollBehavior {
     return child;
   }
 }
-

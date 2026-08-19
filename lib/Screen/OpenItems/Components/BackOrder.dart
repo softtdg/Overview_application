@@ -88,7 +88,6 @@ class _BackOrderState extends State<BackOrder> {
   bool? _notifyProductionOverride;
   final List<Map<String, dynamic>> _editableBackorders = [];
   final List<_DraftBackorderRow> _draftBackorders = [];
-  double? _noticesRowHeight;
 
   static InputDecoration _fieldDecoration({
     String? hint,
@@ -134,7 +133,6 @@ class _BackOrderState extends State<BackOrder> {
       _purchasingNoticeCtrl.text = widget.purchasingNotice;
     }
     if (oldWidget.sopLeadHandEntryId != widget.sopLeadHandEntryId) {
-      _noticesRowHeight = null;
       _fetchDetailByLeadHandEntryId();
     }
   }
@@ -572,34 +570,34 @@ class _BackOrderState extends State<BackOrder> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Expanded(
-            flex: 10,
-            child: Row(
-              children: [
-                _headerCell('SOP', flex: 1),
-                _headerCell('Lead Hand', flex: 1),
-                _headerCell('Assembler', flex: 1),
-                _headerCell('ODD', flex: 1),
-                _headerCell('Fixture', flex: 2),
-                _headerCell('Desc', flex: 3, align: TextAlign.start),
-                _headerCell('Qty', flex: 1, showRightBorder: false),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 6,
-            child: Row(
-              children: [
-                _headerCell(
-                  'Notices',
-                  flex: 1,
-                  align: TextAlign.start,
-                  showRightBorder: false,
-                ),
-              ],
-            ),
-          ),
+          _headerCell('SOP', flex: 1),
+          _headerCell('Lead Hand', flex: 1),
+          _headerCell('Assembler', flex: 1),
+          _headerCell('ODD', flex: 1),
+          _headerCell('Fixture', flex: 2),
+          _headerCell('Desc', flex: 3, align: TextAlign.start),
+          _headerCell('Qty', flex: 1, showRightBorder: false),
         ],
+      ),
+    );
+  }
+
+  /// Full-width banner above the Notices tables (shared by both layouts).
+  Widget _noticesSectionHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      decoration: BoxDecoration(
+        color: _kTableHeaderBg,
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: const Text(
+        'Notices',
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
       ),
     );
   }
@@ -1479,7 +1477,7 @@ class _BackOrderState extends State<BackOrder> {
     );
   }
 
-  Widget _noticesColumn({bool wrappedInDataCell = false}) {
+  Widget _noticesColumn() {
     Widget withSectionBorder(Widget child) => Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
@@ -1506,10 +1504,6 @@ class _BackOrderState extends State<BackOrder> {
     );
 
     final scrollableContent = _buildHorizontallyScrollableNotices(content);
-
-    if (wrappedInDataCell) {
-      return ColoredBox(color: Colors.grey[50]!, child: scrollableContent);
-    }
 
     return Container(
       decoration: BoxDecoration(
@@ -1545,40 +1539,10 @@ class _BackOrderState extends State<BackOrder> {
   }
 
   Widget _dataRow() {
-    final leftColumns = _leftDataCells(
-      crossAxisAlignment: _noticesRowHeight == null
-          ? CrossAxisAlignment.start
-          : CrossAxisAlignment.stretch,
-    );
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 10,
-          child: _noticesRowHeight == null
-              ? leftColumns
-              : SizedBox(height: _noticesRowHeight, child: leftColumns),
-        ),
-        Expanded(
-          flex: 6,
-          child: _MeasureSize(
-            onChange: (size) {
-              if (_noticesRowHeight != size.height) {
-                setState(() => _noticesRowHeight = size.height);
-              }
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[300]!),
-              ),
-              clipBehavior: Clip.hardEdge,
-              alignment: Alignment.topLeft,
-              child: _noticesColumn(wrappedInDataCell: true),
-            ),
-          ),
-        ),
-      ],
+    // Notices now live in their own table below, so the info cells size
+    // themselves to their own content.
+    return IntrinsicHeight(
+      child: _leftDataCells(crossAxisAlignment: CrossAxisAlignment.stretch),
     );
   }
 
@@ -1608,19 +1572,8 @@ class _BackOrderState extends State<BackOrder> {
             ],
           ),
         ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-          color: _kTableHeaderBg,
-          child: const Text(
-            'Notices',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-          ),
-        ),
+        const SizedBox(height: 16),
+        _noticesSectionHeader(),
         _noticesColumn(),
       ],
     );
@@ -1753,39 +1706,17 @@ class _BackOrderState extends State<BackOrder> {
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [_actionBar(context), _tableHeaderRow(), _dataRow()],
+          children: [
+            _actionBar(context),
+            _tableHeaderRow(),
+            _dataRow(),
+            const SizedBox(height: 16),
+            _noticesSectionHeader(),
+            _noticesColumn(),
+          ],
         );
       },
     );
-  }
-}
-
-class _MeasureSize extends StatefulWidget {
-  const _MeasureSize({required this.onChange, required this.child});
-
-  final ValueChanged<Size> onChange;
-  final Widget child;
-
-  @override
-  State<_MeasureSize> createState() => _MeasureSizeState();
-}
-
-class _MeasureSizeState extends State<_MeasureSize> {
-  Size? _lastSize;
-
-  @override
-  Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final renderObject = context.findRenderObject();
-      if (renderObject is! RenderBox || !renderObject.hasSize) return;
-
-      final size = renderObject.size;
-      if (_lastSize == size) return;
-      _lastSize = size;
-      widget.onChange(size);
-    });
-
-    return widget.child;
   }
 }
 
