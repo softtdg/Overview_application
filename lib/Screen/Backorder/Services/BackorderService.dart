@@ -6,8 +6,10 @@ class BackorderService {
 
   Future<Response<dynamic>> criticalItemList() async {
     try {
-        final response = await Dioservices.dio.get("/partInventory/criticalOpenItemsList");
-        return response;
+      final response = await Dioservices.dio.get(
+        "/partInventory/criticalOpenItemsList",
+      );
+      return response;
     } catch (e) {
       print('Error in criticalItemList API Call: $e');
       rethrow;
@@ -23,10 +25,7 @@ class BackorderService {
         data: payload,
       );
       return response;
-    } on DioException catch (e) {
-      // print('Error in backOrderUpdate API Call: ${e.message}');
-      // print('Status: ${e.response?.statusCode}');
-      // print('Server body: ${e.response?.data}');
+    } on DioException {
       rethrow;
     } catch (e) {
       print('Error in backOrderUpdate API Call: $e');

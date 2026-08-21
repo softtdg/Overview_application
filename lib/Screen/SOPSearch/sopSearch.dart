@@ -7,7 +7,7 @@ import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
-import 'package:overview_app/Widgets/SopKeypad.dart';
+import 'package:overview_app/Widgets/SearchKeyboard.dart';
 import 'package:overview_app/Widgets/card.dart';
 import 'package:overview_app/Widgets/ScrollFade.dart';
 import 'package:intl/intl.dart';
@@ -24,6 +24,7 @@ class _SOPSearchState extends State<SOPSearch> {
 
   /// Drives the in-app keypad: it is shown only while the SOP field has focus.
   final FocusNode SOPFocusNode = FocusNode();
+  bool _useNumericKeyboard = true;
   bool isLoading = false;
   Map<String, dynamic>? sopData;
   String username = "";
@@ -52,9 +53,16 @@ class _SOPSearchState extends State<SOPSearch> {
     super.dispose();
   }
 
-  void _onSOPFocusChanged() => setState(() {});
+  void _onSOPFocusChanged() {
+    setState(() {
+      if (SOPFocusNode.hasFocus) {
+        _useNumericKeyboard = true;
+      }
+    });
+  }
 
-  bool get _keypadVisible => SopKeypad.isTouchPlatform && SOPFocusNode.hasFocus;
+  bool get _keypadVisible =>
+      SearchKeyboard.isTouchPlatform && SOPFocusNode.hasFocus;
 
   void handleSOPSearch() async {
     if (isLoading) return;
@@ -159,6 +167,30 @@ class _SOPSearchState extends State<SOPSearch> {
   static const Color _fixtureTableHeaderColor = Color.fromARGB(255, 57, 73, 95);
   static const Color _fixtureButtonColor = Color(0xFF1A73E8);
 
+  /// Reads `pickedStatusList.Picked` from the fixture (or its mongo payload).
+  String _pickedStatusText(Map<String, dynamic> fixture) {
+    final source =
+        fixture["pickedStatusList"] ??
+        fixture["fixtureMongoData"]?[0]?["pickedStatusList"];
+
+    dynamic picked;
+    if (source is Map) {
+      picked = source["Picked"];
+    } else if (source is List && source.isNotEmpty && source.first is Map) {
+      picked = (source.first as Map)["Picked"];
+    } else {
+      picked = fixture["pickedStatus"] ?? fixture["Picked"];
+    }
+
+    if (picked == null) return "-";
+    if (picked == true ||
+        picked == 1 ||
+        picked.toString().toLowerCase() == "true") {
+      return "Yes";
+    }
+    return "No";
+  }
+
   Widget _fixtureDataTable(List<dynamic> fixtures) {
     return Responsive.hideScrollbars(
       context,
@@ -213,6 +245,9 @@ class _SOPSearchState extends State<SOPSearch> {
                         DataColumn(label: Text('Currency', style: headerStyle)),
                         DataColumn(label: Text('Qty', style: headerStyle)),
                         DataColumn(label: Text('Amount', style: headerStyle)),
+                        DataColumn(
+                          label: Text('Picked Status', style: headerStyle),
+                        ),
                       ],
                       rows: [
                         for (final raw in fixtures)
@@ -244,6 +279,7 @@ class _SOPSearchState extends State<SOPSearch> {
       fixture["Quantity"],
     );
     final currency = fixture["Currency"]?.toString() ?? "N/A";
+    final pickedStatusText = _pickedStatusText(fixture);
 
     return DataRow(
       color: isDisabled ? WidgetStateProperty.all(Colors.grey.shade400) : null,
@@ -288,6 +324,7 @@ class _SOPSearchState extends State<SOPSearch> {
         DataCell(Text(currency)),
         DataCell(Text(qty)),
         DataCell(Text(amtStr)),
+        DataCell(Text(pickedStatusText)),
       ],
     );
   }
@@ -525,10 +562,18 @@ class _SOPSearchState extends State<SOPSearch> {
         child: TextField(
           controller: SOPController,
           focusNode: SOPFocusNode,
-          // TextInputType.none keeps the OS keyboard closed on phones/tablets
-          // while the caret stays visible for the in-app keypad.
+          // readOnly + TextInputType.none keep the OS keyboard closed on
+          // phones/tablets while the caret stays visible for the in-app pad.
+          readOnly: SearchKeyboard.isTouchPlatform,
           keyboardType: KeypadInput.keyboardType(),
           showCursor: true,
+          onTap: SearchKeyboard.isTouchPlatform
+              ? () {
+                  setState(() {
+                    _useNumericKeyboard = true;
+                  });
+                }
+              : null,
           textCapitalization: TextCapitalization.characters,
           style: TextStyle(fontSize: r.searchFieldFontSize),
           textAlignVertical: TextAlignVertical.center,
@@ -602,93 +647,112 @@ class _SOPSearchState extends State<SOPSearch> {
       backgroundColor: Colors.white,
       appBar: const CommonAppBar(),
       drawer: CommonDrawer(),
-      bottomSheet: _keypadVisible
-          ? SopKeypad(
-              controller: SOPController,
-              onSubmit: handleSOPSearch,
-              onClose: () => SOPFocusNode.unfocus(),
-            )
-          : null,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final contentWidth = (constraints.maxWidth - (r.pagePaddingH * 2))
-              .clamp(0.0, r.contentMaxWidth);
-          final cardWidth = r.cardWidthFor(contentWidth);
+      body: Column(
+        children: [
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final contentWidth =
+                    (constraints.maxWidth - (r.pagePaddingH * 2)).clamp(
+                      0.0,
+                      r.contentMaxWidth,
+                    );
+                final cardWidth = r.cardWidthFor(contentWidth);
 
-          return SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    r.pagePaddingH,
-                    r.pagePaddingV,
-                    r.pagePaddingH,
-                    // Leave room so the keypad never covers the last result.
-                    r.pagePaddingV +
-                        (_keypadVisible ? SopKeypad.heightFor(context) : 0),
-                  ),
+                return SingleChildScrollView(
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: r.contentMaxWidth),
-                    child: Column(
-                      children: [
-                        _searchHeader(
-                          r: r,
-                          sopField: sopField,
-                          searchButton: searchButton,
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          r.pagePaddingH,
+                          r.pagePaddingV,
+                          r.pagePaddingH,
+                          r.pagePaddingV,
                         ),
-                        SizedBox(height: r.sectionGap),
-                        if (isLoading)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 32),
-                            child: Center(child: AppLoader()),
-                          )
-                        else if (sopCards != null) ...[
-                          if (useGrid)
-                            ..._sopCardRows(
-                              cards: sopCards,
-                              columns: r.cardColumns,
-                              cardWidth: cardWidth,
-                              gap: r.cardGap,
-                              stretch: stretchCards,
-                            )
-                          else
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: sopCards,
-                            ),
-                          if ((sopData?["fixtures"] as List?)?.isNotEmpty ??
-                              false) ...[
-                            SizedBox(height: r.sectionGap),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                "Fixture Data",
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: r.sectionTitleSize,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: r.contentMaxWidth,
+                          ),
+                          child: Column(
+                            children: [
+                              _searchHeader(
+                                r: r,
+                                sopField: sopField,
+                                searchButton: searchButton,
                               ),
-                            ),
-                            SizedBox(height: r.isPhone ? 8 : 10),
-                            SizedBox(
-                              width: double.infinity,
-                              child: _fixtureDataTable(
-                                sopData!["fixtures"] as List,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ],
+                              SizedBox(height: r.sectionGap),
+                              if (isLoading)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 32),
+                                  child: Center(child: AppLoader()),
+                                )
+                              else if (sopCards != null) ...[
+                                if (useGrid)
+                                  ..._sopCardRows(
+                                    cards: sopCards,
+                                    columns: r.cardColumns,
+                                    cardWidth: cardWidth,
+                                    gap: r.cardGap,
+                                    stretch: stretchCards,
+                                  )
+                                else
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: sopCards,
+                                  ),
+                                if ((sopData?["fixtures"] as List?)
+                                        ?.isNotEmpty ??
+                                    false) ...[
+                                  SizedBox(height: r.sectionGap),
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      "Fixture Data",
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontSize: r.sectionTitleSize,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(height: r.isPhone ? 8 : 10),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: _fixtureDataTable(
+                                      sopData!["fixtures"] as List,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
-          );
-        },
+          ),
+          if (_keypadVisible)
+            SearchKeyboard(
+              isNumeric: _useNumericKeyboard,
+              onToggleMode: () {
+                setState(() {
+                  _useNumericKeyboard = !_useNumericKeyboard;
+                });
+              },
+              onKey: (value) =>
+                  SearchKeyboardInput.insert(SOPController, value),
+              onBackspace: () => SearchKeyboardInput.backspace(SOPController),
+              onSearch: handleSOPSearch,
+            ),
+        ],
       ),
     );
   }

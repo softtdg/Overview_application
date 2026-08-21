@@ -997,7 +997,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  "Inventory Picked Log",
+                  "Inventory Pick Log",
                   style: TextStyle(
                     color: Colors.black,
                     fontSize: r.pageTitleSize,
@@ -1170,70 +1170,71 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                   child: Responsive.hideScrollbars(
                     context,
                     LayoutBuilder(
-                    builder: (context, constraints) {
-                      final colW = _columnWidthsForAvailable(
-                        constraints.maxWidth,
-                      );
-                      final leftW = colW[0] + colW[1] + colW[2];
-                      final actionW = colW[9];
-                      final isPhone = MediaQuery.sizeOf(context).width < 700;
-                      final tooNarrow = isPhone ||
-                          constraints.maxWidth < leftW + actionW + 48;
-                      if (items.isEmpty) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            tooNarrow
-                                ? SizedBox(
-                                    width: constraints.maxWidth,
-                                    child: SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: _buildFullHeaderRow(
-                                        colW,
-                                        fontSize: density.fontSize,
-                                        headerH: density.headerH,
-                                        hPad: density.hPad,
+                      builder: (context, constraints) {
+                        final colW = _columnWidthsForAvailable(
+                          constraints.maxWidth,
+                        );
+                        final leftW = colW[0] + colW[1] + colW[2];
+                        final actionW = colW[9];
+                        final isPhone = MediaQuery.sizeOf(context).width < 700;
+                        final tooNarrow =
+                            isPhone ||
+                            constraints.maxWidth < leftW + actionW + 48;
+                        if (items.isEmpty) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              tooNarrow
+                                  ? SizedBox(
+                                      width: constraints.maxWidth,
+                                      child: SingleChildScrollView(
+                                        scrollDirection: Axis.horizontal,
+                                        child: _buildFullHeaderRow(
+                                          colW,
+                                          fontSize: density.fontSize,
+                                          headerH: density.headerH,
+                                          hPad: density.hPad,
+                                        ),
                                       ),
+                                    )
+                                  : _buildEmptyStickyHeader(
+                                      colW: colW,
+                                      fontSize: density.fontSize,
+                                      headerH: density.headerH,
+                                      hPad: density.hPad,
                                     ),
-                                  )
-                                : _buildEmptyStickyHeader(
-                                    colW: colW,
-                                    fontSize: density.fontSize,
-                                    headerH: density.headerH,
-                                    hPad: density.hPad,
+                              const Expanded(
+                                child: Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 24),
+                                    child: Text("No Inventory Data Found"),
                                   ),
-                            const Expanded(
-                              child: Center(
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 24),
-                                  child: Text("No Inventory Data Found"),
                                 ),
                               ),
-                            ),
-                          ],
-                        );
-                      }
-                      if (tooNarrow) {
-                        return _buildFullScrollableTable(
+                            ],
+                          );
+                        }
+                        if (tooNarrow) {
+                          return _buildFullScrollableTable(
+                            colW: colW,
+                            fontSize: density.fontSize,
+                            headerH: density.headerH,
+                            rowH: density.rowH,
+                            vPad: density.vPad,
+                            hPad: density.hPad,
+                            maxWidth: constraints.maxWidth,
+                          );
+                        }
+                        return _buildStickyActionsTable(
                           colW: colW,
                           fontSize: density.fontSize,
                           headerH: density.headerH,
                           rowH: density.rowH,
                           vPad: density.vPad,
                           hPad: density.hPad,
-                          maxWidth: constraints.maxWidth,
                         );
-                      }
-                      return _buildStickyActionsTable(
-                        colW: colW,
-                        fontSize: density.fontSize,
-                        headerH: density.headerH,
-                        rowH: density.rowH,
-                        vPad: density.vPad,
-                        hPad: density.hPad,
-                      );
-                    },
-                  ),
+                      },
+                    ),
                   ),
                 ),
               ),

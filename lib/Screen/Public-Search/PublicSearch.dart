@@ -8,6 +8,7 @@ import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
+import 'package:overview_app/Widgets/SearchKeyboard.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ItemModel {
@@ -48,6 +49,7 @@ class Publicsearch extends StatefulWidget {
 
 class _PublicSearchState extends State<Publicsearch> {
   static const double _kMaxBodyVerticalScrollPixels = 500;
+  static const String _kFixturePrefix = '190-100-';
 
   final Publicsearchservice _service = Publicsearchservice();
   final ScrollController _scrollController = ScrollController();
@@ -78,7 +80,17 @@ class _PublicSearchState extends State<Publicsearch> {
     if (passed != null && passed.isNotEmpty) {
       PublicSearchController.text = passed;
       performSearch();
+    } else {
+      _applyFixturePrefix();
     }
+  }
+
+  /// Prefills `190-100-` with the caret after it. The user can still delete it.
+  void _applyFixturePrefix() {
+    PublicSearchController.value = const TextEditingValue(
+      text: _kFixturePrefix,
+      selection: TextSelection.collapsed(offset: _kFixturePrefix.length),
+    );
   }
 
   void _onSearchFocusChanged() {
@@ -187,7 +199,7 @@ class _PublicSearchState extends State<Publicsearch> {
       _tableHorizontalBodyController.jumpTo(0);
     }
     setState(() {
-      PublicSearchController.clear();
+      _applyFixturePrefix();
       hasSearched = false;
       isSopLoading = false;
       isTableLoading = false;
@@ -906,7 +918,7 @@ class _PublicSearchState extends State<Publicsearch> {
             ),
           ),
           if (_showCustomKeyboard && !hasSearched)
-            _FixtureSearchKeyboard(
+            SearchKeyboard(
               isNumeric: _useNumericKeyboard,
               onToggleMode: () {
                 setState(() {
@@ -918,246 +930,6 @@ class _PublicSearchState extends State<Publicsearch> {
               onSearch: performSearch,
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _FixtureSearchKeyboard extends StatelessWidget {
-  final bool isNumeric;
-  final VoidCallback onToggleMode;
-  final ValueChanged<String> onKey;
-  final VoidCallback onBackspace;
-  final VoidCallback onSearch;
-
-  const _FixtureSearchKeyboard({
-    required this.isNumeric,
-    required this.onToggleMode,
-    required this.onKey,
-    required this.onBackspace,
-    required this.onSearch,
-  });
-
-  /// Widest the pad is allowed to get. A 3-column numeric pad stretched
-  /// across a tablet turns every key into an unusable ~400pt-wide bar, so it
-  /// stays much narrower than the 10-column alpha pad.
-  double get _maxPadWidth => isNumeric ? 400 : 780;
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final isPhone = MediaQuery.sizeOf(context).width < 600;
-    final pad = isNumeric ? _buildNumericPad(isPhone) : _buildAlphaPad(isPhone);
-
-    // Phone: full-bleed bar, the way a system keyboard sits.
-    if (isPhone) {
-      return Material(
-        color: const Color(0xFFD1D5DB),
-        elevation: 8,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(6, 8, 6, 8 + bottomInset),
-          child: pad,
-        ),
-      );
-    }
-
-    // Tablet/desktop: float a compact pad so the keys stay key-shaped.
-    return Padding(
-      padding: EdgeInsets.fromLTRB(12, 8, 12, 12 + bottomInset),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: _maxPadWidth),
-          child: Material(
-            color: const Color(0xFFD1D5DB),
-            elevation: 12,
-            borderRadius: BorderRadius.circular(18),
-            child: Padding(padding: const EdgeInsets.all(10), child: pad),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNumericPad(bool isPhone) {
-    const rows = [
-      ['1', '2', '3'],
-      ['4', '5', '6'],
-      ['7', '8', '9'],
-      ['ABC', '0', '-'],
-    ];
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final row in rows)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              children: [
-                for (final key in row)
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 3),
-                      child: _keyButton(
-                        label: key,
-                        isPhone: isPhone,
-                        onTap: () {
-                          if (key == 'ABC') {
-                            onToggleMode();
-                          } else {
-                            onKey(key);
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        Row(
-          children: [
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: _keyButton(
-                  label: '⌫',
-                  isPhone: isPhone,
-                  onTap: onBackspace,
-                  isAction: true,
-                ),
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: _keyButton(
-                  label: 'Search',
-                  isPhone: isPhone,
-                  onTap: onSearch,
-                  isPrimary: true,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAlphaPad(bool isPhone) {
-    const rows = [
-      ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
-      ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
-      ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
-    ];
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final row in rows)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              children: [
-                for (final key in row)
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: _keyButton(
-                        label: key,
-                        isPhone: isPhone,
-                        onTap: () => onKey(key),
-                        compact: true,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        Row(
-          children: [
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: _keyButton(
-                  label: '123',
-                  isPhone: isPhone,
-                  onTap: onToggleMode,
-                  isAction: true,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: _keyButton(
-                  label: '-',
-                  isPhone: isPhone,
-                  onTap: () => onKey('-'),
-                ),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: _keyButton(
-                  label: '⌫',
-                  isPhone: isPhone,
-                  onTap: onBackspace,
-                  isAction: true,
-                ),
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: _keyButton(
-                  label: 'Search',
-                  isPhone: isPhone,
-                  onTap: onSearch,
-                  isPrimary: true,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _keyButton({
-    required String label,
-    required VoidCallback onTap,
-    required bool isPhone,
-    bool isAction = false,
-    bool isPrimary = false,
-    bool compact = false,
-  }) {
-    final bg = isPrimary
-        ? const Color(0xFF1E88E5)
-        : isAction
-        ? const Color(0xFFB0B7C3)
-        : Colors.white;
-    final fg = isPrimary ? Colors.white : const Color(0xFF1A1A1A);
-    return SizedBox(
-      height: compact ? (isPhone ? 40 : 46) : (isPhone ? 48 : 58),
-      child: Material(
-        color: bg,
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: compact ? (isPhone ? 14 : 17) : (isPhone ? 18 : 22),
-                fontWeight: FontWeight.w600,
-                color: fg,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

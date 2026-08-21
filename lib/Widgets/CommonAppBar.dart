@@ -359,7 +359,8 @@ class _CommonDrawerState extends State<CommonDrawer> {
     const activeColor = Color(0xFF3498DB);
     final displayName = _userName.isEmpty ? 'User' : _userName;
 
-    final openItemsActive = _isActivePage(context, SearchOpenItems) ||
+    final openItemsActive =
+        _isActivePage(context, SearchOpenItems) ||
         _isActivePage(context, CriticalItems) ||
         _isActivePage(context, OpenItems) ||
         _isActivePage(context, Backorders);
@@ -459,7 +460,7 @@ class _CommonDrawerState extends State<CommonDrawer> {
                     onTap: () => _go(context, PickedHistory()),
                   ),
                   _menuItem(
-                    title: 'Inventory Picked Log',
+                    title: 'Inventory Pick Log',
                     isActive: _isActivePage(context, InventoryPickedLog),
                     onTap: () => _go(context, InventoryPickedLog()),
                   ),
@@ -468,14 +469,18 @@ class _CommonDrawerState extends State<CommonDrawer> {
                       dividerColor: Colors.transparent,
                       splashColor: Colors.white.withOpacity(0.12),
                       expansionTileTheme: ExpansionTileThemeData(
-                        iconColor:
-                            openItemsHighlighted ? activeColor : Colors.white,
-                        collapsedIconColor:
-                            openItemsHighlighted ? activeColor : Colors.white70,
-                        textColor:
-                            openItemsHighlighted ? activeColor : Colors.white,
-                        collapsedTextColor:
-                            openItemsHighlighted ? activeColor : Colors.white,
+                        iconColor: openItemsHighlighted
+                            ? activeColor
+                            : Colors.white,
+                        collapsedIconColor: openItemsHighlighted
+                            ? activeColor
+                            : Colors.white70,
+                        textColor: openItemsHighlighted
+                            ? activeColor
+                            : Colors.white,
+                        collapsedTextColor: openItemsHighlighted
+                            ? activeColor
+                            : Colors.white,
                       ),
                     ),
                     child: ExpansionTile(
@@ -485,10 +490,12 @@ class _CommonDrawerState extends State<CommonDrawer> {
                       },
                       tilePadding: const EdgeInsets.symmetric(horizontal: 12),
                       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                      iconColor:
-                          openItemsHighlighted ? activeColor : Colors.white,
-                      collapsedIconColor:
-                          openItemsHighlighted ? activeColor : Colors.white70,
+                      iconColor: openItemsHighlighted
+                          ? activeColor
+                          : Colors.white,
+                      collapsedIconColor: openItemsHighlighted
+                          ? activeColor
+                          : Colors.white70,
                       title: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(
@@ -502,7 +509,7 @@ class _CommonDrawerState extends State<CommonDrawer> {
                               : null,
                         ),
                         child: Text(
-                          'Open Items',
+                          'Inventory',
                           style: TextStyle(
                             fontSize: 14.5,
                             fontWeight: openItemsHighlighted
@@ -530,15 +537,16 @@ class _CommonDrawerState extends State<CommonDrawer> {
                               _menuItem(
                                 title: 'Search',
                                 isSubItem: true,
-                                isActive:
-                                    _isActivePage(context, SearchOpenItems),
+                                isActive: _isActivePage(
+                                  context,
+                                  SearchOpenItems,
+                                ),
                                 onTap: () => _go(context, SearchOpenItems()),
                               ),
                               _menuItem(
                                 title: 'Critical Items',
                                 isSubItem: true,
-                                isActive:
-                                    _isActivePage(context, CriticalItems),
+                                isActive: _isActivePage(context, CriticalItems),
                                 onTap: () => _go(context, CriticalItems()),
                               ),
                               _menuItem(
@@ -548,7 +556,7 @@ class _CommonDrawerState extends State<CommonDrawer> {
                                 onTap: () => _go(context, OpenItems()),
                               ),
                               _menuItem(
-                                title: 'Backorders',
+                                title: 'Backorder',
                                 isSubItem: true,
                                 isActive: _isActivePage(context, Backorders),
                                 onTap: () => _go(context, Backorders()),

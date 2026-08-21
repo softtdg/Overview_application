@@ -174,34 +174,25 @@ class _BackordersTableState extends State<Backorders> {
   }
 
   bool _rowMatches(Map<String, dynamic> row, String search) {
-    final sop = row["SOP"];
-    final log = sop is Map ? sop["ProductionLogEntry"] : null;
-    final leadHand = log is Map ? log["LeadHand"] : null;
-    final assembler = row["Assembler"];
+    return _matchesNoticePartNumber(row, search);
+  }
 
-    final fields = [
-      sop is Map ? sop["SOPNum"] : null,
-      sop is Map ? sop["ODD"] : null,
-      leadHand is Map ? leadHand["LeadHandName"] : null,
-      assembler is Map ? assembler["Name"] : null,
-      row["FixtureNumber"],
-      row["FixtureDescription"],
-      row["Quantity"],
-      row["Hours"],
-      row["Amount"],
-      row["InventoryComments"],
-      row["Picked"] == true ? "Yes" : "No",
-      row["DateSent"],
-      row["Dept"],
-      row["Notice"],
-      row["Response"],
-      row["UOM"],
-      row["Qty (Backordered)"],
-      row["Qty (Received)"],
-      row["Status"],
-    ];
+  bool _matchesNoticePartNumber(Map<String, dynamic> row, String search) {
+    final tdgpn = _text(row["TDGPN"]).toLowerCase();
+    if (tdgpn.isNotEmpty && tdgpn != '-' && tdgpn.contains(search)) {
+      return true;
+    }
 
-    return fields.any((v) => _text(v).toLowerCase().contains(search));
+    // Backorder notices: "Missing: <TDGPN> (qty) UOM"
+    final notice = _text(row["Notice"]);
+    if (notice.isEmpty || notice == '-') return false;
+
+    final missingMatch = RegExp(
+      r'missing:\s*([^\s(]+)',
+      caseSensitive: false,
+    ).firstMatch(notice);
+    final part = missingMatch?.group(1)?.toLowerCase() ?? '';
+    return part.isNotEmpty && part.contains(search);
   }
 
   void _filterRows(String value) {
@@ -278,15 +269,16 @@ class _BackordersTableState extends State<Backorders> {
     );
   }
 
-  /// SOP / ODD / Fixture keep fixed widths and stay sticky.
+  /// SOP / ODD / Lead Hand keep fixed widths and stay sticky.
   /// Other columns use minWidth only (not fixedWidth) so DataTable2 can
   /// scroll horizontally without asserting.
   static const double _sopW = 56;
   static const double _oddW = 90;
+  static const double _leadHandW = 72;
   static const double _fixtureW = 96;
   static const List<double> _otherPreferred = [
-    70, // Lead Hand
     72, // Assembler
+    96, // Fixture
     140, // Desc
     36, // Qty
     64, // Time To Build/Per Unit
@@ -299,8 +291,8 @@ class _BackordersTableState extends State<Backorders> {
     260, // Notice
     130, // Response
     44, // UOM
-    72, // Qty Backordered
-    36, // Qty Re ceived
+    64, // B/O QTY
+    44, // QTY (Received)
   ];
 
   Widget _tableTextCell(
@@ -402,6 +394,7 @@ class _BackordersTableState extends State<Backorders> {
   Widget _receivedQtyField(Map<String, dynamic> row) {
     final raw = _text(row["Qty (Received)"]);
     final value = raw == '-' ? '0' : raw;
+    final maxQty = num.tryParse('${row["Qty (Backordered)"]}') ?? 0;
 
     return Center(
       child: Padding(
@@ -409,35 +402,12 @@ class _BackordersTableState extends State<Backorders> {
         child: SizedBox(
           width: 64,
           height: 34,
-          child: TextFormField(
+          child: _ReceivedQtyInput(
             key: ValueKey('received-${row["SOPBackorderEntryId"]}'),
             initialValue: value,
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13),
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 8,
-              ),
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(2),
-                borderSide: BorderSide(color: Colors.grey.shade400),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(2),
-                borderSide: BorderSide(color: Colors.grey.shade400),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(2),
-                borderSide: const BorderSide(color: Color(0xFF607D99)),
-              ),
-            ),
+            maxQty: maxQty,
             onChanged: (v) {
-              row["Qty (Received)"] = v.trim().isEmpty ? '0' : v.trim();
+              row["Qty (Received)"] = v;
             },
           ),
         ),
@@ -471,13 +441,13 @@ class _BackordersTableState extends State<Backorders> {
     return [
       _fixedColumn("SOP", width: _sopW),
       _fixedColumn("ODD", width: _oddW),
-      _fixedColumn("Fixture", width: _fixtureW),
-      _scrollColumn("Lead\nHand", minWidth: other[0]),
-      _scrollColumn("Assembler", minWidth: other[1]),
+      _fixedColumn("Lead Hand", width: _leadHandW),
+      _scrollColumn("Assembler", minWidth: other[0]),
+      _scrollColumn("Fixture", minWidth: other[1]),
       _scrollColumn("Desc", minWidth: other[2]),
       _scrollColumn("Qty", minWidth: other[3]),
-      _scrollColumn("Time To\nBuild/Per\nUnit", minWidth: other[4]),
-      _scrollColumn("Total\nTime To\nBuild", minWidth: other[5]),
+      _scrollColumn("Time To Build/\nPer Unit", minWidth: other[4]),
+      _scrollColumn("Total Time\nTo Build", minWidth: other[5]),
       _scrollColumn("Amount", minWidth: other[6]),
       _scrollColumn("Inventory\nComment", minWidth: other[7]),
       _scrollColumn("Picked", minWidth: other[8]),
@@ -486,13 +456,13 @@ class _BackordersTableState extends State<Backorders> {
       _scrollColumn("Notice", minWidth: other[11]),
       _scrollColumn("Response", minWidth: other[12]),
       _scrollColumn("UOM", minWidth: other[13]),
-      _scrollColumn("Qty\nBackordered", minWidth: other[14]),
-      _scrollColumn("Qty\nReceived", minWidth: other[15]),
+      _scrollColumn("B/O QTY", minWidth: other[14]),
+      _scrollColumn("QTY", minWidth: other[15]),
     ];
   }
 
   double get _tableMinWidth {
-    const sticky = _sopW + _oddW + _fixtureW;
+    const sticky = _sopW + _oddW + _leadHandW;
     final preferredOthers = _otherPreferred.fold<double>(0, (a, b) => a + b);
     return sticky + preferredOthers;
   }
@@ -589,9 +559,15 @@ class _BackordersTableState extends State<Backorders> {
       final tdgpn = '${row["TDGPN"] ?? ''}'.trim();
       if (tdgpn.isEmpty) continue;
 
+      final sop = row["SOP"];
+      final sopNum = sop is Map ? '${sop["SOPNum"] ?? ''}'.trim() : '';
+
+      // pendingAdjustments = new QTY - original QTY (e.g. 0 - 1 = -1)
       byTdgpn.putIfAbsent(tdgpn, () => {}).putIfAbsent(leadId, () => []).add({
         "SOPBackorderEntryId": boId,
         "Received": received,
+        "SOP": sopNum,
+        "pendingAdjustments": received - originalReceived,
       });
     }
 
@@ -611,9 +587,9 @@ class _BackordersTableState extends State<Backorders> {
               .map((e) => {"SOPLeadHandEntryId": e.key, "backorders": e.value})
               .toList(),
         };
-        // print("SAVE PAYLOAD: $payload");
-        final response = await _backorderService.backOrderUpdate(payload);
-        print("RESPONSE FROM SAVE CHANGES API: ${response.data}");
+
+        print('SAVE PAYLOAD: $payload');
+        await _backorderService.backOrderUpdate(payload);
       }
 
       if (!mounted) return;
@@ -623,11 +599,7 @@ class _BackordersTableState extends State<Backorders> {
     } on DioException catch (e) {
       // print("ERROR SAVING CHANGES: ${e.message}");
       if (!mounted) return;
-      AppToast.errorFrom(
-        context,
-        e,
-        fallback: 'Save failed',
-      );
+      AppToast.errorFrom(context, e, fallback: 'Save failed');
     } catch (e) {
       print("ERROR SAVING CHANGES: $e");
       if (!mounted) return;
@@ -658,7 +630,7 @@ class _BackordersTableState extends State<Backorders> {
       onChanged: _filterRows,
       style: TextStyle(fontSize: r.searchFieldFontSize),
       decoration: InputDecoration(
-        hintText: 'Search in table...',
+        hintText: 'Search by part number...',
         hintStyle: TextStyle(fontSize: r.searchFieldFontSize),
         isDense: true,
         contentPadding: EdgeInsets.symmetric(
@@ -801,10 +773,8 @@ class _BackordersTableState extends State<Backorders> {
               if (_searchQuery.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Expanded(
-                  child: _isLoading || _rows.isEmpty
-                      ? const Center(
-                          child: Center(child: AppLoader())
-                        )
+                  child: _isLoading
+                      ? const Center(child: AppLoader())
                       : Column(
                           children: [
                             Expanded(
@@ -819,10 +789,12 @@ class _BackordersTableState extends State<Backorders> {
                                     data: Theme.of(context).copyWith(
                                       scrollbarTheme: const ScrollbarThemeData(
                                         thickness: WidgetStatePropertyAll(0),
-                                        thumbVisibility:
-                                            WidgetStatePropertyAll(false),
-                                        trackVisibility:
-                                            WidgetStatePropertyAll(false),
+                                        thumbVisibility: WidgetStatePropertyAll(
+                                          false,
+                                        ),
+                                        trackVisibility: WidgetStatePropertyAll(
+                                          false,
+                                        ),
                                         crossAxisMargin: 0,
                                         mainAxisMargin: 0,
                                         minThumbLength: 0,
@@ -831,40 +803,45 @@ class _BackordersTableState extends State<Backorders> {
                                     child: Responsive.hideScrollbars(
                                       context,
                                       DataTable2(
-                                    fixedTopRows: 1,
-                                    fixedLeftColumns: isTablet ? 3 : 0,
-                                    fixedColumnsColor: Colors.white,
-                                    fixedCornerColor: const Color(0xFF344963),
-                                    showCheckboxColumn: false,
-                                    headingRowColor: MaterialStateProperty.all(
-                                      const Color(0xFF344963),
-                                    ),
-                                    dataRowColor: MaterialStateProperty.all(
-                                      Colors.white,
-                                    ),
-                                    headingRowHeight: 52,
-                                    dataRowHeight: 52,
-                                    columnSpacing: 0,
-                                    horizontalMargin: 0,
-                                    dividerThickness: 1,
-                                    isHorizontalScrollBarVisible: false,
-                                    isVerticalScrollBarVisible: false,
-                                    minWidth: _tableMinWidth,
-                                    border: tableBorder,
-                                    columns: _columns(),
-                                    rows: _pagedRows.map((row) {
-                                      final sop = row["SOP"];
-                                      final log = sop is Map
-                                          ? sop["ProductionLogEntry"]
-                                          : null;
-                                      final leadHand = log is Map
-                                          ? log["LeadHand"]
-                                          : null;
-                                      final assembler = row["Assembler"];
+                                        fixedTopRows: 1,
+                                        fixedLeftColumns: isTablet ? 3 : 0,
+                                        fixedColumnsColor: Colors.white,
+                                        fixedCornerColor: const Color(
+                                          0xFF344963,
+                                        ),
+                                        showCheckboxColumn: false,
+                                        headingRowColor:
+                                            MaterialStateProperty.all(
+                                              const Color(0xFF344963),
+                                            ),
+                                        dataRowColor: MaterialStateProperty.all(
+                                          Colors.white,
+                                        ),
+                                        headingRowHeight: 52,
+                                        dataRowHeight: 52,
+                                        columnSpacing: 0,
+                                        horizontalMargin: 0,
+                                        dividerThickness: 1,
+                                        isHorizontalScrollBarVisible: false,
+                                        isVerticalScrollBarVisible: false,
+                                        minWidth: _tableMinWidth,
+                                        border: tableBorder,
+                                        columns: _columns(),
+                                        rows: _pagedRows.map((row) {
+                                          final sop = row["SOP"];
+                                          final log = sop is Map
+                                              ? sop["ProductionLogEntry"]
+                                              : null;
+                                          final leadHand = log is Map
+                                              ? log["LeadHand"]
+                                              : null;
+                                          final assembler = row["Assembler"];
 
-                                      return DataRow2(
-                                        specificRowHeight: _rowHeightFor(row),
-                                        cells: [
+                                          return DataRow2(
+                                            specificRowHeight: _rowHeightFor(
+                                              row,
+                                            ),
+                                            cells: [
                                               DataCell(
                                                 _tableTextCell(
                                                   _text(
@@ -889,19 +866,12 @@ class _BackordersTableState extends State<Backorders> {
                                               ),
                                               DataCell(
                                                 _tableTextCell(
-                                                  _text(row["FixtureNumber"]),
-                                                  width: _fixtureW,
-                                                ),
-                                              ),
-                                              DataCell(
-                                                _tableTextCell(
                                                   _text(
                                                     leadHand is Map
-                                                        ? leadHand[
-                                                            "LeadHandName"]
+                                                        ? leadHand["LeadHandName"]
                                                         : null,
                                                   ),
-                                                  width: null,
+                                                  width: _leadHandW,
                                                 ),
                                               ),
                                               DataCell(
@@ -912,6 +882,12 @@ class _BackordersTableState extends State<Backorders> {
                                                         : null,
                                                   ),
                                                   width: null,
+                                                ),
+                                              ),
+                                              DataCell(
+                                                _tableTextCell(
+                                                  _text(row["FixtureNumber"]),
+                                                  width: _fixtureW,
                                                 ),
                                               ),
                                               DataCell(
@@ -1008,22 +984,21 @@ class _BackordersTableState extends State<Backorders> {
                                                 ),
                                               ),
                                               DataCell(
-                                                row["NoticeType"] ==
-                                                        "backorder"
+                                                row["NoticeType"] == "backorder"
                                                     ? _receivedQtyField(row)
                                                     : _tableTextCell(
                                                         "-",
                                                         width: null,
                                                       ),
                                               ),
-                                        ],
-                                      );
-                                    }).toList(),
+                                            ],
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                ),
                               ),
-                            ),
                             ),
                             if (_rows.isNotEmpty)
                               Container(
@@ -1060,6 +1035,101 @@ class _BackordersTableState extends State<Backorders> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Qty Received input that cannot exceed [maxQty] (Qty Backordered).
+class _ReceivedQtyInput extends StatefulWidget {
+  const _ReceivedQtyInput({
+    super.key,
+    required this.initialValue,
+    required this.maxQty,
+    required this.onChanged,
+  });
+
+  final String initialValue;
+  final num maxQty;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_ReceivedQtyInput> createState() => _ReceivedQtyInputState();
+}
+
+class _ReceivedQtyInputState extends State<_ReceivedQtyInput> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  String _formatQty(num value) {
+    if (value % 1 == 0) return value.toInt().toString();
+    return value.toString();
+  }
+
+  void _applyValue(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) {
+      widget.onChanged('0');
+      return;
+    }
+
+    final parsed = num.tryParse(trimmed);
+    if (parsed == null) {
+      widget.onChanged(trimmed);
+      return;
+    }
+
+    if (parsed > widget.maxQty) {
+      final capped = _formatQty(widget.maxQty);
+      if (_controller.text != capped) {
+        _controller.value = TextEditingValue(
+          text: capped,
+          selection: TextSelection.collapsed(offset: capped.length),
+        );
+      }
+      widget.onChanged(capped);
+      return;
+    }
+
+    widget.onChanged(trimmed);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      keyboardType: TextInputType.number,
+      textAlign: TextAlign.center,
+      style: const TextStyle(fontSize: 13),
+      decoration: InputDecoration(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(2),
+          borderSide: BorderSide(color: Colors.grey.shade400),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(2),
+          borderSide: BorderSide(color: Colors.grey.shade400),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(2),
+          borderSide: const BorderSide(color: Color(0xFF607D99)),
+        ),
+      ),
+      onChanged: _applyValue,
     );
   }
 }

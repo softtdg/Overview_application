@@ -19,6 +19,30 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
   List<dynamic>? SOPData;
   Map<String, dynamic>? selectedOpenItem;
 
+  @override
+  void initState() {
+    super.initState();
+    SearchController.addListener(_onSearchTextChanged);
+  }
+
+  @override
+  void dispose() {
+    SearchController.removeListener(_onSearchTextChanged);
+    SearchController.dispose();
+    super.dispose();
+  }
+
+  /// Hide the results box as soon as the SOP field is cleared.
+  void _onSearchTextChanged() {
+    if (SearchController.text.trim().isNotEmpty) return;
+    if (SOPData == null && !isLoading) return;
+    setState(() {
+      SOPData = null;
+      isLoading = false;
+      selectedOpenItem = null;
+    });
+  }
+
   /// getSOPList returns `{ "data": { "sop": {...}, "fixtures": [ ... ] } }`.
   List<dynamic>? _rowsFromResponse(dynamic body, [int depth = 0]) {
     if (body == null || depth > 10) return null;
@@ -80,18 +104,39 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
       );
 
       if (!mounted) return;
+      // Field was cleared while the request was in flight — keep the box hidden.
+      if (SearchController.text.trim().isEmpty) {
+        setState(() {
+          SOPData = null;
+          isLoading = false;
+          selectedOpenItem = null;
+        });
+        return;
+      }
       setState(() {
-        SOPData = _rowsFromResponse(response.data);
+        SOPData = _rowsFromResponse(response.data) ?? [];
         selectedOpenItem = null;
       });
-
-      AppToast.success(context, "SOP found");
     } catch (e) {
       debugPrint("Error in Search Open Items: $e");
       if (!mounted) return;
+      if (SearchController.text.trim().isEmpty) {
+        setState(() {
+          SOPData = null;
+          isLoading = false;
+        });
+        return;
+      }
       AppToast.errorFrom(context, e, fallback: 'Search failed');
     } finally {
       if (!mounted) return;
+      if (SearchController.text.trim().isEmpty) {
+        setState(() {
+          SOPData = null;
+          isLoading = false;
+        });
+        return;
+      }
       setState(() {
         isLoading = false;
       });
@@ -114,139 +159,138 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
     });
   }
 
-  Widget _buildTable(List data) {
-    final count = data.length;
+  Widget _buildTable(List data, {required bool loading}) {
+    final count = loading ? 0 : data.length;
     final width = MediaQuery.sizeOf(context).width;
     final isNarrow = width < 700;
-    final headerSize = isNarrow ? 11.0 : 12.0;
-    final bodySize = isNarrow ? 12.0 : 13.0;
-    final fixtureSize = isNarrow ? 11.0 : 12.0;
+    final headerSize = isNarrow ? 11.0 : 13.0;
+    final bodySize = isNarrow ? 12.0 : 14.0;
 
     final headerStyle = TextStyle(
-      fontWeight: FontWeight.bold,
+      fontWeight: FontWeight.w700,
       fontSize: headerSize,
+      letterSpacing: 0.3,
+      color: const Color(0xFF4B5563),
     );
-    final bodyStyle = TextStyle(fontSize: bodySize, height: 1.25);
-    final fixtureStyle = TextStyle(
-      color: const Color(0xFF1976D2),
-      fontWeight: FontWeight.w600,
-      fontSize: fixtureSize,
-      height: 1.2,
+    final bodyStyle = TextStyle(
+      fontSize: bodySize,
+      height: 1.3,
+      color: const Color(0xFF111827),
     );
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(10),
-      ),
-      padding: EdgeInsets.all(isNarrow ? 6 : 8),
+    Widget headerCell(
+      String text,
+      int flex, {
+      TextAlign align = TextAlign.left,
+    }) {
+      return Expanded(
+        flex: flex,
+        child: Text(text, style: headerStyle, textAlign: align),
+      );
+    }
+
+    return Material(
+      color: Colors.white,
+      elevation: 10,
+      shadowColor: Colors.black.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header: total row count + labels spaced across full width (same flex as data rows)
           Container(
             width: double.infinity,
             padding: EdgeInsets.symmetric(
-              vertical: isNarrow ? 8 : 10,
-              horizontal: isNarrow ? 6 : 8,
+              vertical: isNarrow ? 10 : 12,
+              horizontal: isNarrow ? 14 : 18,
             ),
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(8),
-            ),
+            color: const Color(0xFFE5E7EB),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    '$count FIXTURES',
-                    style: headerStyle,
-                    textAlign: TextAlign.start,
-                  ),
-                ),
-                Expanded(
-                  flex: 5,
-                  child: Text(
-                    'DESCRIPTION',
-                    style: headerStyle,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                Expanded(
-                  flex: 1,
-                  child: Text(
-                    'QTY',
-                    style: headerStyle,
-                    textAlign: TextAlign.end,
-                  ),
-                ),
+                headerCell('$count FIXTURES', 2),
+                headerCell('DESCRIPTION', 5),
+                headerCell('QTY', 1, align: TextAlign.right),
               ],
             ),
           ),
-
-          const SizedBox(height: 5),
-
-          // Data Rows — API uses FixtureNumber, Description, Quantity (PascalCase)
-          ...data.map((raw) {
-            if (raw is! Map) return const SizedBox.shrink();
-            final item = Map<String, dynamic>.from(raw);
-            final fixture = (item['FixtureNumber'] ?? item['fixture'] ?? '')
-                .toString();
-            final description =
-                (item['Description'] ?? item['description'] ?? '').toString();
-            final qty = (item['Quantity'] ?? item['qty'] ?? item['Qty'] ?? '')
-                .toString();
-            return Container(
-              padding: EdgeInsets.symmetric(
-                vertical: isNarrow ? 7 : 8,
-                horizontal: isNarrow ? 6 : 8,
-              ),
-              margin: const EdgeInsets.symmetric(vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: InkWell(
-                      onTap: () => _handleFixtureClick(item),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          vertical: isNarrow ? 4 : 5,
-                          horizontal: isNarrow ? 6 : 7,
+          Container(height: 1, color: const Color(0xFFD1D5DB)),
+          ConstrainedBox(
+            constraints: BoxConstraints(minHeight: isNarrow ? 160 : 220),
+            child: loading
+                ? const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AppLoader(size: 64),
+                        SizedBox(height: 8),
+                        Text(
+                          'Searching...',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF6B7280),
+                          ),
                         ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE3F2FD),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF1976D2)),
-                        ),
-                        child: Text(fixture, style: fixtureStyle),
-                      ),
+                      ],
                     ),
+                  )
+                : Column(
+                    children: [
+                      for (final raw in data)
+                        if (raw is Map)
+                          _fixtureResultRow(
+                            Map<String, dynamic>.from(raw),
+                            isNarrow: isNarrow,
+                            bodyStyle: bodyStyle,
+                          ),
+                    ],
                   ),
-                  SizedBox(width: isNarrow ? 8 : 10),
-                  Expanded(
-                    flex: 5,
-                    child: Text(description, style: bodyStyle),
-                  ),
-                  Expanded(
-                    flex: 1,
-                    child: Text(
-                      qty,
-                      textAlign: TextAlign.right,
-                      style: bodyStyle,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _fixtureResultRow(
+    Map<String, dynamic> item, {
+    required bool isNarrow,
+    required TextStyle bodyStyle,
+  }) {
+    final fixture = (item['FixtureNumber'] ?? item['fixture'] ?? '').toString();
+    final description = (item['Description'] ?? item['description'] ?? '')
+        .toString();
+    final qty = (item['Quantity'] ?? item['qty'] ?? item['Qty'] ?? '')
+        .toString();
+
+    return Material(
+      color: Colors.white,
+      child: InkWell(
+        onTap: () => _handleFixtureClick(item),
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(
+            vertical: isNarrow ? 10 : 12,
+            horizontal: isNarrow ? 14 : 18,
+          ),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 2, child: Text(fixture, style: bodyStyle)),
+              Expanded(flex: 5, child: Text(description, style: bodyStyle)),
+              Expanded(
+                flex: 1,
+                child: Text(
+                  qty,
+                  textAlign: TextAlign.right,
+                  style: bodyStyle.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -261,12 +305,12 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
     final contentMaxWidth = isTablet && selectedOpenItem == null
         ? 820.0
         : double.infinity;
-    final searchControlWidth = isTablet ? 420.0 : double.infinity;
-    final searchButtonWidth = isTablet ? 200.0 : double.infinity;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: selectedOpenItem != null
+          ? Colors.white
+          : const Color(0xFFF3F4F6),
       appBar: CommonAppBar(
-        showBackButton: true,
+        showBackButton: false,
         onBackPressed: selectedOpenItem != null
             ? () {
                 setState(() {
@@ -330,56 +374,92 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
                             );
                           })()
                         : Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Align(
-                                alignment: Alignment.topCenter,
-                                child: Text(
-                                  "Open Items Search",
+                              if (!isTablet) ...[
+                                const Text(
+                                  "Search SOP Number",
+                                  textAlign: TextAlign.center,
                                   style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: isTablet ? 24 : 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              if (isTablet) ...[
-                                SizedBox(
-                                  width: searchControlWidth,
-                                  child: TextField(
-                                    controller: SearchController,
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: Colors.white,
-                                      hintText: 'Enter SOP Number (e.g., 70101)',
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide.none,
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: const BorderSide(
-                                          color: Colors.grey,
-                                          width: 1,
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: const BorderSide(
-                                          color: Color(0xFF1565C0),
-                                          width: 2,
-                                        ),
-                                      ),
-                                    ),
-                                    textInputAction: TextInputAction.search,
-                                    onSubmitted: (_) => handleSOPSearch(),
+                                    color: Color(0xFF111827),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                                 const SizedBox(height: 10),
-                                SizedBox(
-                                  width: searchButtonWidth,
-                                  child: SizedBox(
-                                    height: 45,
-                                    child: ElevatedButton(
+                              ],
+                              SizedBox(
+                                height: isTablet ? 48 : 45,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.max,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (isTablet) ...[  
+                                      const Center(
+                                        child: Text(
+                                          "Search SOP Number",
+                                          style: TextStyle(
+                                            color: Color(0xFF111827),
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                    ],
+                                    SizedBox(
+                                      width: isTablet
+                                          ? 320
+                                          : (contentWidth * 0.72).clamp(
+                                              180.0,
+                                              260.0,
+                                            ),
+                                      child: TextField(
+                                        controller: SearchController,
+                                        decoration: InputDecoration(
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                          hintText: isTablet
+                                              ? 'Enter SOP Number (e.g., 70101)'
+                                              : 'Enter SOP Number',
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                horizontal: 16,
+                                                vertical: 10,
+                                              ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            borderSide: BorderSide.none,
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFF2196F3),
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFF1565C0),
+                                              width: 2,
+                                            ),
+                                          ),
+                                        ),
+                                        textInputAction: TextInputAction.search,
+                                        onSubmitted: (_) => handleSOPSearch(),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    ElevatedButton(
                                       onPressed: isLoading
                                           ? null
                                           : handleSOPSearch,
@@ -391,141 +471,61 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
                                           95,
                                         ),
                                         foregroundColor: Colors.white,
+                                        disabledBackgroundColor:
+                                            const Color.fromARGB(
+                                              255,
+                                              57,
+                                              73,
+                                              95,
+                                            ),
+                                        disabledForegroundColor: Colors.white70,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                        ),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(
-                                            12,
+                                            10,
                                           ),
                                         ),
                                       ),
-                                      child: isLoading
-                                          ? const SizedBox(
-                                              width: 22,
-                                              height: 22,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2.5,
-                                                color: Colors.white,
-                                              ),
-                                            )
-                                          : const Text(
-                                              'Search',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
+                                      child: const Text(
+                                        'Search',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ),
-                              ] else
-                                SizedBox(
-                                  height: 45,
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Expanded(
-                                        child: TextField(
-                                          controller: SearchController,
-                                          decoration: InputDecoration(
-                                            filled: true,
-                                            fillColor: Colors.white,
-                                            hintText: 'Enter SOP Number',
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              borderSide: BorderSide.none,
-                                            ),
-                                            enabledBorder: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              borderSide: const BorderSide(
-                                                color: Colors.grey,
-                                                width: 1,
-                                              ),
-                                            ),
-                                            focusedBorder: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              borderSide: const BorderSide(
-                                                color: Color(0xFF1565C0),
-                                                width: 2,
-                                              ),
-                                            ),
-                                          ),
-                                          textInputAction:
-                                              TextInputAction.search,
-                                          onSubmitted: (_) =>
-                                              handleSOPSearch(),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      ElevatedButton(
-                                        onPressed: isLoading
-                                            ? null
-                                            : handleSOPSearch,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              const Color.fromARGB(
-                                            255,
-                                            57,
-                                            73,
-                                            95,
-                                          ),
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                        ),
-                                        child: isLoading
-                                            ? const SizedBox(
-                                                width: 22,
-                                                height: 22,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                  strokeWidth: 2.5,
-                                                  color: Colors.white,
-                                                ),
-                                              )
-                                            : const Text(
-                                                'Search',
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              const SizedBox(height: 20),
+                              ),
+                              const SizedBox(height: 10),
                               if (isLoading)
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 32),
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        AppLoader(size: 72),
-                                        SizedBox(height: 12),
-                                        Text(
-                                          'Searching...',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFF39495F),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: _buildTable(const [], loading: true),
+                                )
+                              else if (SOPData != null)
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: _buildTable(
+                                    SOPData!,
+                                    loading: false,
                                   ),
                                 )
-                              else if (SOPData != null && SOPData!.isNotEmpty)
-                                _buildTable(SOPData!),
+                              else
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 28),
+                                  child: Text(
+                                    'Enter a SOP Number above to search for open items',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w400,
+                                      color: Color(0xFF9CA3AF),
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                   ),
