@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:overview_app/Screen/Backorder/Backorders.dart';
 import 'package:overview_app/Screen/ExpediteReport/expediteReport.dart';
+import 'package:overview_app/Screen/Inventory-Search/InventorySearch.dart';
 import 'package:overview_app/Screen/InventoryPickedLog/InventoryPickedLog.dart';
 import 'package:overview_app/Screen/MPF/MPFRequest.dart';
 import 'package:overview_app/Screen/OpenItems/CriticalItems.dart';
@@ -453,6 +454,11 @@ class _CommonDrawerState extends State<CommonDrawer> {
                     title: 'Public Search',
                     isActive: _isActivePage(context, Publicsearch),
                     onTap: () => _go(context, Publicsearch()),
+                  ),
+                  _menuItem(
+                    title: 'Inventory Search',
+                    isActive: _isActivePage(context, InventorySearch),
+                    onTap: () => _go(context, InventorySearch()),
                   ),
                   _menuItem(
                     title: 'Picked History',
