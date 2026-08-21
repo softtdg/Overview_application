@@ -8,7 +8,6 @@ import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
 import 'package:overview_app/Widgets/pagination_bar.dart';
 
-
 class ItemModel {
   final String sopNumber;
   final String fixtureNumber;
@@ -32,8 +31,12 @@ class PickedHistory extends StatefulWidget {
 
 class _PickedHistoryState extends State<PickedHistory> {
   final PickedHistoryService _service = PickedHistoryService();
+  final TextEditingController _searchController = TextEditingController();
+
   String username = "";
+  List<ItemModel> _allItems = [];
   List<ItemModel> items = [];
+  String _searchQuery = "";
   bool isLoading = false;
 
   static const int _pageSize = 200;
@@ -155,6 +158,35 @@ class _PickedHistoryState extends State<PickedHistory> {
     return (fontSize: 13, headerH: 40, vPad: 8, hPad: 10);
   }
 
+  bool _itemMatchesQuery(ItemModel item, String query) {
+    final q = query.toLowerCase();
+    return item.sopNumber.toLowerCase().contains(q) ||
+        item.fixtureNumber.toLowerCase().contains(q) ||
+        _formatDateValue(item.dateChanged).toLowerCase().contains(q) ||
+        item.picked.toLowerCase().contains(q) ||
+        item.status.toLowerCase().contains(q);
+  }
+
+  void _applySearch({bool resetPage = true}) {
+    final q = _searchQuery.trim();
+    final filtered = q.isEmpty
+        ? List<ItemModel>.from(_allItems)
+        : _allItems.where((item) => _itemMatchesQuery(item, q)).toList();
+    setState(() {
+      items = filtered;
+      if (resetPage) _currentPage = 1;
+    });
+  }
+
+  void _runSearch() {
+    _searchQuery = _searchController.text.trim();
+    if (_allItems.isEmpty) {
+      fetchHistoryData();
+      return;
+    }
+    _applySearch();
+  }
+
   Future<void> fetchHistoryData() async {
     setState(() {
       isLoading = true;
@@ -166,14 +198,17 @@ class _PickedHistoryState extends State<PickedHistory> {
       final List<ItemModel> parsedItems = _parseItems(response.data);
 
       if (!mounted) return;
+      _searchQuery = _searchController.text.trim();
+      final q = _searchQuery.trim();
+      final filtered = q.isEmpty
+          ? List<ItemModel>.from(parsedItems)
+          : parsedItems.where((item) => _itemMatchesQuery(item, q)).toList();
       setState(() {
-        items = parsedItems;
+        _allItems = parsedItems;
+        items = filtered;
         _currentPage = 1;
         isLoading = false;
       });
-
-      // debugPrint("PICKED HISTORY STATUS: ${response.statusCode}");
-      // debugPrint("PICKED HISTORY ROW COUNT: ${parsedItems.length}");
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -288,6 +323,12 @@ class _PickedHistoryState extends State<PickedHistory> {
     fetchHistoryData();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Widget _bomHeaderCell(
     String label,
     double w, {
@@ -345,6 +386,63 @@ class _PickedHistoryState extends State<PickedHistory> {
     );
   }
 
+  Widget _highlightedCellText(String text, {required double fontSize}) {
+    final style = TextStyle(fontSize: fontSize, height: 1.15);
+    final q = _searchQuery.trim();
+    if (q.isEmpty) {
+      return Text(
+        text,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+    }
+
+    final lower = text.toLowerCase();
+    final needle = q.toLowerCase();
+    if (!lower.contains(needle)) {
+      return Text(
+        text,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+    }
+
+    final children = <InlineSpan>[];
+    var i = 0;
+    while (i < text.length) {
+      final j = lower.indexOf(needle, i);
+      if (j < 0) {
+        children.add(TextSpan(text: text.substring(i)));
+        break;
+      }
+      if (j > i) {
+        children.add(TextSpan(text: text.substring(i, j)));
+      }
+      final end = j + needle.length;
+      children.add(
+        TextSpan(
+          text: text.substring(j, end),
+          style: style.copyWith(
+            backgroundColor: const Color.fromARGB(255, 245, 197, 41),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+      i = end;
+    }
+
+    return Text.rich(
+      TextSpan(style: style, children: children),
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
   Widget _bomDataCell(
     String value,
     double w, {
@@ -363,13 +461,7 @@ class _PickedHistoryState extends State<PickedHistory> {
             bottom: BorderSide(color: borderColor),
           ),
         ),
-        child: Text(
-          value,
-          maxLines: 1,
-          softWrap: false,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: fontSize, height: 1.15),
-        ),
+        child: _highlightedCellText(value, fontSize: fontSize),
       ),
     );
   }
@@ -377,6 +469,87 @@ class _PickedHistoryState extends State<PickedHistory> {
   @override
   Widget build(BuildContext context) {
     final r = Responsive.of(context);
+    const fieldHeight = 48.0;
+    final sharedBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: const BorderSide(
+        color: Color.fromARGB(255, 229, 231, 235),
+        width: 2,
+      ),
+    );
+    final focusedBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: const BorderSide(color: Color(0xFF38485E), width: 2),
+    );
+    final searchField = SizedBox(
+      height: fieldHeight,
+      child: TextField(
+        controller: _searchController,
+        keyboardType: TextInputType.number,
+        style: const TextStyle(fontSize: 14),
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: Colors.white,
+          hintText: 'Search in table...',
+          hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 12,
+          ),
+          border: sharedBorder,
+          enabledBorder: sharedBorder,
+          focusedBorder: focusedBorder,
+          suffixIcon: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _searchController,
+            builder: (context, value, _) {
+              if (value.text.isEmpty) return const SizedBox.shrink();
+              return IconButton(
+                tooltip: 'Clear',
+                icon: Icon(Icons.close, size: 20, color: Colors.grey.shade700),
+                onPressed: () {
+                  _searchController.clear();
+                  _searchQuery = '';
+                  _applySearch();
+                },
+              );
+            },
+          ),
+        ),
+        onChanged: (value) {
+          if (value.trim().isEmpty) {
+            _searchQuery = '';
+            _applySearch();
+          }
+        },
+        onSubmitted: (_) => _runSearch(),
+      ),
+    );
+    final searchButton = SizedBox(
+      height: fieldHeight,
+      child: ElevatedButton.icon(
+        onPressed: _runSearch,
+        icon: const Icon(Icons.search, size: 20),
+        label: const Text('Search'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF1E88E5),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      ),
+    );
+    final searchRow = Row(
+      children: [
+        Expanded(child: searchField),
+        const SizedBox(width: 10),
+        searchButton,
+      ],
+    );
 
     return Scaffold(
       appBar: CommonAppBar(),
@@ -393,18 +566,48 @@ class _PickedHistoryState extends State<PickedHistory> {
                 r.pagePaddingH,
                 0,
               ),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "Picked History",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: r.pageTitleSize,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+              child: r.isPhone
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          "Picked History",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: r.pageTitleSize,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        searchRow,
+                      ],
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Picked History",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: r.pageTitleSize,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Flexible(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 460),
+                              child: searchRow,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
             ),
+
             SizedBox(height: r.sectionGap),
             if (isLoading)
               Expanded(
@@ -434,173 +637,172 @@ class _PickedHistoryState extends State<PickedHistory> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                        Expanded(
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              final available = constraints.maxWidth;
-                              final needsHScroll = available < _minTableWidth;
-                              final tableW =
-                                  needsHScroll ? _minTableWidth : available;
-                              final colW = _columnWidthsForAvailable(tableW);
-                              final density = _densityFor(
-                                MediaQuery.sizeOf(context),
-                              );
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final available = constraints.maxWidth;
+                            final needsHScroll = available < _minTableWidth;
+                            final tableW = needsHScroll
+                                ? _minTableWidth
+                                : available;
+                            final colW = _columnWidthsForAvailable(tableW);
+                            final density = _densityFor(
+                              MediaQuery.sizeOf(context),
+                            );
 
-                              final table = DecoratedBox(
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ),
-                                child: SizedBox(
-                                  width: tableW,
-                                  height: constraints.maxHeight,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          _bomHeaderCell(
-                                            "SOP Number",
-                                            colW[0],
-                                            fontSize: density.fontSize,
-                                            height: density.headerH,
-                                            hPad: density.hPad,
-                                            sortIndex: 0,
-                                          ),
-                                          _bomHeaderCell(
-                                            "Fixture Number",
-                                            colW[1],
-                                            fontSize: density.fontSize,
-                                            height: density.headerH,
-                                            hPad: density.hPad,
-                                            sortIndex: 1,
-                                          ),
-                                          _bomHeaderCell(
-                                            "Date Changed",
-                                            colW[2],
-                                            fontSize: density.fontSize,
-                                            height: density.headerH,
-                                            hPad: density.hPad,
-                                            sortIndex: 2,
-                                          ),
-                                          _bomHeaderCell(
-                                            "Picked",
-                                            colW[3],
-                                            fontSize: density.fontSize,
-                                            height: density.headerH,
-                                            hPad: density.hPad,
-                                            sortIndex: 3,
-                                          ),
-                                          _bomHeaderCell(
-                                            "Status",
-                                            colW[4],
-                                            fontSize: density.fontSize,
-                                            height: density.headerH,
-                                            hPad: density.hPad,
-                                            sortIndex: 4,
-                                          ),
-                                        ],
-                                      ),
-                                      Expanded(
-                                        child: ListView.builder(
-                                          itemCount: _visibleItems.length,
-                                          itemBuilder: (context, index) {
-                                            final item = _visibleItems[index];
-                                            return Row(
-                                              children: [
-                                                _bomDataCell(
-                                                  item.sopNumber,
-                                                  colW[0],
-                                                  fontSize: density.fontSize,
-                                                  vPad: density.vPad,
-                                                  hPad: density.hPad,
-                                                ),
-                                                _bomDataCell(
-                                                  item.fixtureNumber,
-                                                  colW[1],
-                                                  fontSize: density.fontSize,
-                                                  vPad: density.vPad,
-                                                  hPad: density.hPad,
-                                                ),
-                                                _bomDataCell(
-                                                  _formatDateValue(
-                                                    item.dateChanged,
-                                                  ),
-                                                  colW[2],
-                                                  fontSize: density.fontSize,
-                                                  vPad: density.vPad,
-                                                  hPad: density.hPad,
-                                                ),
-                                                _bomDataCell(
-                                                  item.picked,
-                                                  colW[3],
-                                                  fontSize: density.fontSize,
-                                                  vPad: density.vPad,
-                                                  hPad: density.hPad,
-                                                ),
-                                                _bomDataCell(
-                                                  item.status,
-                                                  colW[4],
-                                                  fontSize: density.fontSize,
-                                                  vPad: density.vPad,
-                                                  hPad: density.hPad,
-                                                ),
-                                              ],
-                                            );
-                                          },
+                            final table = DecoratedBox(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: SizedBox(
+                                width: tableW,
+                                height: constraints.maxHeight,
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        _bomHeaderCell(
+                                          "SOP Number",
+                                          colW[0],
+                                          fontSize: density.fontSize,
+                                          height: density.headerH,
+                                          hPad: density.hPad,
+                                          sortIndex: 0,
                                         ),
+                                        _bomHeaderCell(
+                                          "Fixture Number",
+                                          colW[1],
+                                          fontSize: density.fontSize,
+                                          height: density.headerH,
+                                          hPad: density.hPad,
+                                          sortIndex: 1,
+                                        ),
+                                        _bomHeaderCell(
+                                          "Date Changed",
+                                          colW[2],
+                                          fontSize: density.fontSize,
+                                          height: density.headerH,
+                                          hPad: density.hPad,
+                                          sortIndex: 2,
+                                        ),
+                                        _bomHeaderCell(
+                                          "Picked",
+                                          colW[3],
+                                          fontSize: density.fontSize,
+                                          height: density.headerH,
+                                          hPad: density.hPad,
+                                          sortIndex: 3,
+                                        ),
+                                        _bomHeaderCell(
+                                          "Status",
+                                          colW[4],
+                                          fontSize: density.fontSize,
+                                          height: density.headerH,
+                                          hPad: density.hPad,
+                                          sortIndex: 4,
+                                        ),
+                                      ],
+                                    ),
+                                    Expanded(
+                                      child: ListView.builder(
+                                        itemCount: _visibleItems.length,
+                                        itemBuilder: (context, index) {
+                                          final item = _visibleItems[index];
+                                          return Row(
+                                            children: [
+                                              _bomDataCell(
+                                                item.sopNumber,
+                                                colW[0],
+                                                fontSize: density.fontSize,
+                                                vPad: density.vPad,
+                                                hPad: density.hPad,
+                                              ),
+                                              _bomDataCell(
+                                                item.fixtureNumber,
+                                                colW[1],
+                                                fontSize: density.fontSize,
+                                                vPad: density.vPad,
+                                                hPad: density.hPad,
+                                              ),
+                                              _bomDataCell(
+                                                _formatDateValue(
+                                                  item.dateChanged,
+                                                ),
+                                                colW[2],
+                                                fontSize: density.fontSize,
+                                                vPad: density.vPad,
+                                                hPad: density.hPad,
+                                              ),
+                                              _bomDataCell(
+                                                item.picked,
+                                                colW[3],
+                                                fontSize: density.fontSize,
+                                                vPad: density.vPad,
+                                                hPad: density.hPad,
+                                              ),
+                                              _bomDataCell(
+                                                item.status,
+                                                colW[4],
+                                                fontSize: density.fontSize,
+                                                vPad: density.vPad,
+                                                hPad: density.hPad,
+                                              ),
+                                            ],
+                                          );
+                                        },
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
+                              ),
+                            );
+
+                            if (!needsHScroll) {
+                              return SizedBox(
+                                width: available,
+                                height: constraints.maxHeight,
+                                child: table,
                               );
+                            }
 
-                              if (!needsHScroll) {
-                                return SizedBox(
-                                  width: available,
-                                  height: constraints.maxHeight,
-                                  child: table,
-                                );
-                              }
-
-                              return Responsive.hideScrollbars(
-                                context,
-                                SingleChildScrollView(
+                            return Responsive.hideScrollbars(
+                              context,
+                              SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
                                 child: table,
-                                ),
-                              );
-                            },
-                          ),
+                              ),
+                            );
+                          },
                         ),
-                        if (items.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          PaginationBar(
-                            currentPage: _currentPage.clamp(1, _totalPages),
-                            totalPages: _totalPages,
-                            fromItem: items.isEmpty
-                                ? 0
-                                : ((_currentPage - 1) * _pageSize) + 1,
-                            toItem: items.isEmpty
-                                ? 0
-                                : (_currentPage * _pageSize).clamp(
-                                    0,
-                                    items.length,
-                                  ),
-                            totalItems: items.length,
-                            onPageChanged: (page) {
-                              setState(() {
-                                _currentPage = page;
-                              });
-                            },
-                          ),
-                        ],
+                      ),
+                      if (items.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        PaginationBar(
+                          currentPage: _currentPage.clamp(1, _totalPages),
+                          totalPages: _totalPages,
+                          fromItem: items.isEmpty
+                              ? 0
+                              : ((_currentPage - 1) * _pageSize) + 1,
+                          toItem: items.isEmpty
+                              ? 0
+                              : (_currentPage * _pageSize).clamp(
+                                  0,
+                                  items.length,
+                                ),
+                          totalItems: items.length,
+                          onPageChanged: (page) {
+                            setState(() {
+                              _currentPage = page;
+                            });
+                          },
+                        ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
+              ),
           ],
         ),
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:overview_app/Screen/Backorder/Backorders.dart';
 import 'package:overview_app/Screen/ExpediteReport/expediteReport.dart';
+import 'package:overview_app/Screen/Inventory-Search/InventorySearch.dart';
 import 'package:overview_app/Screen/InventoryPickedLog/InventoryPickedLog.dart';
 import 'package:overview_app/Screen/MPF/MPFRequest.dart';
 import 'package:overview_app/Screen/OpenItems/CriticalItems.dart';
@@ -359,7 +360,8 @@ class _CommonDrawerState extends State<CommonDrawer> {
     const activeColor = Color(0xFF3498DB);
     final displayName = _userName.isEmpty ? 'User' : _userName;
 
-    final openItemsActive = _isActivePage(context, SearchOpenItems) ||
+    final openItemsActive =
+        _isActivePage(context, SearchOpenItems) ||
         _isActivePage(context, CriticalItems) ||
         _isActivePage(context, OpenItems) ||
         _isActivePage(context, Backorders);
@@ -454,6 +456,11 @@ class _CommonDrawerState extends State<CommonDrawer> {
                     onTap: () => _go(context, Publicsearch()),
                   ),
                   _menuItem(
+                    title: 'Inventory Search',
+                    isActive: _isActivePage(context, InventorySearch),
+                    onTap: () => _go(context, InventorySearch()),
+                  ),
+                  _menuItem(
                     title: 'Picked History',
                     isActive: _isActivePage(context, PickedHistory),
                     onTap: () => _go(context, PickedHistory()),
@@ -468,14 +475,18 @@ class _CommonDrawerState extends State<CommonDrawer> {
                       dividerColor: Colors.transparent,
                       splashColor: Colors.white.withOpacity(0.12),
                       expansionTileTheme: ExpansionTileThemeData(
-                        iconColor:
-                            openItemsHighlighted ? activeColor : Colors.white,
-                        collapsedIconColor:
-                            openItemsHighlighted ? activeColor : Colors.white70,
-                        textColor:
-                            openItemsHighlighted ? activeColor : Colors.white,
-                        collapsedTextColor:
-                            openItemsHighlighted ? activeColor : Colors.white,
+                        iconColor: openItemsHighlighted
+                            ? activeColor
+                            : Colors.white,
+                        collapsedIconColor: openItemsHighlighted
+                            ? activeColor
+                            : Colors.white70,
+                        textColor: openItemsHighlighted
+                            ? activeColor
+                            : Colors.white,
+                        collapsedTextColor: openItemsHighlighted
+                            ? activeColor
+                            : Colors.white,
                       ),
                     ),
                     child: ExpansionTile(
@@ -485,10 +496,12 @@ class _CommonDrawerState extends State<CommonDrawer> {
                       },
                       tilePadding: const EdgeInsets.symmetric(horizontal: 12),
                       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                      iconColor:
-                          openItemsHighlighted ? activeColor : Colors.white,
-                      collapsedIconColor:
-                          openItemsHighlighted ? activeColor : Colors.white70,
+                      iconColor: openItemsHighlighted
+                          ? activeColor
+                          : Colors.white,
+                      collapsedIconColor: openItemsHighlighted
+                          ? activeColor
+                          : Colors.white70,
                       title: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(
@@ -530,15 +543,16 @@ class _CommonDrawerState extends State<CommonDrawer> {
                               _menuItem(
                                 title: 'Search',
                                 isSubItem: true,
-                                isActive:
-                                    _isActivePage(context, SearchOpenItems),
+                                isActive: _isActivePage(
+                                  context,
+                                  SearchOpenItems,
+                                ),
                                 onTap: () => _go(context, SearchOpenItems()),
                               ),
                               _menuItem(
                                 title: 'Critical Items',
                                 isSubItem: true,
-                                isActive:
-                                    _isActivePage(context, CriticalItems),
+                                isActive: _isActivePage(context, CriticalItems),
                                 onTap: () => _go(context, CriticalItems()),
                               ),
                               _menuItem(
