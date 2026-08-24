@@ -619,7 +619,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
               disabledBackgroundColor: const Color(0xFF1565C0),
               disabledForegroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(4),
               ),
               elevation: 8,
               shadowColor: Colors.black.withOpacity(0.35),
@@ -994,21 +994,6 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                 r.pagePaddingH,
                 0,
               ),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "Inventory Pick Log",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: r.pageTitleSize,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(height: r.sectionGap),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: r.pagePaddingH),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   const fieldHeight = 48.0;
@@ -1025,6 +1010,15 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                     borderSide: const BorderSide(
                       color: Color(0xFF38485E),
                       width: 2,
+                    ),
+                  );
+
+                  final title = Text(
+                    "Inventory Pick Log",
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: r.pageTitleSize,
+                      fontWeight: FontWeight.bold,
                     ),
                   );
 
@@ -1122,34 +1116,59 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                     ),
                   );
 
+                  final controls = isNarrow
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            dropdown,
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              height: fieldHeight,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(child: searchField),
+                                  const SizedBox(width: 8),
+                                  searchButton,
+                                ],
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            dropdown,
+                            const SizedBox(width: 12),
+                            searchField,
+                            const SizedBox(width: 12),
+                            searchButton,
+                          ],
+                        );
+
                   if (isNarrow) {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        dropdown,
+                        title,
                         const SizedBox(height: 10),
-                        SizedBox(
-                          height: fieldHeight,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(child: searchField),
-                              const SizedBox(width: 8),
-                              searchButton,
-                            ],
-                          ),
-                        ),
+                        controls,
                       ],
                     );
                   }
 
                   return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      dropdown,
-                      const SizedBox(width: 12),
-                      searchField,
-                      const SizedBox(width: 12),
-                      searchButton,
+                      title,
+                      const SizedBox(width: 16),
+                      Flexible(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: controls,
+                        ),
+                      ),
                     ],
                   );
                 },

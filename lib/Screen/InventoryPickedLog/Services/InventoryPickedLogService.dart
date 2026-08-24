@@ -68,4 +68,18 @@ class InventoryPickedLogService {
       throw Exception('Error in Reject Inventory Picked Log : $e');
     }
   }
+
+  Future<Response<dynamic>> AcceptInventoryPickList(
+    String id, {
+    required List<Map<String, dynamic>> sheetData,
+  }) async {
+    try {
+      return await Dioservices.dio.put(
+        '/sopSearch/acceptInventoryPickList/$id',
+        data: <String, dynamic>{'sheetData': sheetData},
+      );
+    } catch (e) {
+      throw Exception('Error in Accept Inventory Pick List : $e');
+    }
+  }
 }
