@@ -19,6 +19,7 @@ class ItemModel {
   final String RMA;
   final String MPFRequestedBy;
   final String createdAt;
+  final int status;
 
   ItemModel({
     required this.id,
@@ -31,6 +32,7 @@ class ItemModel {
     required this.RMA,
     required this.MPFRequestedBy,
     required this.createdAt,
+    this.status = 0,
   });
 }
 
@@ -52,7 +54,12 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
 
   String selectedPickList = 'Pending Pick List';
 
-  final List<String> itemList = ['Pending Pick List', 'Accepted', 'Rejected'];
+  final List<String> itemList = [
+    'All',
+    'Pending Pick List',
+    'Accepted',
+    'Rejected',
+  ];
 
   int _apiStatusForSelection(String selection) {
     switch (selection) {
@@ -61,6 +68,8 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
       case 'Rejected':
         return 2;
       case 'Pending Pick List':
+      case 'All':
+        return 3;
       default:
         return 0;
     }
@@ -72,6 +81,37 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
   }
 
   String _orDash(String value) => value.trim().isEmpty ? '-' : value;
+
+  int _statusFromApi(dynamic value) {
+    if (value is num) return value.toInt();
+    final text = value?.toString().trim().toLowerCase() ?? '';
+    if (text == 'accepted' || text == '1') return 1;
+    if (text == 'rejected' || text == '2') return 2;
+    if (text == 'pending' || text == '0') return 0;
+    return int.tryParse(text) ?? 0;
+  }
+
+  String _statusLabel(int status) {
+    switch (status) {
+      case 1:
+        return 'Accepted';
+      case 2:
+        return 'Rejected';
+      default:
+        return 'Pending';
+    }
+  }
+
+  Color _statusColor(int status) {
+    switch (status) {
+      case 1:
+        return const Color(0xFF15803D);
+      case 2:
+        return const Color(0xFFDC2626);
+      default:
+        return const Color(0xFFEA580C);
+    }
+  }
 
   String _formatDateValue(String value) {
     final raw = value.trim();
@@ -165,6 +205,12 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           }
         }
 
+        var status = _statusFromApi(
+          item['status'] ?? item['Status'] ?? detail['status'],
+        );
+        if (status == 0 && selectedPickList == 'Accepted') status = 1;
+        if (status == 0 && selectedPickList == 'Rejected') status = 2;
+
         return ItemModel(
           // Accept/reject routes need the list row primary key, not the display pick list #.
           id: pick(const ['id']).trim(),
@@ -177,6 +223,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           RMA: rma,
           MPFRequestedBy: pick(const ['MPFRequestedBy']),
           createdAt: pick(const ['createdAt']),
+          status: status,
         );
       }).toList();
 
@@ -283,13 +330,16 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
     required double rowH,
     required double vPad,
     required double hPad,
+    Color? textColor,
+    FontWeight? fontWeight,
+    Alignment alignment = Alignment.centerLeft,
   }) {
     final borderColor = Colors.grey.shade300;
     return SizedBox(
       width: w,
       child: Container(
         height: rowH,
-        alignment: Alignment.centerLeft,
+        alignment: alignment,
         padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
         decoration: BoxDecoration(
           border: Border(
@@ -302,7 +352,12 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           maxLines: 1,
           softWrap: false,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: fontSize, height: 1.15),
+          style: TextStyle(
+            fontSize: fontSize,
+            height: 1.15,
+            color: textColor,
+            fontWeight: fontWeight,
+          ),
         ),
       ),
     );
@@ -319,6 +374,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
     80, // RMA
     160, // MPF Requested By
     170, // Created At
+    100, // Status
     90, // Actions
   ];
 
@@ -496,6 +552,13 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           height: headerH,
           hPad: hPad,
         ),
+        _bomHeaderCell(
+          "Status",
+          colW[9],
+          fontSize: fontSize,
+          height: headerH,
+          hPad: hPad,
+        ),
       ],
     );
   }
@@ -558,6 +621,17 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           vPad: vPad,
           hPad: hPad,
         ),
+        _bomDataCell(
+          _statusLabel(item.status),
+          colW[9],
+          fontSize: fontSize,
+          rowH: rowH,
+          vPad: vPad,
+          hPad: hPad,
+          textColor: _statusColor(item.status),
+          fontWeight: FontWeight.w700,
+          alignment: Alignment.center,
+        ),
       ],
     );
   }
@@ -605,11 +679,15 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
             ),
           ),
           child: ElevatedButton.icon(
-            onPressed: () {
-              debugPrint('View clicked - passed pickedLogId: ${item.id}');
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => ViewPickedLog(id: item.id)),
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      ViewPickedLog(id: item.id, status: item.status),
+                ),
               );
+              if (!mounted) return;
+              fetchInvetoryPickedData();
             },
             icon: const Icon(Icons.remove_red_eye_outlined, size: 16),
             label: const Text("View"),
@@ -694,7 +772,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
         ),
         _bomHeaderCell(
           "Actions",
-          colW[9],
+          colW[10],
           fontSize: fontSize,
           height: headerH,
           hPad: hPad,
@@ -745,7 +823,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           vPad: vPad,
           hPad: hPad,
         ),
-        _buildActionsDataCell(item, colW[9], rowH: rowH),
+        _buildActionsDataCell(item, colW[10], rowH: rowH),
       ],
     );
   }
@@ -811,8 +889,8 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
     required double hPad,
   }) {
     final leftW = colW[0] + colW[1] + colW[2];
-    final middleW = colW.skip(3).take(6).fold<double>(0, (sum, w) => sum + w);
-    final actionW = colW[9];
+    final middleW = colW.skip(3).take(7).fold<double>(0, (sum, w) => sum + w);
+    final actionW = colW[10];
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -847,7 +925,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                     : constraints.maxWidth;
                 // If middle needs to stretch further within Expanded, rescale
                 // middle columns only to fill the expanded area.
-                final midCols = colW.skip(3).take(6).toList();
+                final midCols = colW.skip(3).take(7).toList();
                 final midSum = midCols.fold<double>(0, (a, b) => a + b);
                 final effectiveMid = scrollW >= midSum
                     ? () {
@@ -863,7 +941,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                   colW[1],
                   colW[2],
                   ...effectiveMid,
-                  colW[9],
+                  colW[10],
                 ];
                 final tableMidW = effectiveMid.fold<double>(0, (a, b) => a + b);
 
@@ -927,8 +1005,8 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
     required double hPad,
   }) {
     final leftW = colW[0] + colW[1] + colW[2];
-    final middleW = colW.skip(3).take(6).fold<double>(0, (sum, w) => sum + w);
-    final actionW = colW[9];
+    final middleW = colW.skip(3).take(7).fold<double>(0, (sum, w) => sum + w);
+    final actionW = colW[10];
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -1149,11 +1227,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                   if (isNarrow) {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        title,
-                        const SizedBox(height: 10),
-                        controls,
-                      ],
+                      children: [title, const SizedBox(height: 10), controls],
                     );
                   }
 
@@ -1194,7 +1268,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                           constraints.maxWidth,
                         );
                         final leftW = colW[0] + colW[1] + colW[2];
-                        final actionW = colW[9];
+                        final actionW = colW[10];
                         final isPhone = MediaQuery.sizeOf(context).width < 700;
                         final tooNarrow =
                             isPhone ||

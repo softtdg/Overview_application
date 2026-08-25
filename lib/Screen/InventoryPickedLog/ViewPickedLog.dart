@@ -6,6 +6,7 @@ import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 String _formatDisplayDate(String raw) {
   final value = raw.trim();
@@ -71,6 +72,7 @@ class ViewPickLogModel {
   /// Individual location options when more than one exists.
   final List<String> locationChoices;
   final String leadHandComments;
+  String inventoryComments;
 
   ViewPickLogModel({
     required this.TDGPN,
@@ -86,6 +88,7 @@ class ViewPickLogModel {
     required this.location,
     required this.locationChoices,
     required this.leadHandComments,
+    this.inventoryComments = '',
   });
 
   bool get hasMultipleLocations => locationChoices.length > 1;
@@ -93,8 +96,9 @@ class ViewPickLogModel {
 
 class ViewPickedLog extends StatefulWidget {
   final String id;
+  final int status;
 
-  const ViewPickedLog({super.key, required this.id});
+  const ViewPickedLog({super.key, required this.id, this.status = 0});
 
   @override
   State<ViewPickedLog> createState() => ViewPickedLogState();
@@ -125,9 +129,15 @@ class ViewPickedLogState extends State<ViewPickedLog> {
   /// 0 = default styling; 1 = highlight info grid with mint green.
   int mpfStatus = 0;
 
+  /// 0 = pending, 1 = accepted, 2 = rejected.
+  int pickListStatus = 0;
+
+  bool get _isReadOnly => pickListStatus == 1 || pickListStatus == 2;
+
   @override
   void initState() {
     super.initState();
+    pickListStatus = widget.status;
     fetchData();
   }
 
@@ -279,11 +289,13 @@ class ViewPickedLogState extends State<ViewPickedLog> {
           actualQtyPicked: actual.isNotEmpty
               ? actual
               : rowPick(const ['ActualQtyToBePicked', 'TotalQtyNeeded']),
+          backorderQty: rowPick(const ['forBackorder', 'ForBackorder']),
           location: locationChoices.length > 1
               ? locationChoices.join(', ')
               : _formatLocationDisplay(locationRaw),
           locationChoices: locationChoices,
           leadHandComments: rowPick(const ['LeadHandComments']),
+          inventoryComments: rowPick(const ['InventoryComments']),
         );
       }).toList();
 
@@ -309,6 +321,17 @@ class ViewPickedLogState extends State<ViewPickedLog> {
         rma = pickFrom(const ['RMA']);
         leadHandSignOff = mpfRequestedBy;
         mpfStatus = parsedMpfStatus;
+        final rawPickStatus = root['status'] ?? detailMap['status'];
+        pickListStatus = rawPickStatus is num
+            ? rawPickStatus.toInt()
+            : () {
+                final text =
+                    rawPickStatus?.toString().trim().toLowerCase() ?? '';
+                if (text == 'accepted' || text == '1') return 1;
+                if (text == 'rejected' || text == '2') return 2;
+                if (text == 'pending' || text == '0') return 0;
+                return int.tryParse(text) ?? widget.status;
+              }();
         data = parsedRows;
         isLoading = false;
       });
@@ -362,117 +385,121 @@ class ViewPickedLogState extends State<ViewPickedLog> {
   //   }
   // }
 
-  Future<void> _handleAcceptInventoryPickList() async {
-    if (isActionLoading || isLoading) return;
-
-    if (_sheetDataForSubmit.isEmpty) {
-      if (!mounted) return;
-      AppToast.error(
-        context,
-        'Pick list is still loading or has no line items. Wait and try again.',
-      );
-      return;
-    }
-
-    // Validate location for every dropdown/line item
-    for (int i = 0; i < _sheetDataForSubmit.length; i++) {
-      final row = _sheetDataForSubmit[i];
-
-      final location = row['location'];
-
-      if (location == null || location.toString().trim().isEmpty) {
-        if (!mounted) return;
-
-        AppToast.error(
-          context,
-          'Please select a location for every item before accepting.',
-        );
-
-        return;
-      }
-    }
-
-    setState(() {
-      isActionLoading = true;
-    });
-
-    try {
-      await Dioservices.setToken();
-
-      final response = await _service.AcceptInventoryPickList(
-        widget.id,
-        sheetData: _sheetDataForSubmit,
-      );
-
-      final message = response.data is Map && response.data['message'] != null
-          ? response.data['message'].toString()
-          : 'Inventory accepted successfully';
-
-      if (!mounted) return;
-
-      AppToast.success(context, message);
-
-      await fetchData();
-    } catch (e) {
-      debugPrint('AcceptInventoryPickList error: $e');
-
-      if (!mounted) return;
-
-      AppToast.error(
-        context,
-        AppToast.friendlyMessage(e, fallback: 'Action failed'),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          isActionLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _handlePicked() async {
-    if (isActionLoading || isLoading) return;
-    if (_sheetDataForSubmit.isEmpty) {
-      if (!mounted) return;
-      AppToast.error(
-        context,
-        'Pick list is still loading or has no line items. Wait and try again.',
-      );
-      return;
-    }
-    final missingLocationIndex = data.indexWhere(
+  bool _validateAllLocationsSelected() {
+    final missing = data.any(
       (row) => row.hasMultipleLocations && !row.locationWasSelected,
     );
-    if (missingLocationIndex != -1) {
-      setState(() {
-        _showLocationValidation = true;
-      });
+    if (!missing) return true;
+    setState(() {
+      _showLocationValidation = true;
+    });
+    if (mounted) {
+      AppToast.error(
+        context,
+        'Please select a location for rows with multiple location values',
+      );
+    }
+    return false;
+  }
+
+  Future<void> _handleAcceptInventoryPickList() async {
+    if (_isReadOnly || isActionLoading || isLoading) return;
+
+    if (_sheetDataForSubmit.isEmpty) {
       if (!mounted) return;
       AppToast.error(
         context,
-        'Please select a location for every location dropdown before picking.',
+        'Pick list is still loading or has no line items. Wait and try again.',
       );
       return;
     }
+
+    if (!_validateAllLocationsSelected()) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: const Text(
+          'Are you sure?',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+        ),
+        content: const Text(
+          'One or more selected locations have a quantity of 0 or less. Do you still want to mark this pick list as picked?',
+          style: TextStyle(color: Color(0xFF374151), fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF1976D2)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2E7D32),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+            child: const Text('Yes, Picked'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    for (var i = 0; i < _sheetDataForSubmit.length && i < data.length; i++) {
+      final row = data[i];
+      final loc = row.location;
+      _sheetDataForSubmit[i]['Location'] = loc;
+      _sheetDataForSubmit[i]['selectedLocation'] = loc;
+      _sheetDataForSubmit[i]['ActualQtyPicked'] = row.actualQtyPicked;
+      _sheetDataForSubmit[i]['InventoryComments'] = row.inventoryComments;
+      if (row.backorderQty.isNotEmpty) {
+        _sheetDataForSubmit[i]['forBackorder'] =
+            num.tryParse(row.backorderQty.replaceAll(',', '')) ??
+            row.backorderQty;
+      }
+    }
+
     setState(() {
       isActionLoading = true;
     });
+
     try {
       await Dioservices.setToken();
+      final picker =
+          (await SharedPreferences.getInstance()).getString('UserName') ?? '';
+
       final response = await _service.AcceptInventory(
         widget.id,
         sheetData: _sheetDataForSubmit,
+        picker: picker,
+        mpfStatus: mpfStatus,
+        pickLocation: leadHandSignOff.toLowerCase() == 'usa production'
+            ? 'USA'
+            : 'CAN',
       );
+
       final message = response.data is Map && response.data['message'] != null
           ? response.data['message'].toString()
           : 'Inventory accepted successfully';
+
       if (!mounted) return;
+
       AppToast.success(context, message);
+
       await fetchData();
     } catch (e) {
       debugPrint('AcceptInventory error: $e');
+
       if (!mounted) return;
+
       AppToast.error(
         context,
         AppToast.friendlyMessage(e, fallback: 'Action failed'),
@@ -487,7 +514,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
   }
 
   Future<void> _handleVoid() async {
-    if (isActionLoading || isLoading) return;
+    if (_isReadOnly || isActionLoading || isLoading) return;
     if (_sheetDataForSubmit.isEmpty) {
       if (!mounted) return;
       AppToast.error(
@@ -566,53 +593,55 @@ class ViewPickedLogState extends State<ViewPickedLog> {
                               ),
                             ),
                             const Spacer(),
-                            ElevatedButton(
-                              onPressed: _handleVoid,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color.fromARGB(
-                                  255,
-                                  202,
-                                  25,
-                                  25,
+                            if (!_isReadOnly) ...[
+                              ElevatedButton(
+                                onPressed: _handleVoid,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color.fromARGB(
+                                    255,
+                                    202,
+                                    25,
+                                    25,
+                                  ),
+                                  foregroundColor: Colors.white,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isMobile ? 14 : 22,
+                                    vertical: isMobile ? 10 : 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
                                 ),
-                                foregroundColor: Colors.white,
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: isMobile ? 14 : 22,
-                                  vertical: isMobile ? 10 : 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              ),
-                              child: const Text(
-                                'Void',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            ElevatedButton(
-                              onPressed: _handleAcceptInventoryPickList,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color.fromARGB(
-                                  255,
-                                  10,
-                                  136,
-                                  41,
-                                ),
-                                foregroundColor: Colors.white,
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: isMobile ? 14 : 22,
-                                  vertical: isMobile ? 10 : 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4),
+                                child: const Text(
+                                  'Void',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
                               ),
-                              child: const Text(
-                                'Picked',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                              const SizedBox(width: 12),
+                              ElevatedButton(
+                                onPressed: _handleAcceptInventoryPickList,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color.fromARGB(
+                                    255,
+                                    10,
+                                    136,
+                                    41,
+                                  ),
+                                  foregroundColor: Colors.white,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isMobile ? 14 : 22,
+                                    vertical: isMobile ? 10 : 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Picked',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                         const SizedBox(height: 18),
@@ -653,11 +682,9 @@ class ViewPickedLogState extends State<ViewPickedLog> {
     final bodyValueBg = isMpf ? Colors.white : defaultValueBg;
 
     final printedOnLabel = isMpf
-        ? 'MPF DATE\nREQUESTED ON'
-        : 'PICK LIST\nPRINTED ON';
-    final requestedByLabel = isMpf
-        ? 'MPF\nREQUESTED BY'
-        : 'LEAD HAND\nSIGN OFF';
+        ? 'MPF DATE REQUESTED ON'
+        : 'PICK LIST PRINTED ON';
+    final requestedByLabel = isMpf ? 'MPF REQUESTED BY' : 'LEAD HAND SIGN OFF';
 
     Widget vLine() => Container(width: 1, color: borderColor);
     Widget hLine() =>
@@ -688,7 +715,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
             Expanded(
               flex: leftLabelFlex,
               child: _tableCell(
-                'REFERENCE\nSOP #',
+                'REFERENCE SOP #',
                 height: rowHeight,
                 bgColor: row1Bg,
                 fontSize: labelFontSize,
@@ -700,7 +727,8 @@ class ViewPickedLogState extends State<ViewPickedLog> {
               child: _tableCell(
                 referenceSop,
                 height: rowHeight,
-                bgColor: row1ValueBg,
+                // bgColor: row1ValueBg,
+                bgColor: col1Bg,
                 fontSize: valueFontSize,
                 isBold: true,
                 alignCenter: true,
@@ -709,7 +737,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
             Expanded(
               flex: 15,
               child: _tableCell(
-                'PICK\nLIST #$pickListNo',
+                'PICK LIST #$pickListNo',
                 height: rowHeight,
                 bgColor: row1Bg,
                 fontSize: isMobile ? labelFontSize : 11,
@@ -723,7 +751,8 @@ class ViewPickedLogState extends State<ViewPickedLog> {
               child: _tableCell(
                 printedOnLabel,
                 height: rowHeight,
-                bgColor: row1Bg,
+                // bgColor: row1Bg,
+                bgColor: col1Bg,
                 fontSize: labelFontSize,
                 isLabel: true,
               ),
@@ -733,7 +762,8 @@ class ViewPickedLogState extends State<ViewPickedLog> {
               child: _tableCell(
                 today,
                 height: rowHeight,
-                bgColor: row1ValueBg,
+                // bgColor: row1ValueBg,
+                bgColor: col1Bg,
                 fontSize: valueFontSize,
                 isBold: true,
                 alignCenter: true,
@@ -775,7 +805,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
             Expanded(
               flex: 23,
               child: _tableCell(
-                'PICK LIST LOG\nNUMBER',
+                'PICK LIST LOG NUMBER',
                 height: rowHeight,
                 bgColor: col1Bg,
                 fontSize: labelFontSize,
@@ -787,7 +817,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
               child: _tableCell(
                 pickListLogNumber,
                 height: rowHeight,
-                bgColor: isMpf ? mpfHighlightBg : bodyValueBg,
+                bgColor: isMpf ? mpfHighlightBg : col1Bg,
                 fontSize: valueFontSize,
                 alignCenter: true,
               ),
@@ -920,7 +950,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
     const headerHeight = 56.0;
     const dataRowHeight = 72.0;
     const headerBg = Color(0xFF334155);
-    const borderColor = Color(0xFFD1D5DB);
+    const borderColor = Color(0xFF9CA3AF);
     final isTablet = MediaQuery.sizeOf(context).shortestSide >= 600;
     final headerTextStyle = TextStyle(
       color: Colors.white,
@@ -933,6 +963,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
       fontSize: isTablet ? 14 : 11,
     );
 
+    final showCommentsCol = mpfStatus == 1;
     final headers = [
       'TDGPN',
       'Description',
@@ -945,12 +976,14 @@ class ViewPickedLogState extends State<ViewPickedLog> {
       'For Backorder',
       'Location (Qty)',
       'LeadHandComments',
+      if (showCommentsCol) 'Comments',
     ];
     // Column index 7 = Actual Qty (editable), 8 = For Backorder (blank),
     // 9 = Location (Qty) — dropdown when multiple locations.
     const actualQtyCol = 7;
     const forBackorderCol = 8;
     const locationCol = 9;
+    final commentsCol = showCommentsCol ? headers.length - 1 : -1;
 
     double? parseQuantity(String value) {
       return double.tryParse(value.trim().replaceAll(',', ''));
@@ -970,10 +1003,22 @@ class ViewPickedLogState extends State<ViewPickedLog> {
       return remainder > 0 && remainder < total ? remainder : null;
     }
 
+    final emptyRow = [
+      '-',
+      '-',
+      '-',
+      '-',
+      '-',
+      '-',
+      '-',
+      '-',
+      '',
+      '-',
+      '-',
+      if (showCommentsCol) '-',
+    ];
     final rows = data.isEmpty
-        ? const <List<String>>[
-            ['-', '-', '-', '-', '-', '-', '-', '-', '', '-', '-'],
-          ]
+        ? <List<String>>[emptyRow]
         : data
               .map(
                 (row) => [
@@ -988,6 +1033,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
                   row.backorderQty,
                   row.location,
                   row.leadHandComments,
+                  if (showCommentsCol) row.inventoryComments,
                 ],
               )
               .toList();
@@ -996,6 +1042,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
       if (index == 1) return 300;
       if (index == forBackorderCol) return 120;
       if (index == locationCol) return 200;
+      if (index == commentsCol) return 180;
       return 108;
     }
 
@@ -1008,6 +1055,17 @@ class ViewPickedLogState extends State<ViewPickedLog> {
     // Include 2px for the container's top+bottom border so inner Column never overflows.
     final tableHeight = (scrollRows ? maxHeight : contentHeight) + 2;
 
+    final duplicateTdgpn = <String>{};
+    final tdgpnCounts = <String, int>{};
+    for (final row in data) {
+      final key = row.TDGPN.trim();
+      if (key.isEmpty || key == '-') continue;
+      tdgpnCounts[key] = (tdgpnCounts[key] ?? 0) + 1;
+    }
+    for (final entry in tdgpnCounts.entries) {
+      if (entry.value > 1) duplicateTdgpn.add(entry.key);
+    }
+
     Widget buildTableRow(
       List<String> cells, {
       required bool isHeader,
@@ -1015,11 +1073,20 @@ class ViewPickedLogState extends State<ViewPickedLog> {
     }) {
       final textStyle = isHeader ? headerTextStyle : bodyTextStyle;
       final rowHeight = isHeader ? headerHeight : dataRowHeight;
+      final isDuplicateTdgpn =
+          !isHeader &&
+          rowIndex != null &&
+          rowIndex < data.length &&
+          duplicateTdgpn.contains(data[rowIndex].TDGPN.trim());
 
       return Container(
         height: rowHeight,
         width: tableWidth,
-        color: isHeader ? headerBg : Colors.white,
+        color: isHeader
+            ? headerBg
+            : isDuplicateTdgpn
+            ? const Color(0xFFDBEAFE)
+            : Colors.white,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: List.generate(cells.length, (index) {
@@ -1028,6 +1095,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
 
             Widget child;
             if (!isHeader &&
+                !_isReadOnly &&
                 index == actualQtyCol &&
                 rowIndex != null &&
                 rowIndex < data.length) {
@@ -1045,6 +1113,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
                 },
               );
             } else if (!isHeader &&
+                !_isReadOnly &&
                 index == forBackorderCol &&
                 rowIndex != null &&
                 rowIndex < data.length) {
@@ -1058,7 +1127,8 @@ class ViewPickedLogState extends State<ViewPickedLog> {
                   onChanged: (value) {
                     row.backorderQty = value;
                     if (rowIndex < _sheetDataForSubmit.length) {
-                      _sheetDataForSubmit[rowIndex]['ForBackorder'] = value;
+                      _sheetDataForSubmit[rowIndex]['forBackorder'] =
+                          num.tryParse(value.replaceAll(',', '')) ?? value;
                     }
                   },
                 );
@@ -1069,7 +1139,8 @@ class ViewPickedLogState extends State<ViewPickedLog> {
                     setState(() {
                       row.backorderQty = value;
                       if (rowIndex < _sheetDataForSubmit.length) {
-                        _sheetDataForSubmit[rowIndex]['ForBackorder'] = value;
+                        _sheetDataForSubmit[rowIndex]['forBackorder'] =
+                            num.tryParse(value.replaceAll(',', '')) ?? value;
                       }
                     });
                   },
@@ -1092,6 +1163,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
                 child = const SizedBox.shrink();
               }
             } else if (!isHeader &&
+                !_isReadOnly &&
                 index == locationCol &&
                 rowIndex != null &&
                 rowIndex < data.length &&
@@ -1110,10 +1182,40 @@ class ViewPickedLogState extends State<ViewPickedLog> {
                     data[rowIndex].locationWasSelected = true;
                     if (rowIndex < _sheetDataForSubmit.length) {
                       _sheetDataForSubmit[rowIndex]['Location'] = value;
+                      _sheetDataForSubmit[rowIndex]['selectedLocation'] = value;
                     }
                   });
                 },
               );
+            } else if (!isHeader &&
+                index == commentsCol &&
+                rowIndex != null &&
+                rowIndex < data.length) {
+              if (!_isReadOnly) {
+                child = _ActualQtyField(
+                  key: ValueKey(
+                    'inv-comments-$rowIndex-${data[rowIndex].TDGPN}',
+                  ),
+                  initialValue: data[rowIndex].inventoryComments,
+                  textStyle: bodyTextStyle,
+                  keyboardType: TextInputType.text,
+                  textAlign: TextAlign.start,
+                  onChanged: (value) {
+                    data[rowIndex].inventoryComments = value;
+                    if (rowIndex < _sheetDataForSubmit.length) {
+                      _sheetDataForSubmit[rowIndex]['InventoryComments'] =
+                          value;
+                    }
+                  },
+                );
+              } else {
+                child = Text(
+                  cells[index],
+                  style: textStyle,
+                  textAlign: TextAlign.start,
+                  softWrap: true,
+                );
+              }
             } else if (!isHeader && index == 1) {
               child = _buildDescriptionCell(cells[index], textStyle);
             } else {
@@ -1137,6 +1239,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
                         rowIndex != null &&
                         rowIndex < data.length &&
                         _showLocationValidation &&
+                        !_isReadOnly &&
                         data[rowIndex].hasMultipleLocations &&
                         !data[rowIndex].locationWasSelected
                     ? const Color(0xFFFEE2E2)
@@ -1246,11 +1349,15 @@ class _ActualQtyField extends StatefulWidget {
     required this.initialValue,
     required this.textStyle,
     required this.onChanged,
+    this.keyboardType = TextInputType.number,
+    this.textAlign = TextAlign.center,
   });
 
   final String initialValue;
   final TextStyle textStyle;
   final ValueChanged<String> onChanged;
+  final TextInputType keyboardType;
+  final TextAlign textAlign;
 
   @override
   State<_ActualQtyField> createState() => _ActualQtyFieldState();
@@ -1284,8 +1391,8 @@ class _ActualQtyFieldState extends State<_ActualQtyField> {
   Widget build(BuildContext context) {
     return TextField(
       controller: _controller,
-      keyboardType: TextInputType.number,
-      textAlign: TextAlign.center,
+      keyboardType: widget.keyboardType,
+      textAlign: widget.textAlign,
       style: widget.textStyle,
       decoration: InputDecoration(
         isDense: true,
@@ -1328,7 +1435,6 @@ class _LocationSelectField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The combined value is the default selection; individual locations remain available.
     final allOption = choices.join(', ');
     final items = <String>[allOption, ...choices];
     final selected = items.contains(value) && value.trim().isNotEmpty
@@ -1338,49 +1444,62 @@ class _LocationSelectField extends StatelessWidget {
         ? const Color(0xFFDC2626)
         : Colors.grey.shade400;
 
-    return DropdownButtonFormField<String>(
-      initialValue: selected,
-      isExpanded: true,
-      style: textStyle,
-      icon: Icon(
-        Icons.arrow_drop_down,
-        size: 20,
-        color: isSelectionMissing ? const Color(0xFFB91C1C) : null,
-      ),
-      decoration: InputDecoration(
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(2),
-          borderSide: BorderSide(color: borderColor),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(2),
-          borderSide: BorderSide(color: borderColor),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(2),
-          borderSide: BorderSide(color: borderColor, width: 1.5),
+    return Theme(
+      data: Theme.of(context).copyWith(
+        canvasColor: Colors.white,
+        colorScheme: Theme.of(context).colorScheme.copyWith(
+          surface: Colors.white,
+          surfaceTint: Colors.transparent,
         ),
       ),
-      items: items
-          .map(
-            (opt) => DropdownMenuItem<String>(
-              value: opt,
-              child: Text(
-                opt,
-                style: textStyle,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
+      child: DropdownButtonFormField<String>(
+        initialValue: selected,
+        isExpanded: true,
+        style: textStyle.copyWith(color: const Color(0xFF111827)),
+        dropdownColor: Colors.white,
+        icon: Icon(
+          Icons.arrow_drop_down,
+          size: 20,
+          color: isSelectionMissing ? const Color(0xFFB91C1C) : null,
+        ),
+        decoration: InputDecoration(
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 6,
+            vertical: 4,
+          ),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(2),
+            borderSide: BorderSide(color: borderColor),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(2),
+            borderSide: BorderSide(color: borderColor),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(2),
+            borderSide: BorderSide(color: borderColor, width: 1.5),
+          ),
+        ),
+        items: items
+            .map(
+              (opt) => DropdownMenuItem<String>(
+                value: opt,
+                child: Text(
+                  opt,
+                  style: textStyle.copyWith(color: const Color(0xFF111827)),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
               ),
-            ),
-          )
-          .toList(),
-      onChanged: (v) {
-        if (v != null) onChanged(v);
-      },
+            )
+            .toList(),
+        onChanged: (v) {
+          if (v != null) onChanged(v);
+        },
+      ),
     );
   }
 }

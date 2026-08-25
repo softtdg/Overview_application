@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:overview_app/Services/DioServices.dart';
 
@@ -40,11 +42,19 @@ class InventoryPickedLogService {
   Future<Response<dynamic>> AcceptInventory(
     String id, {
     required List<Map<String, dynamic>> sheetData,
+    String? picker,
+    int? mpfStatus,
+    String? pickLocation,
   }) async {
     try {
       return await Dioservices.dio.put(
         '/sopSearch/acceptInventoryPickList/$id',
-        data: <String, dynamic>{'sheetData': sheetData},
+        data: _acceptInventoryPayload(
+          sheetData: sheetData,
+          picker: picker,
+          mpfStatus: mpfStatus,
+          pickLocation: pickLocation,
+        ),
       );
     } on DioException {
       rethrow;
@@ -69,17 +79,24 @@ class InventoryPickedLogService {
     }
   }
 
-  Future<Response<dynamic>> AcceptInventoryPickList(
-    String id, {
+  Map<String, dynamic> _acceptInventoryPayload({
     required List<Map<String, dynamic>> sheetData,
-  }) async {
-    try {
-      return await Dioservices.dio.put(
-        '/sopSearch/acceptInventoryPickList/$id',
-        data: <String, dynamic>{'sheetData': sheetData},
-      );
-    } catch (e) {
-      throw Exception('Error in Accept Inventory Pick List : $e');
-    }
+    String? picker,
+    int? mpfStatus,
+    String? pickLocation,
+  }) {
+    final payload = <String, dynamic>{
+      'sheetData': sheetData,
+      if (picker != null && picker.trim().isNotEmpty) 'picker': picker.trim(),
+      if (mpfStatus != null) 'mpfStatus': mpfStatus,
+      if (pickLocation != null && pickLocation.trim().isNotEmpty)
+        'pickLocation': pickLocation.trim(),
+    };
+
+    print('========== ACCEPT INVENTORY PAYLOAD ==========');
+    print(jsonEncode(payload));
+    print('==============================================');
+
+    return payload;
   }
 }
