@@ -67,9 +67,9 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
         return 1;
       case 'Rejected':
         return 2;
-      case 'Pending Pick List':
       case 'All':
         return 3;
+      case 'Pending Pick List':
       default:
         return 0;
     }
@@ -172,7 +172,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
         }
       }
 
-      final loadedItems = rows.map<ItemModel>((raw) {
+      var loadedItems = rows.map<ItemModel>((raw) {
         final item = raw is Map
             ? Map<String, dynamic>.from(
                 raw.map((k, v) => MapEntry(k.toString(), v)),
@@ -226,6 +226,15 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           status: status,
         );
       }).toList();
+
+      // status=0 (pending) is often treated as "no filter" by the API, so it
+      // returns every pick list. Keep only rows that match the dropdown.
+      final filterStatus = _apiStatusForSelection(selectedPickList);
+      if (selectedPickList != 'All') {
+        loadedItems = loadedItems
+            .where((item) => item.status == filterStatus)
+            .toList();
+      }
 
       if (!mounted) return;
 

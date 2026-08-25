@@ -13,7 +13,8 @@ class InventoryPickedLogService {
     String? pickListNumber,
   }) async {
     try {
-      final queryParameters = <String, dynamic>{'status': status};
+      // Send as string so status 0 (pending) is not dropped as empty/falsy.
+      final queryParameters = <String, dynamic>{'status': status.toString()};
       if (pickListNumber != null && pickListNumber.trim().isNotEmpty) {
         queryParameters['pickListNumber'] = pickListNumber.trim();
       }
