@@ -13,6 +13,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController unameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   bool _isLoggingIn = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -178,7 +179,10 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Colors.grey, width: 1),
+                              borderSide: const BorderSide(
+                                color: Colors.grey,
+                                width: 1,
+                              ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -193,31 +197,52 @@ class _LoginPageState extends State<LoginPage> {
                         const SizedBox(height: 16),
                         TextField(
                           controller: passwordController,
-                          obscureText: true,
+                          obscureText: _obscurePassword,
                           enableSuggestions: false,
                           autocorrect: false,
-                          // Disable Android Autofill/Password Manager.
-                          // It can pause/minimize the activity while typing.
                           autofillHints: const [],
                           keyboardType: TextInputType.visiblePassword,
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: Colors.white,
+
                             prefixIcon: const Icon(Icons.lock),
+
                             labelText: 'Password',
                             labelStyle: const TextStyle(
                               color: Color.fromARGB(255, 57, 73, 95),
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
                             ),
+
+                            // Show / Hide password button
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: Colors.grey,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
+
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide.none,
                             ),
+
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Colors.grey, width: 1),
+                              borderSide: const BorderSide(
+                                color: Colors.grey,
+                                width: 1,
+                              ),
                             ),
+
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: const BorderSide(
@@ -253,7 +278,9 @@ class _LoginPageState extends State<LoginPage> {
                                 ? const SizedBox(
                                     width: 20,
                                     height: 20,
-                                    child: CircularProgressIndicator(color: Colors.white),
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                    ),
                                   )
                                 : const Text('Sign In'),
                           ),
