@@ -13,7 +13,15 @@ String _formatDisplayDate(String raw) {
   if (value.isEmpty || value == '-') return '';
   final parsed = DateTime.tryParse(value);
   if (parsed == null) return value;
-  return DateFormat('dd-MMM-yy').format(parsed.toLocal());
+  return DateFormat('MMM-d-yyyy').format(parsed.toLocal());
+}
+
+String _blankIfZero(String value) {
+  final raw = value.trim();
+  if (raw.isEmpty || raw == '-') return '';
+  final parsed = num.tryParse(raw.replaceAll(',', ''));
+  if (parsed != null && parsed == 0) return '';
+  return raw;
 }
 
 List<Map<String, dynamic>> _deepCopyMapList(List<dynamic> list) {
@@ -63,6 +71,7 @@ class ViewPickLogModel {
   final String unitOfMeasure;
   final String totalQtyNeeded;
   String actualQtyPicked;
+  final String mpfQty;
   String backorderQty;
   bool locationWasSelected;
 
@@ -83,6 +92,7 @@ class ViewPickLogModel {
     required this.unitOfMeasure,
     required this.totalQtyNeeded,
     required this.actualQtyPicked,
+    this.mpfQty = '',
     this.backorderQty = '',
     this.locationWasSelected = false,
     required this.location,
@@ -125,6 +135,8 @@ class ViewPickedLogState extends State<ViewPickedLog> {
   String datePicked = '';
   String rma = '-';
   String leadHandSignOff = '-';
+  final ScrollController _tdgpnVerticalScroll = ScrollController();
+  final ScrollController _bodyVerticalScroll = ScrollController();
 
   /// 0 = default styling; 1 = highlight info grid with mint green.
   int mpfStatus = 0;
@@ -138,7 +150,27 @@ class ViewPickedLogState extends State<ViewPickedLog> {
   void initState() {
     super.initState();
     pickListStatus = widget.status;
+    _tdgpnVerticalScroll.addListener(
+      () => _syncVerticalScroll(_tdgpnVerticalScroll, _bodyVerticalScroll),
+    );
+    _bodyVerticalScroll.addListener(
+      () => _syncVerticalScroll(_bodyVerticalScroll, _tdgpnVerticalScroll),
+    );
     fetchData();
+  }
+
+  @override
+  void dispose() {
+    _tdgpnVerticalScroll.dispose();
+    _bodyVerticalScroll.dispose();
+    super.dispose();
+  }
+
+  void _syncVerticalScroll(ScrollController source, ScrollController target) {
+    if (!target.hasClients) return;
+    if (target.offset != source.offset) {
+      target.jumpTo(source.offset);
+    }
   }
 
   /// Split a location string into individual sites when more than one exists.
@@ -289,6 +321,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
           actualQtyPicked: actual.isNotEmpty
               ? actual
               : rowPick(const ['ActualQtyToBePicked', 'TotalQtyNeeded']),
+          mpfQty: rowPick(const ['mpfQty', 'MPF']),
           backorderQty: rowPick(const ['forBackorder', 'ForBackorder']),
           location: locationChoices.length > 1
               ? locationChoices.join(', ')
@@ -343,47 +376,6 @@ class ViewPickedLogState extends State<ViewPickedLog> {
       });
     }
   }
-
-  // Future<void> _handleAcceptInventoryPickList() async {
-  //   if (isActionLoading || isLoading) return;
-  //   if (_sheetDataForSubmit.isEmpty) {
-  //     if (!mounted) return;
-  //     AppToast.error(
-  //       context,
-  //       'Pick list is still loading or has no line items. Wait and try again.',
-  //     );
-  //     return;
-  //   }
-  //   setState(() {
-  //     isActionLoading = true;
-  //   });
-  //   try {
-  //     await Dioservices.setToken();
-  //     final response = await _service.AcceptInventoryPickList(
-  //       widget.id,
-  //       sheetData: _sheetDataForSubmit,
-  //     );
-  //     final message = response.data is Map && response.data['message'] != null
-  //         ? response.data['message'].toString()
-  //         : 'Inventory accepted successfully';
-  //     if (!mounted) return;
-  //     AppToast.success(context, message);
-  //     await fetchData();
-  //   } catch (e) {
-  //     debugPrint('AcceptInventoryPickList error: $e');
-  //     if (!mounted) return;
-  //     AppToast.error(
-  //       context,
-  //       AppToast.friendlyMessage(e, fallback: 'Action failed'),
-  //     );
-  //   } finally {
-  //     if (mounted) {
-  //       setState(() {
-  //         isActionLoading = false;
-  //       });
-  //     }
-  //   }
-  // }
 
   bool _validateAllLocationsSelected() {
     final missing = data.any(
@@ -677,7 +669,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
     // Column 1 (labels): mint green for all rows when mpfStatus == 1.
     // Other body cells: white when MPF; default colors otherwise.
     final row1Bg = isMpf ? mpfHighlightBg : defaultLabelBg;
-    final row1ValueBg = isMpf ? mpfHighlightBg : defaultValueBg;
+    // final row1ValueBg = isMpf ? mpfHighlightBg : defaultValueBg;
     final col1Bg = isMpf ? mpfHighlightBg : defaultLabelBg;
     final bodyValueBg = isMpf ? Colors.white : defaultValueBg;
 
@@ -740,7 +732,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
                 'PICK LIST #$pickListNo',
                 height: rowHeight,
                 bgColor: row1Bg,
-                fontSize: isMobile ? labelFontSize : 11,
+                fontSize: isMobile ? labelFontSize : 14,
                 isLabel: true,
                 alignCenter: true,
                 maxLines: 4,
@@ -963,6 +955,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
       fontSize: isTablet ? 14 : 11,
     );
 
+    final showMpfCol = mpfStatus == 1;
     final showCommentsCol = mpfStatus == 1;
     final headers = [
       'TDGPN',
@@ -973,16 +966,18 @@ class ViewPickedLogState extends State<ViewPickedLog> {
       'Unit of Measure',
       'Total Qty Needed',
       'Actual Qty To Be Picked',
+      if (showMpfCol) 'MPF',
       'For Backorder',
       'Location (Qty)',
       'LeadHandComments',
       if (showCommentsCol) 'Comments',
     ];
-    // Column index 7 = Actual Qty (editable), 8 = For Backorder (blank),
-    // 9 = Location (Qty) — dropdown when multiple locations.
+    // Column index 7 = Actual Qty (editable).
+    // When mpfStatus == 1, MPF is inserted at 8 and later indexes shift.
     const actualQtyCol = 7;
-    const forBackorderCol = 8;
-    const locationCol = 9;
+    final mpfCol = showMpfCol ? 8 : -1;
+    final forBackorderCol = showMpfCol ? 9 : 8;
+    final locationCol = showMpfCol ? 10 : 9;
     final commentsCol = showCommentsCol ? headers.length - 1 : -1;
 
     double? parseQuantity(String value) {
@@ -1008,10 +1003,11 @@ class ViewPickedLogState extends State<ViewPickedLog> {
       '-',
       '-',
       '-',
+      '',
       '-',
+      '',
       '-',
-      '-',
-      '-',
+      if (showMpfCol) '-',
       '',
       '-',
       '-',
@@ -1026,10 +1022,11 @@ class ViewPickedLogState extends State<ViewPickedLog> {
                   row.description,
                   row.vendor,
                   row.vendorPN,
-                  row.qtyPerFixture,
+                  _blankIfZero(row.qtyPerFixture),
                   row.unitOfMeasure,
-                  row.totalQtyNeeded,
+                  _blankIfZero(row.totalQtyNeeded),
                   row.actualQtyPicked,
+                  if (showMpfCol) row.mpfQty,
                   row.backorderQty,
                   row.location,
                   row.leadHandComments,
@@ -1039,17 +1036,15 @@ class ViewPickedLogState extends State<ViewPickedLog> {
               .toList();
 
     double columnWidth(int index) {
+      if (index == 0) return 130;
       if (index == 1) return 300;
+      if (index == mpfCol) return 90;
       if (index == forBackorderCol) return 120;
       if (index == locationCol) return 200;
       if (index == commentsCol) return 180;
       return 108;
     }
 
-    final tableWidth = List.generate(
-      headers.length,
-      columnWidth,
-    ).fold<double>(0, (sum, width) => sum + width);
     final contentHeight = headerHeight + rows.length * dataRowHeight;
     final scrollRows = contentHeight > maxHeight;
     // Include 2px for the container's top+bottom border so inner Column never overflows.
@@ -1070,6 +1065,9 @@ class ViewPickedLogState extends State<ViewPickedLog> {
       List<String> cells, {
       required bool isHeader,
       int? rowIndex,
+      required int start,
+      required int end,
+      required double width,
     }) {
       final textStyle = isHeader ? headerTextStyle : bodyTextStyle;
       final rowHeight = isHeader ? headerHeight : dataRowHeight;
@@ -1081,7 +1079,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
 
       return Container(
         height: rowHeight,
-        width: tableWidth,
+        width: width,
         color: isHeader
             ? headerBg
             : isDuplicateTdgpn
@@ -1089,7 +1087,8 @@ class ViewPickedLogState extends State<ViewPickedLog> {
             : Colors.white,
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          children: List.generate(cells.length, (index) {
+          children: List.generate(end - start, (offset) {
+            final index = start + offset;
             final centerCell = isHeader || index > 1;
             final isLastColumn = index == cells.length - 1;
 
@@ -1212,7 +1211,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
                 child = Text(
                   cells[index],
                   style: textStyle,
-                  textAlign: TextAlign.start,
+                  textAlign: TextAlign.center,
                   softWrap: true,
                 );
               }
@@ -1258,6 +1257,62 @@ class ViewPickedLogState extends State<ViewPickedLog> {
       );
     }
 
+    Widget buildColumnPane({
+      required int start,
+      required int end,
+      required double width,
+      ScrollController? controller,
+    }) {
+      return SizedBox(
+        width: width,
+        child: Column(
+          children: [
+            buildTableRow(
+              headers,
+              isHeader: true,
+              start: start,
+              end: end,
+              width: width,
+            ),
+            if (scrollRows)
+              Expanded(
+                child: ListView.builder(
+                  controller: controller,
+                  itemCount: rows.length,
+                  itemBuilder: (context, index) {
+                    return buildTableRow(
+                      rows[index],
+                      isHeader: false,
+                      rowIndex: index,
+                      start: start,
+                      end: end,
+                      width: width,
+                    );
+                  },
+                ),
+              )
+            else
+              ...rows.asMap().entries.map(
+                (e) => buildTableRow(
+                  e.value,
+                  isHeader: false,
+                  rowIndex: e.key,
+                  start: start,
+                  end: end,
+                  width: width,
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    final tdgpnWidth = columnWidth(0);
+    final restWidth = List.generate(
+      headers.length - 1,
+      (i) => columnWidth(i + 1),
+    ).fold<double>(0, (sum, width) => sum + width);
+
     return Container(
       height: tableHeight,
       clipBehavior: Clip.hardEdge,
@@ -1266,38 +1321,42 @@ class ViewPickedLogState extends State<ViewPickedLog> {
         context,
         LayoutBuilder(
           builder: (context, constraints) {
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: tableWidth,
-                height: constraints.maxHeight,
-                child: Column(
-                  children: [
-                    buildTableRow(headers, isHeader: true),
-                    if (scrollRows)
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: rows.length,
-                          itemBuilder: (context, index) {
-                            return buildTableRow(
-                              rows[index],
-                              isHeader: false,
-                              rowIndex: index,
-                            );
-                          },
-                        ),
-                      )
-                    else
-                      ...rows.asMap().entries.map(
-                        (e) => buildTableRow(
-                          e.value,
-                          isHeader: false,
-                          rowIndex: e.key,
-                        ),
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 6,
+                        offset: const Offset(2, 0),
                       ),
-                  ],
+                    ],
+                  ),
+                  child: buildColumnPane(
+                    start: 0,
+                    end: 1,
+                    width: tdgpnWidth,
+                    controller: _tdgpnVerticalScroll,
+                  ),
                 ),
-              ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SizedBox(
+                      width: restWidth,
+                      height: constraints.maxHeight,
+                      child: buildColumnPane(
+                        start: 1,
+                        end: headers.length,
+                        width: restWidth,
+                        controller: _bodyVerticalScroll,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             );
           },
         ),

@@ -51,6 +51,8 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
   String username = "";
   bool isLoading = false;
   List<ItemModel> items = [];
+  int? _sortColumnIndex;
+  bool _sortAscending = true;
 
   String selectedPickList = 'Pending Pick List';
 
@@ -81,6 +83,110 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
   }
 
   String _orDash(String value) => value.trim().isEmpty ? '-' : value;
+
+  /// Hide empty / zero quantities instead of showing "0".
+  String _quantityDisplay(String value) {
+    final raw = value.trim();
+    if (raw.isEmpty || raw == '-') return '';
+    final parsed = num.tryParse(raw.replaceAll(',', ''));
+    if (parsed != null && parsed == 0) return '';
+    return raw;
+  }
+
+  List<ItemModel> get _sortedItems {
+    if (_sortColumnIndex == null ||
+        _sortColumnIndex! < 0 ||
+        _sortColumnIndex! > 9) {
+      return items;
+    }
+    final rows = List<ItemModel>.from(items);
+    rows.sort((a, b) {
+      final cmp = _compareItems(a, b, _sortColumnIndex!);
+      if (cmp != 0) return _sortAscending ? cmp : -cmp;
+      return a.id.compareTo(b.id);
+    });
+    return rows;
+  }
+
+  int _compareNumericOrText(String a, String b) {
+    final ia = num.tryParse(a.trim().replaceAll(',', ''));
+    final ib = num.tryParse(b.trim().replaceAll(',', ''));
+    if (ia != null && ib != null) return ia.compareTo(ib);
+    return a.toLowerCase().compareTo(b.toLowerCase());
+  }
+
+  DateTime? _asDateTime(String value) {
+    final raw = value.trim();
+    if (raw.isEmpty) return null;
+
+    DateTime? parsed = DateTime.tryParse(raw);
+    if (parsed != null) return parsed;
+
+    for (final format in [
+      DateFormat("yyyy-MM-dd HH:mm:ss"),
+      DateFormat("yyyy-MM-dd HH:mm"),
+      DateFormat("yyyy-MM-dd"),
+      DateFormat("dd-MM-yyyy HH:mm:ss"),
+      DateFormat("dd-MM-yyyy HH:mm"),
+      DateFormat("dd-MM-yyyy"),
+      DateFormat("dd/MM/yyyy HH:mm:ss"),
+      DateFormat("dd/MM/yyyy HH:mm"),
+      DateFormat("dd/MM/yyyy"),
+    ]) {
+      try {
+        return format.parseStrict(raw);
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  int _compareItems(ItemModel a, ItemModel b, int columnIndex) {
+    switch (columnIndex) {
+      case 0:
+        return _compareNumericOrText(a.pickListNumber, b.pickListNumber);
+      case 1:
+        return _compareNumericOrText(a.sopNum, b.sopNum);
+      case 2:
+        return a.fixture.toLowerCase().compareTo(b.fixture.toLowerCase());
+      case 3:
+        return a.description.toLowerCase().compareTo(
+          b.description.toLowerCase(),
+        );
+      case 4:
+        return a.project.toLowerCase().compareTo(b.project.toLowerCase());
+      case 5:
+        return _compareNumericOrText(a.tempQuantity, b.tempQuantity);
+      case 6:
+        return a.RMA.toLowerCase().compareTo(b.RMA.toLowerCase());
+      case 7:
+        return a.MPFRequestedBy.toLowerCase().compareTo(
+          b.MPFRequestedBy.toLowerCase(),
+        );
+      case 8:
+        final da = _asDateTime(a.createdAt);
+        final db = _asDateTime(b.createdAt);
+        if (da != null && db != null) return da.compareTo(db);
+        if (da != null) return -1;
+        if (db != null) return 1;
+        return a.createdAt.toLowerCase().compareTo(b.createdAt.toLowerCase());
+      case 9:
+        return a.status.compareTo(b.status);
+      default:
+        return 0;
+    }
+  }
+
+  void _onSort(int columnIndex) {
+    if (columnIndex < 0 || columnIndex > 9) return;
+    setState(() {
+      if (_sortColumnIndex == columnIndex) {
+        _sortAscending = !_sortAscending;
+      } else {
+        _sortColumnIndex = columnIndex;
+        _sortAscending = true;
+      }
+    });
+  }
 
   int _statusFromApi(dynamic value) {
     if (value is num) return value.toInt();
@@ -114,31 +220,12 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
   }
 
   String _formatDateValue(String value) {
-    final raw = value.trim();
-    if (raw.isEmpty) return '-';
-
-    DateTime? parsed = DateTime.tryParse(raw);
+    final parsed = _asDateTime(value);
     if (parsed == null) {
-      for (final format in [
-        DateFormat("yyyy-MM-dd HH:mm:ss"),
-        DateFormat("yyyy-MM-dd HH:mm"),
-        DateFormat("yyyy-MM-dd"),
-        DateFormat("dd-MM-yyyy HH:mm:ss"),
-        DateFormat("dd-MM-yyyy HH:mm"),
-        DateFormat("dd-MM-yyyy"),
-        DateFormat("dd/MM/yyyy HH:mm:ss"),
-        DateFormat("dd/MM/yyyy HH:mm"),
-        DateFormat("dd/MM/yyyy"),
-      ]) {
-        try {
-          parsed = format.parseStrict(raw);
-          break;
-        } catch (_) {}
-      }
+      final raw = value.trim();
+      return raw.isEmpty ? '-' : raw;
     }
-
-    if (parsed == null) return raw;
-    return DateFormat("dd MMM yyyy, HH:mm").format(parsed.toLocal());
+    return DateFormat("MMM dd, yyyy, hh:mm a").format(parsed.toLocal());
   }
 
   Future<void> fetchInvetoryPickedData() async {
@@ -302,30 +389,54 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
     required double fontSize,
     required double height,
     required double hPad,
+    int? sortIndex,
   }) {
     final borderColor = Colors.grey.shade300;
+    final sortable = sortIndex != null;
+    final active = sortable && _sortColumnIndex == sortIndex;
+    final up = !active || _sortAscending;
+
     return SizedBox(
       width: w,
       height: height,
-      child: Container(
-        alignment: Alignment.centerLeft,
-        padding: EdgeInsets.symmetric(horizontal: hPad),
-        decoration: BoxDecoration(
-          color: const Color.fromARGB(255, 57, 73, 95),
-          border: Border(
-            right: BorderSide(color: borderColor),
-            bottom: BorderSide(color: borderColor),
-          ),
-        ),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: fontSize,
-            height: 1.0,
-            color: Colors.white,
+      child: Material(
+        color: const Color.fromARGB(255, 57, 73, 95),
+        child: InkWell(
+          onTap: sortable ? () => _onSort(sortIndex) : null,
+          child: Container(
+            alignment: Alignment.centerLeft,
+            padding: EdgeInsets.symmetric(horizontal: hPad),
+            decoration: BoxDecoration(
+              border: Border(
+                right: BorderSide(color: borderColor),
+                bottom: BorderSide(color: borderColor),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: fontSize,
+                      height: 1.0,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                if (sortable) ...[
+                  const SizedBox(width: 3),
+                  Icon(
+                    up ? Icons.arrow_upward : Icons.arrow_downward,
+                    size: 12,
+                    color: active ? Colors.white : const Color(0x99B8C8E8),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -342,6 +453,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
     Color? textColor,
     FontWeight? fontWeight,
     Alignment alignment = Alignment.centerLeft,
+    bool wrapText = false,
   }) {
     final borderColor = Colors.grey.shade300;
     return SizedBox(
@@ -358,9 +470,11 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
         ),
         child: Text(
           value,
-          maxLines: 1,
-          softWrap: false,
-          overflow: TextOverflow.ellipsis,
+          // maxLines: 1,
+          softWrap: wrapText,
+          maxLines: wrapText ? null : 1,
+          // overflow: TextOverflow.ellipsis,
+          overflow: wrapText ? TextOverflow.visible : TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: fontSize,
             height: 1.15,
@@ -444,6 +558,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
             fontSize: fontSize,
             height: headerH,
             hPad: hPad,
+            sortIndex: 0,
           ),
           _bomHeaderCell(
             "SOP",
@@ -451,6 +566,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
             fontSize: fontSize,
             height: headerH,
             hPad: hPad,
+            sortIndex: 1,
           ),
           _bomHeaderCell(
             "Fixture",
@@ -458,6 +574,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
             fontSize: fontSize,
             height: headerH,
             hPad: hPad,
+            sortIndex: 2,
           ),
         ],
       ),
@@ -488,6 +605,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
               rowH: rowH,
               vPad: vPad,
               hPad: hPad,
+              alignment: Alignment.center,
             ),
             _bomDataCell(
               _orDash(item.sopNum),
@@ -525,6 +643,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           fontSize: fontSize,
           height: headerH,
           hPad: hPad,
+          sortIndex: 3,
         ),
         _bomHeaderCell(
           "Project",
@@ -532,6 +651,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           fontSize: fontSize,
           height: headerH,
           hPad: hPad,
+          sortIndex: 4,
         ),
         _bomHeaderCell(
           "Quantity",
@@ -539,6 +659,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           fontSize: fontSize,
           height: headerH,
           hPad: hPad,
+          sortIndex: 5,
         ),
         _bomHeaderCell(
           "RMA",
@@ -546,6 +667,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           fontSize: fontSize,
           height: headerH,
           hPad: hPad,
+          sortIndex: 6,
         ),
         _bomHeaderCell(
           "MPF Requested By",
@@ -553,6 +675,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           fontSize: fontSize,
           height: headerH,
           hPad: hPad,
+          sortIndex: 7,
         ),
         _bomHeaderCell(
           "Created At",
@@ -560,6 +683,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           fontSize: fontSize,
           height: headerH,
           hPad: hPad,
+          sortIndex: 8,
         ),
         _bomHeaderCell(
           "Status",
@@ -567,6 +691,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           fontSize: fontSize,
           height: headerH,
           hPad: hPad,
+          sortIndex: 9,
         ),
       ],
     );
@@ -589,6 +714,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           rowH: rowH,
           vPad: vPad,
           hPad: hPad,
+          wrapText: true,
         ),
         _bomDataCell(
           _orDash(item.project),
@@ -599,12 +725,13 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           hPad: hPad,
         ),
         _bomDataCell(
-          _orDash(item.tempQuantity),
+          _quantityDisplay(item.tempQuantity),
           colW[5],
           fontSize: fontSize,
           rowH: rowH,
           vPad: vPad,
           hPad: hPad,
+          alignment: Alignment.center,
         ),
         _bomDataCell(
           _orDash(item.RMA),
@@ -629,6 +756,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           rowH: rowH,
           vPad: vPad,
           hPad: hPad,
+          wrapText: true,
         ),
         _bomDataCell(
           _statusLabel(item.status),
@@ -727,6 +855,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
     required ScrollController controller,
     required Widget Function(ItemModel item) rowBuilder,
   }) {
+    final rows = _sortedItems;
     return SizedBox(
       width: width,
       child: Column(
@@ -735,8 +864,8 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           Expanded(
             child: ListView.builder(
               controller: controller,
-              itemCount: items.length,
-              itemBuilder: (context, index) => rowBuilder(items[index]),
+              itemCount: rows.length,
+              itemBuilder: (context, index) => rowBuilder(rows[index]),
             ),
           ),
         ],
@@ -758,6 +887,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           fontSize: fontSize,
           height: headerH,
           hPad: hPad,
+          sortIndex: 0,
         ),
         _bomHeaderCell(
           "SOP",
@@ -765,6 +895,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           fontSize: fontSize,
           height: headerH,
           hPad: hPad,
+          sortIndex: 1,
         ),
         _bomHeaderCell(
           "Fixture",
@@ -772,6 +903,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
           fontSize: fontSize,
           height: headerH,
           hPad: hPad,
+          sortIndex: 2,
         ),
         _buildScrollableHeaderRow(
           colW,
@@ -847,6 +979,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
     required double maxWidth,
   }) {
     final tableW = colW.fold<double>(0, (sum, w) => sum + w);
+    final rows = _sortedItems;
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade300),
@@ -868,10 +1001,10 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                 Expanded(
                   child: ListView.builder(
                     controller: _bodyVerticalScroll,
-                    itemCount: items.length,
+                    itemCount: rows.length,
                     itemBuilder: (context, index) {
                       return _buildFullDataRow(
-                        items[index],
+                        rows[index],
                         colW,
                         fontSize: fontSize,
                         rowH: rowH,
@@ -900,6 +1033,7 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
     final leftW = colW[0] + colW[1] + colW[2];
     final middleW = colW.skip(3).take(7).fold<double>(0, (sum, w) => sum + w);
     final actionW = colW[10];
+    final rows = _sortedItems;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -970,10 +1104,10 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                         Expanded(
                           child: ListView.builder(
                             controller: _bodyVerticalScroll,
-                            itemCount: items.length,
+                            itemCount: rows.length,
                             itemBuilder: (context, index) {
                               return _buildScrollableDataRow(
-                                items[index],
+                                rows[index],
                                 effectiveColW,
                                 fontSize: fontSize,
                                 rowH: rowH,
