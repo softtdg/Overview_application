@@ -237,16 +237,22 @@ class Responsive {
     return 9;
   }
 
-  /// Base column widths: TDGPN, Desc, Material, Qty/Size/UOM, State, Vendor, FileName.
+  /// Base column widths:
+  /// TDGPN, Desc, Material, Qty, Size, UOM, State, Vendor, FileName.
   List<double> get bomColWidths {
     if (isDesktop) {
-      return const [120, 240, 180, 72, 72, 120, 180];
+      return const [120, 240, 180, 108, 72, 64, 88, 120, 180];
     }
-    if (isTablet && !isCompactTablet) {
-      return const [120, 260, 170, 76, 76, 120, 200];
+    if (isTablet) {
+      if (isCompactTablet) {
+        return const [120, 240, 160, 110, 80, 68, 90, 110, 180];
+      }
+      return const [120, 260, 170, 112, 84, 72, 90, 120, 200];
     }
-    // Small tablet — matches the "perfect" look
-    return const [130, 300, 180, 84, 84, 120, 220];
+    // Phone — narrower overall; header shows "Qty" so this width is enough.
+    return isCompactPhone
+        ? const [96, 140, 100, 72, 60, 52, 76, 84, 120]
+        : const [104, 150, 110, 78, 64, 56, 80, 90, 130];
   }
 
   /// Hides platform scrollbars while still allowing swipe / drag.
