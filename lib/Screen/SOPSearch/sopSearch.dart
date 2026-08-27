@@ -123,7 +123,7 @@ class _SOPSearchState extends State<SOPSearch> {
       }
       DateTime parsedDate = DateTime.parse(dateStr);
 
-      return DateFormat('dd/MM/yyyy').format(parsedDate);
+      return DateFormat('MM/dd/yyyy').format(parsedDate);
     } catch (e) {
       print("Date parse error: $e");
       return kEmptyValue;
@@ -271,7 +271,7 @@ class _SOPSearchState extends State<SOPSearch> {
     final qty = fixture["Quantity"]?.toString() ?? "-";
     final amt = fixture["Amount"];
     final amtStr = amt != null
-        ? "\$${(double.tryParse(amt.toString()) ?? 0).ceil()}"
+        ? "\$${NumberFormat('#,##0').format((double.tryParse(amt.toString()) ?? 0).floor())}"
         : "-";
     final perUnitTimeText = convertPerUnitTimeToMinutes(fixture["Hours"]);
     final totalTimeText = convertDecimalToTime(
@@ -626,7 +626,7 @@ class _SOPSearchState extends State<SOPSearch> {
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1E88E5),
+          backgroundColor: const Color(0xFF1565C0),
           foregroundColor: Colors.white,
           elevation: 0,
           minimumSize: Size(88, controlHeight),

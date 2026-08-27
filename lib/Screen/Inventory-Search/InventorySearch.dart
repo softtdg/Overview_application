@@ -24,7 +24,7 @@ class _InventorySearchState extends State<InventorySearch> {
   static const Color _headerBlue = Color.fromARGB(255, 57, 73, 95);
   static const int _pageSize = 25;
 
-  List<String> _suggestions = [];
+  List<_PartSuggestion> _suggestions = [];
   Map<String, dynamic> _partSummary = {};
   List<Map<String, dynamic>> _inventoryItems = [];
   List<Map<String, dynamic>> _rows = [];
@@ -55,7 +55,7 @@ class _InventorySearchState extends State<InventorySearch> {
     if (raw.isEmpty || raw == '-') return '-';
     final parsed = DateTime.tryParse(raw);
     if (parsed == null) return raw;
-    return DateFormat('dd/MM/yyyy').format(parsed.toLocal());
+    return DateFormat('MM/dd/yyyy').format(parsed.toLocal());
   }
 
   String _formatPrice(dynamic value) {
@@ -81,14 +81,18 @@ class _InventorySearchState extends State<InventorySearch> {
     });
   }
 
-  List<String> _parseSuggestions(dynamic data) {
+  List<_PartSuggestion> _parseSuggestions(dynamic data) {
     if (data is! Map) return [];
     final list = data['data'];
     if (list is! List) return [];
     return list
         .whereType<Map>()
-        .map((e) => (e['TDGPN'] ?? '').toString().trim())
-        .where((s) => s.isNotEmpty)
+        .map((e) {
+          final tdgpn = (e['TDGPN']).toString().trim();
+          final description = (e['Description']).toString().trim();
+          return _PartSuggestion(tdgpn: tdgpn, description: description);
+        })
+        .where((s) => s.tdgpn.isNotEmpty)
         .toList();
   }
 
@@ -226,10 +230,12 @@ class _InventorySearchState extends State<InventorySearch> {
     });
   }
 
-  void _selectSuggestion(String value) {
-    _searchController.text = value;
-    _searchController.selection = TextSelection.collapsed(offset: value.length);
-    _fetchInventory(value);
+  void _selectSuggestion(_PartSuggestion item) {
+    _searchController.text = item.tdgpn;
+    _searchController.selection = TextSelection.collapsed(
+      offset: item.tdgpn.length,
+    );
+    _fetchInventory(item.tdgpn);
   }
 
   List<Map<String, dynamic>> get _sortedRows {
@@ -317,15 +323,17 @@ class _InventorySearchState extends State<InventorySearch> {
     bool header = false,
     bool showRightBorder = true,
   }) {
+    final borderColor = Colors.grey.shade500;
     return Expanded(
       flex: flex,
       child: Container(
+        alignment: header ? Alignment.centerLeft : Alignment.topLeft,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
           color: header ? const Color(0xFFF3F4F6) : Colors.white,
           border: Border(
             right: showRightBorder
-                ? BorderSide(color: Colors.grey.shade300)
+                ? BorderSide(color: borderColor)
                 : BorderSide.none,
           ),
         ),
@@ -350,41 +358,49 @@ class _InventorySearchState extends State<InventorySearch> {
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: Colors.grey.shade500),
       ),
       child: Column(
         children: [
-          Row(
-            children: [
-              _summaryCell('Location', header: true),
-              _summaryCell('Type', header: true),
-              _summaryCell('Qty On Hand', header: true),
-              _summaryCell('Unit Price', header: true),
-              _summaryCell('Category', header: true),
-              _summaryCell(
-                'Description',
-                flex: 3,
-                header: true,
-                showRightBorder: false,
-              ),
-            ],
-          ),
-          for (final item in rows) ...[
-            Divider(height: 1, thickness: 1, color: Colors.grey.shade300),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _summaryCell(_display(item['location'])),
-                _summaryCell(_display(item['fileType'])),
-                _summaryCell(_display(item['qtyOnHand'])),
-                _summaryCell(_display(item['unitPrice'])),
-                _summaryCell(_display(item['category'])),
+                _summaryCell('Location', header: true),
+                _summaryCell('Type', header: true),
+                _summaryCell('Qty On Hand', header: true),
+                _summaryCell('Unit Price', header: true),
+                _summaryCell('Category', header: true),
                 _summaryCell(
-                  _display(item['description']),
+                  'Description',
                   flex: 3,
+                  header: true,
                   showRightBorder: false,
                 ),
               ],
+            ),
+          ),
+          for (final item in rows) ...[
+            Divider(height: 1, thickness: 1, color: Colors.grey.shade500),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _summaryCell(_display(item['location'])),
+                  _summaryCell(_display(item['fileType'])),
+                  _summaryCell(_display(item['qtyOnHand'])),
+                  _summaryCell(
+                    (double.tryParse(_display(item['unitPrice'])) ?? 0)
+                        .toStringAsFixed(2),
+                  ),
+                  _summaryCell(_display(item['category'])),
+                  _summaryCell(
+                    _display(item['description']),
+                    flex: 3,
+                    showRightBorder: false,
+                  ),
+                ],
+              ),
             ),
           ],
         ],
@@ -416,7 +432,7 @@ class _InventorySearchState extends State<InventorySearch> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Color.fromRGBO(255, 255, 255, 1),
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
@@ -451,6 +467,7 @@ class _InventorySearchState extends State<InventorySearch> {
           text,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 12, color: Color(0xFF374151)),
         ),
       ),
@@ -467,8 +484,10 @@ class _InventorySearchState extends State<InventorySearch> {
         builder: (context, constraints) {
           // Border takes 1px left + 1px right; columns must fit inside content box.
           const borderWidth = 1.0;
-          final contentW =
-              (constraints.maxWidth - borderWidth * 2).clamp(0.0, double.infinity);
+          final contentW = (constraints.maxWidth - borderWidth * 2).clamp(
+            0.0,
+            double.infinity,
+          );
           final needsHScroll = contentW < minTotal;
           final tableW = needsHScroll ? minTotal : contentW;
 
@@ -486,7 +505,10 @@ class _InventorySearchState extends State<InventorySearch> {
             height: constraints.maxHeight,
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(color: Colors.grey.shade300, width: borderWidth),
+              border: Border.all(
+                color: Colors.grey.shade300,
+                width: borderWidth,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -511,34 +533,16 @@ class _InventorySearchState extends State<InventorySearch> {
                       return Row(
                         children: [
                           _dataCell(_display(row['sopMpf']), widths[0]),
-                          _dataCell(
-                            _display(row['sopNumber']),
-                            widths[1],
-                          ),
-                          _dataCell(
-                            _display(row['totalQtyNeeded']),
-                            widths[2],
-                          ),
-                          _dataCell(
-                            _display(row['qtyPicked']),
-                            widths[3],
-                          ),
-                          _dataCell(
-                            _display(row['comment']),
-                            widths[4],
-                          ),
-                          _dataCell(
-                            _display(row['requestedBy']),
-                            widths[5],
-                          ),
+                          _dataCell(_display(row['sopNumber']), widths[1]),
+                          _dataCell(_display(row['totalQtyNeeded']), widths[2]),
+                          _dataCell(_display(row['qtyPicked']), widths[3]),
+                          _dataCell(_display(row['comment']), widths[4]),
+                          _dataCell(_display(row['requestedBy']), widths[5]),
                           _dataCell(
                             _formatDate(_display(row['date'])),
                             widths[6],
                           ),
-                          _dataCell(
-                            _formatPrice(row['totalPrice']),
-                            widths[7],
-                          ),
+                          _dataCell(_formatPrice(row['totalPrice']), widths[7]),
                         ],
                       );
                     },
@@ -656,10 +660,7 @@ class _InventorySearchState extends State<InventorySearch> {
                   child: Text(
                     'No results found for "${_display(_partSummary['TDGPN'])}"',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
                   ),
                 ),
               )
@@ -681,190 +682,234 @@ class _InventorySearchState extends State<InventorySearch> {
     );
   }
 
-  Widget _buildSearchHeader(Responsive r) {
-    const fieldHeight = 44.0;
-    final sharedBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
-      borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+  Widget _buildSuggestionBox() {
+    const headerStyle = TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.4,
+      color: Color.fromARGB(255, 72, 75, 82),
     );
-    final focusedBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
-      borderSide: const BorderSide(color: _searchButtonColor, width: 1.5),
+    const tdgpnStyle = TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w700,
+      color: Color.fromARGB(255, 70, 76, 88),
+    );
+    const descStyle = TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w400,
+      color: Color.fromARGB(255, 66, 69, 77),
     );
 
-    final searchField = SizedBox(
-      height: fieldHeight,
-      child: TextField(
-        controller: _searchController,
-        focusNode: _searchFocus,
-        style: const TextStyle(fontSize: 14, color: Color(0xFF374151)),
-        textInputAction: TextInputAction.search,
-        onChanged: _onQueryChanged,
-        onSubmitted: (_) => _fetchInventory(_searchController.text),
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: Colors.white,
-          hintText: 'Enter part number',
-          hintStyle: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 12,
+    Widget columns({
+      required Widget tdgpn,
+      required Widget description,
+      Color? background,
+    }) {
+      return ColoredBox(
+        color: background ?? Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(width: 150, child: tdgpn),
+              const SizedBox(width: 12),
+              Expanded(child: description),
+            ],
           ),
-          border: sharedBorder,
-          enabledBorder: sharedBorder,
-          focusedBorder: focusedBorder,
-          suffixIcon: _searchController.text.isEmpty
-              ? null
-              : IconButton(
-                  tooltip: 'Clear',
-                  icon: Icon(
-                    Icons.close,
-                    size: 20,
-                    color: Colors.grey.shade600,
-                  ),
-                  onPressed: () {
-                    _debounce?.cancel();
-                    _searchController.clear();
-                    setState(() => _suggestions = []);
-                  },
-                ),
         ),
-      ),
-    );
+      );
+    }
 
-    final suggestionBox = Material(
+    return Material(
       elevation: 4,
       color: Colors.white,
       borderRadius: BorderRadius.circular(4),
+      clipBehavior: Clip.antiAlias,
       child: SizedBox(
-        height: 220,
-        child: Stack(
+        height: 260,
+        child: Column(
           children: [
-            Positioned(
-              top: 0,
-              right: 0,
-              bottom: 0,
-              width: 12,
-              child: ColoredBox(color: Colors.grey.shade300),
+            columns(
+              background: const Color.fromARGB(255, 224, 227, 230),
+              tdgpn: const Text('TDGPN', style: headerStyle),
+              description: const Text('DESCRIPTION', style: headerStyle),
             ),
-            RawScrollbar(
-              controller: _suggestionScrollController,
-              thumbVisibility: true,
-              trackVisibility: true,
-              thickness: 10,
-              radius: const Radius.circular(4),
-              thumbColor: Colors.grey.shade600,
-              trackColor: Colors.grey.shade300,
-              trackBorderColor: Colors.transparent,
-              child: ListView.builder(
+            Divider(height: 1, thickness: 1, color: Colors.grey.shade300),
+            Expanded(
+              child: RawScrollbar(
                 controller: _suggestionScrollController,
-                padding: EdgeInsets.zero,
-                itemCount: _suggestions.length,
-                itemBuilder: (context, index) {
-                  final item = _suggestions[index];
-                  return InkWell(
-                    onTap: () => _selectSuggestion(item),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      child: Text(
-                        item,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF374151),
+                thumbVisibility: true,
+                trackVisibility: true,
+                thickness: 10,
+                radius: const Radius.circular(4),
+                thumbColor: Colors.grey.shade600,
+                trackColor: Colors.grey.shade300,
+                trackBorderColor: Colors.transparent,
+                child: ListView.separated(
+                  controller: _suggestionScrollController,
+                  padding: EdgeInsets.zero,
+                  itemCount: _suggestions.length,
+                  separatorBuilder: (_, __) => Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Colors.grey.shade200,
+                  ),
+                  itemBuilder: (context, index) {
+                    final item = _suggestions[index];
+                    return InkWell(
+                      onTap: () => _selectSuggestion(item),
+                      child: columns(
+                        tdgpn: Text(
+                          item.tdgpn,
+                          style: tdgpnStyle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        description: Text(
+                          item.description.isEmpty
+                              ? '-'
+                              : item.description.toUpperCase(),
+                          style: descStyle,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
 
-    final searchControls = Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              searchField,
-              if (_suggestions.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                suggestionBox,
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(width: 10),
-        SizedBox(
-          height: fieldHeight,
-          child: ElevatedButton.icon(
-            onPressed: () => _fetchInventory(_searchController.text),
-            icon: const Icon(Icons.search, size: 20),
-            label: const Text('Search'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _searchButtonColor,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-          ),
-        ),
-      ],
+  Widget _buildCenteredSearch(Responsive r) {
+    const fieldHeight = 48.0;
+    const navy = Color.fromARGB(255, 57, 73, 95);
+    const fieldBorder = Color.fromARGB(255, 22, 129, 218);
+    final searchFieldWidth = (r.width - (r.pagePaddingH * 2)).clamp(
+      260.0,
+      r.isPhone ? 320.0 : 480.0,
     );
 
-    final titleStyle = TextStyle(
-      color: const Color(0xFF374151),
-      fontSize: r.pageTitleSize,
-      fontWeight: FontWeight.w600,
+    final sharedBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(6),
+      borderSide: const BorderSide(color: fieldBorder, width: 1.5),
+    );
+    final focusedBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(6),
+      borderSide: const BorderSide(color: Colors.blue, width: 1.5),
     );
 
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: r.pagePaddingH, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-      ),
-      child: r.isPhone
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        _searchFocus.unfocus();
+        setState(() => _suggestions = []);
+      },
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: r.pagePaddingH,
+            vertical: 24,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: searchFieldWidth),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Inventory Search', style: titleStyle),
-                const SizedBox(height: 12),
-                searchControls,
-              ],
-            )
-          : Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text('Inventory Search', style: titleStyle),
+                Text(
+                  'Inventory Search',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: r.isPhone ? 22 : r.pageTitleSize + 4,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                const SizedBox(width: 16),
-                Flexible(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 480),
-                      child: searchControls,
+                SizedBox(height: r.isPhone ? 16 : 20),
+                SizedBox(
+                  height: fieldHeight,
+                  child: TextField(
+                    controller: _searchController,
+                    focusNode: _searchFocus,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF374151),
+                    ),
+                    textInputAction: TextInputAction.search,
+                    onChanged: _onQueryChanged,
+                    onSubmitted: (_) => _fetchInventory(_searchController.text),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: 'Enter part number',
+                      hintStyle: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade500,
+                      ),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      border: sharedBorder,
+                      enabledBorder: sharedBorder,
+                      focusedBorder: focusedBorder,
+                      suffixIcon: _searchController.text.isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: 'Clear',
+                              icon: Icon(
+                                Icons.close,
+                                size: 20,
+                                color: Colors.grey.shade600,
+                              ),
+                              onPressed: () {
+                                _debounce?.cancel();
+                                _searchController.clear();
+                                setState(() => _suggestions = []);
+                              },
+                            ),
+                    ),
+                  ),
+                ),
+                if (_suggestions.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  _buildSuggestionBox(),
+                ],
+                SizedBox(height: r.isPhone ? 12 : 14),
+                SizedBox(
+                  height: fieldHeight,
+                  width: 160,
+                  child: ElevatedButton(
+                    onPressed: () => _fetchInventory(_searchController.text),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: navy,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    child: const Text(
+                      'Search',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -873,7 +918,7 @@ class _InventorySearchState extends State<InventorySearch> {
     final r = Responsive.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: _showDetail ? const Color(0xFFF3F4F6) : Colors.white,
       appBar: CommonAppBar(
         showBackButton: true,
         onBackPressed: () {
@@ -883,38 +928,14 @@ class _InventorySearchState extends State<InventorySearch> {
         },
       ),
       drawer: const CommonDrawer(),
-      body: _showDetail
-          ? _buildDetailView(r)
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildSearchHeader(r),
-                Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      _searchFocus.unfocus();
-                      setState(() => _suggestions = []);
-                    },
-                    child: Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: r.pagePaddingH,
-                        ),
-                        child: Text(
-                          'Enter your search term above to find inventory items',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+      body: _showDetail ? _buildDetailView(r) : _buildCenteredSearch(r),
     );
   }
+}
+
+class _PartSuggestion {
+  const _PartSuggestion({required this.tdgpn, required this.description});
+
+  final String tdgpn;
+  final String description;
 }

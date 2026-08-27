@@ -84,12 +84,10 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
 
   String _orDash(String value) => value.trim().isEmpty ? '-' : value;
 
-  /// Hide empty / zero quantities instead of showing "0".
+  /// Empty quantity stays blank; `0` from the API is shown as `0`.
   String _quantityDisplay(String value) {
     final raw = value.trim();
     if (raw.isEmpty || raw == '-') return '';
-    final parsed = num.tryParse(raw.replaceAll(',', ''));
-    if (parsed != null && parsed == 0) return '';
     return raw;
   }
 
@@ -417,12 +415,12 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                 Expanded(
                   child: Text(
                     label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    softWrap: true,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: fontSize,
-                      height: 1.0,
+                      height: 1.1,
                       color: Colors.white,
                     ),
                   ),

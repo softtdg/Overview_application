@@ -245,6 +245,7 @@ class _PickedHistoryState extends State<PickedHistory> {
     if (raw.isEmpty || raw == "-") return "-";
 
     DateTime? parsed = DateTime.tryParse(raw);
+
     if (parsed == null) {
       final fallbackFormats = [
         DateFormat("yyyy-MM-dd HH:mm:ss"),
@@ -257,6 +258,7 @@ class _PickedHistoryState extends State<PickedHistory> {
         DateFormat("dd/MM/yyyy hh:mm a"),
         DateFormat("dd/MM/yyyy"),
       ];
+
       for (final format in fallbackFormats) {
         try {
           parsed = format.parseStrict(raw);
@@ -266,7 +268,8 @@ class _PickedHistoryState extends State<PickedHistory> {
     }
 
     if (parsed == null) return raw;
-    return DateFormat("dd/MM/yyyy hh:mm:ss a").format(parsed.toLocal());
+
+    return DateFormat("MM/dd/yyyy hh:mm:ss a").format(parsed);
   }
 
   List<ItemModel> _parseItems(dynamic payload) {
@@ -533,13 +536,11 @@ class _PickedHistoryState extends State<PickedHistory> {
         icon: const Icon(Icons.search, size: 20),
         label: const Text('Search'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1E88E5),
+          backgroundColor: const Color(0xFF1565C0),
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
     );
@@ -680,7 +681,7 @@ class _PickedHistoryState extends State<PickedHistory> {
                                           sortIndex: 1,
                                         ),
                                         _bomHeaderCell(
-                                          "Date Changed",
+                                          "Date Picked",
                                           colW[2],
                                           fontSize: density.fontSize,
                                           height: density.headerH,
@@ -688,7 +689,7 @@ class _PickedHistoryState extends State<PickedHistory> {
                                           sortIndex: 2,
                                         ),
                                         _bomHeaderCell(
-                                          "Picked",
+                                          "Picked Status",
                                           colW[3],
                                           fontSize: density.fontSize,
                                           height: density.headerH,
