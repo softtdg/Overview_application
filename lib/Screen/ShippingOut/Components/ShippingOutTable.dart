@@ -29,7 +29,93 @@ class _ShippingOutTableState extends State<ShippingOutTable> {
   final ScrollController _middleHorizontalScroll = ScrollController();
 
   static const Color _tableHeaderColor = Color.fromARGB(255, 57, 73, 95);
-  static const double _rowHeight = 76;
+  static const double _rowHeight = 56;
+
+  int? _sortColumnIndex;
+  bool _sortAscending = true;
+
+  /// Data keys for sortable columns (excludes Action).
+  static const List<String> _sortKeys = [
+    'SOPNum',
+    'PONum',
+    'ODD',
+    'customer',
+    'program',
+    'Location',
+    'SOPEntryDateIn',
+    'SOPOrderEntryOut',
+    'prodMgr',
+    'FinalDeliveryDate',
+    'OrderEntryComments',
+    'LastEdit',
+  ];
+
+  List<Map<String, dynamic>> get _sortedRows {
+    if (_sortColumnIndex == null ||
+        _sortColumnIndex! < 0 ||
+        _sortColumnIndex! >= _sortKeys.length) {
+      return widget.rows;
+    }
+    final key = _sortKeys[_sortColumnIndex!];
+    final rows = List<Map<String, dynamic>>.from(widget.rows);
+    rows.sort((a, b) {
+      final cmp = _compareValues(a[key], b[key], key);
+      if (cmp != 0) return _sortAscending ? cmp : -cmp;
+      return (a['SOPNum']?.toString() ?? '').compareTo(
+        b['SOPNum']?.toString() ?? '',
+      );
+    });
+    return rows;
+  }
+
+  DateTime? _asDateTime(dynamic raw) {
+    if (raw == null) return null;
+    final text = raw.toString().trim();
+    if (text.isEmpty ||
+        text == '-' ||
+        text == '*' ||
+        text.startsWith('0001-01-01')) {
+      return null;
+    }
+    return DateTime.tryParse(text);
+  }
+
+  int _compareValues(dynamic a, dynamic b, String key) {
+    const dateKeys = {
+      'ODD',
+      'SOPEntryDateIn',
+      'SOPOrderEntryOut',
+      'FinalDeliveryDate',
+      'LastEdit',
+    };
+    if (dateKeys.contains(key)) {
+      final da = _asDateTime(a);
+      final db = _asDateTime(b);
+      if (da != null && db != null) return da.compareTo(db);
+      if (da != null) return -1;
+      if (db != null) return 1;
+      return 0;
+    }
+
+    final sa = a?.toString().trim() ?? '';
+    final sb = b?.toString().trim() ?? '';
+    final ia = int.tryParse(sa);
+    final ib = int.tryParse(sb);
+    if (ia != null && ib != null) return ia.compareTo(ib);
+    return sa.toLowerCase().compareTo(sb.toLowerCase());
+  }
+
+  void _onSort(int columnIndex) {
+    if (columnIndex < 0 || columnIndex >= _sortKeys.length) return;
+    setState(() {
+      if (_sortColumnIndex == columnIndex) {
+        _sortAscending = !_sortAscending;
+      } else {
+        _sortColumnIndex = columnIndex;
+        _sortAscending = true;
+      }
+    });
+  }
 
   // SOP, PO Num, ODD | Customer..New Comments | Last Edited | Action
   static const List<double> _baseColWidths = [
@@ -44,7 +130,7 @@ class _ShippingOutTableState extends State<ShippingOutTable> {
     90, // PROD MGR
     110, // Delivery Date
     200, // New Comments
-    150, // Last Edited On
+    160, // Last Edited On
     72, // Action
   ];
 
@@ -95,7 +181,7 @@ class _ShippingOutTableState extends State<ShippingOutTable> {
       final dateStr = date.toString();
       if (dateStr.startsWith('0001-01-01')) return '*';
       final parsedDate = DateTime.parse(dateStr);
-      return DateFormat('dd/MM/yyyy').format(parsedDate);
+      return DateFormat('MM/dd/yyyy').format(parsedDate);
     } catch (e) {
       return '-';
     }
@@ -107,7 +193,7 @@ class _ShippingOutTableState extends State<ShippingOutTable> {
       final dateStr = date.toString();
       if (dateStr.startsWith('0001-01-01')) return '*';
       final parsedDate = DateTime.parse(dateStr);
-      return DateFormat('dd/MM/yyyy hh:mm a').format(parsedDate);
+      return DateFormat('MM/dd/yyyy hh:mm:ss a').format(parsedDate);
     } catch (e) {
       return '-';
     }
@@ -155,26 +241,52 @@ class _ShippingOutTableState extends State<ShippingOutTable> {
     return base.map((w) => w * scale).toList();
   }
 
-  Widget _headerCell(String text, double width) {
+  Widget _headerCell(String text, double width, {int? sortIndex}) {
+    final sortable = sortIndex != null;
+    final active = sortable && _sortColumnIndex == sortIndex;
+    final up = !active || _sortAscending;
+
     return SizedBox(
       width: width,
       height: _rowHeight,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: _tableHeaderColor,
-          border: Border.all(color: Colors.grey, width: 0.5),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Center(
-            child: Text(
-              text,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+      child: Material(
+        color: _tableHeaderColor,
+        child: InkWell(
+          onTap: sortable ? () => _onSort(sortIndex) : null,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey, width: 0.5),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              child: Align(
+                alignment: Alignment.center,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        text,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    if (sortable) ...[
+                      const SizedBox(width: 3),
+                      Icon(
+                        up ? Icons.arrow_upward : Icons.arrow_downward,
+                        size: 12,
+                        color: active ? Colors.white : const Color(0x99B8C8E8),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -187,7 +299,7 @@ class _ShippingOutTableState extends State<ShippingOutTable> {
     return Container(
       width: width,
       height: _rowHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: Colors.white,
@@ -209,9 +321,9 @@ class _ShippingOutTableState extends State<ShippingOutTable> {
       decoration: BoxDecoration(boxShadow: _leftStickyShadow),
       child: Row(
         children: [
-          _headerCell('SOP', leftWidths[0]),
-          _headerCell('PO Num', leftWidths[1]),
-          _headerCell('ODD', leftWidths[2]),
+          _headerCell('SOP', leftWidths[0], sortIndex: 0),
+          _headerCell('PO Num', leftWidths[1], sortIndex: 1),
+          _headerCell('ODD', leftWidths[2], sortIndex: 2),
         ],
       ),
     );
@@ -239,15 +351,16 @@ class _ShippingOutTableState extends State<ShippingOutTable> {
   }) {
     return Row(
       children: [
-        _headerCell('Customer', middleWidths[0]),
-        _headerCell('Prgm', middleWidths[1]),
-        _headerCell('Loc.', middleWidths[2]),
-        _headerCell('SOP Entry', middleWidths[3]),
-        _headerCell('SOP Out', middleWidths[4]),
-        _headerCell('PROD MGR', middleWidths[5]),
-        _headerCell('Delivery Date', middleWidths[6]),
-        _headerCell('New Comments', middleWidths[7]),
-        if (showLastEdited) _headerCell('Last Edited On', middleWidths[8]),
+        _headerCell('Customer', middleWidths[0], sortIndex: 3),
+        _headerCell('Prgm', middleWidths[1], sortIndex: 4),
+        _headerCell('Loc.', middleWidths[2], sortIndex: 5),
+        _headerCell('SOP Entry', middleWidths[3], sortIndex: 6),
+        _headerCell('SOP Out', middleWidths[4], sortIndex: 7),
+        _headerCell('PROD MGR', middleWidths[5], sortIndex: 8),
+        _headerCell('Delivery Date', middleWidths[6], sortIndex: 9),
+        _headerCell('New Comments', middleWidths[7], sortIndex: 10),
+        if (showLastEdited)
+          _headerCell('Last Edited On', middleWidths[8], sortIndex: 11),
       ],
     );
   }
@@ -265,7 +378,7 @@ class _ShippingOutTableState extends State<ShippingOutTable> {
           wrap: true,
         ),
         _bodyTextCell(item['program']?.toString() ?? '-', middleWidths[1]),
-        _bodyTextCell(item['Location']?.toString() ?? '-', middleWidths[2]),
+        _bodyTextCell(item['Location']?.toString() ?? '', middleWidths[2]),
         _bodyTextCell(formatDate(item['SOPEntryDateIn']), middleWidths[3]),
         _bodyTextCell(formatDate(item['SOPOrderEntryOut']), middleWidths[4]),
         _bodyTextCell(item['prodMgr']?.toString() ?? '-', middleWidths[5]),
@@ -329,20 +442,20 @@ class _ShippingOutTableState extends State<ShippingOutTable> {
   }) {
     return Row(
       children: [
-        _headerCell('SOP', widths[0]),
-        _headerCell('PO Num', widths[1]),
-        _headerCell('ODD', widths[2]),
-        _headerCell('Customer', widths[3]),
-        _headerCell('Prgm', widths[4]),
-        _headerCell('Loc.', widths[5]),
-        _headerCell('SOP Entry', widths[6]),
-        _headerCell('SOP Out', widths[7]),
-        _headerCell('PROD MGR', widths[8]),
-        _headerCell('Delivery Date', widths[9]),
-        _headerCell('New Comments', widths[10]),
-        if (showLastEdited) _headerCell('Last Edited On', widths[11]),
-        if (showAction)
-          _headerCell('Action', widths[showLastEdited ? 12 : 11]),
+        _headerCell('SOP', widths[0], sortIndex: 0),
+        _headerCell('PO Num', widths[1], sortIndex: 1),
+        _headerCell('ODD', widths[2], sortIndex: 2),
+        _headerCell('Customer', widths[3], sortIndex: 3),
+        _headerCell('Prgm', widths[4], sortIndex: 4),
+        _headerCell('Loc.', widths[5], sortIndex: 5),
+        _headerCell('SOP Entry', widths[6], sortIndex: 6),
+        _headerCell('SOP Out', widths[7], sortIndex: 7),
+        _headerCell('PROD MGR', widths[8], sortIndex: 8),
+        _headerCell('Delivery Date', widths[9], sortIndex: 9),
+        _headerCell('New Comments', widths[10], sortIndex: 10),
+        if (showLastEdited)
+          _headerCell('Last Edited On', widths[11], sortIndex: 11),
+        if (showAction) _headerCell('Action', widths[showLastEdited ? 12 : 11]),
       ],
     );
   }
@@ -364,7 +477,7 @@ class _ShippingOutTableState extends State<ShippingOutTable> {
           wrap: true,
         ),
         _bodyTextCell(item['program']?.toString() ?? '-', widths[4]),
-        _bodyTextCell(item['Location']?.toString() ?? '-', widths[5]),
+        _bodyTextCell(item['Location']?.toString() ?? '', widths[5]),
         _bodyTextCell(formatDate(item['SOPEntryDateIn']), widths[6]),
         _bodyTextCell(formatDate(item['SOPOrderEntryOut']), widths[7]),
         _bodyTextCell(item['prodMgr']?.toString() ?? '-', widths[8]),
@@ -375,8 +488,7 @@ class _ShippingOutTableState extends State<ShippingOutTable> {
         ),
         if (showLastEdited)
           _bodyTextCell(formatDateTime(item['LastEdit']), widths[11]),
-        if (showAction)
-          _actionDataCell(item, widths[showLastEdited ? 12 : 11]),
+        if (showAction) _actionDataCell(item, widths[showLastEdited ? 12 : 11]),
       ],
     );
   }
@@ -388,7 +500,7 @@ class _ShippingOutTableState extends State<ShippingOutTable> {
     final actionWidth = _baseColWidths[12];
     final showAction = widget.showLastEditedAndAction;
     final showLastEdited = widget.showLastEditedAndAction;
-    final rowsData = widget.rows;
+    final rowsData = _sortedRows;
 
     return LayoutBuilder(
       builder: (context, constraints) {

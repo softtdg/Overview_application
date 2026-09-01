@@ -162,7 +162,7 @@ class _ShippingEditState extends State<ShippingEdit> {
         return "*";
       }
       DateTime parsedDate = DateTime.parse(dateStr);
-      return DateFormat('dd/MM/yyyy').format(parsedDate);
+      return DateFormat('MM/dd/yyyy').format(parsedDate);
     } catch (e) {
       // print("Date parse error: $e");
       return "-";
@@ -177,7 +177,7 @@ class _ShippingEditState extends State<ShippingEdit> {
         return "*";
       }
       DateTime parsedDate = DateTime.parse(dateStr);
-      return DateFormat('dd/MM/yyyy hh:mm a').format(parsedDate);
+      return DateFormat('MM/dd/yyyy hh:mm:ss a').format(parsedDate);
     } catch (e) {
       print("DateTime parse error: $e");
       return "-";
@@ -480,7 +480,7 @@ class _ShippingEditState extends State<ShippingEdit> {
       icon: const Icon(Icons.search, size: 20),
       label: Text(isTablet ? 'Search for Entry' : 'Search'),
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF1E88E5),
+        backgroundColor: const Color(0xFF1565C0),
         foregroundColor: Colors.white,
         elevation: 0,
         shape: RoundedRectangleBorder(

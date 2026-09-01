@@ -62,7 +62,7 @@ class _EditShippingInEntryState extends State<EditShippingInEntry> {
     if (_isEmptyShippingDate(date)) return 'mm-dd-yyyy';
     try {
       final parsedDate = DateTime.parse(date.toString());
-      return DateFormat('dd/MM/yyyy').format(parsedDate);
+      return DateFormat('MM/dd/yyyy').format(parsedDate);
     } catch (e) {
       print("Date parse error: $e");
       return 'mm-dd-yyyy';

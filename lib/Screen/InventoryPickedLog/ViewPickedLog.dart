@@ -54,14 +54,6 @@ List<Map<String, dynamic>> _sheetDataListFromResponse(
   return _deepCopyMapList(tableSourceRows);
 }
 
-String _formatLongDisplayDate(String raw) {
-  final value = raw.trim();
-  if (value.isEmpty || value == '-') return '-';
-  final parsed = DateTime.tryParse(value);
-  if (parsed == null) return value;
-  return DateFormat('MMMM d, yyyy').format(parsed.toLocal());
-}
-
 class ViewPickLogModel {
   final String TDGPN;
   final String description;
@@ -71,7 +63,7 @@ class ViewPickLogModel {
   final String unitOfMeasure;
   final String totalQtyNeeded;
   String actualQtyPicked;
-  final String mpfQty;
+  String mpfQty;
   String backorderQty;
   bool locationWasSelected;
 
@@ -130,7 +122,6 @@ class ViewPickedLogState extends State<ViewPickedLog> {
   String quantity = '-';
   String requiredOn = '-';
   String blankListDescription = '-';
-  String pickListPrintedOn = '-';
   String pickListLogNumber = '';
   String datePicked = '';
   String rma = '-';
@@ -245,7 +236,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
           final nested = Map<String, dynamic>.from(
             firstLevel.map((k, v) => MapEntry(k.toString(), v)),
           );
-          root = {...root, ...nested};
+          root = nested;
           final dynamic secondLevel = nested['sheetData'];
           if (secondLevel is List) rawRows = secondLevel;
         }
@@ -266,6 +257,20 @@ class ViewPickedLogState extends State<ViewPickedLog> {
           final value = root[key] ?? detailMap[key];
           if (value == null) continue;
           final text = value.toString().trim();
+          if (text.isNotEmpty && text.toLowerCase() != 'null') return text;
+        }
+        return '';
+      }
+
+      String tempQty(List<String> keys) {
+        for (final key in keys) {
+          final value = root[key] ?? detailMap[key];
+          if (value == null) continue;
+          final text = value.toString().trim();
+          if (text == '0' || text == '0.0') {
+            return '-';
+          }
+
           if (text.isNotEmpty) return text;
         }
         return '';
@@ -345,12 +350,9 @@ class ViewPickedLogState extends State<ViewPickedLog> {
         pickListNo = pickFrom(const ['pickListNumber']);
         project = pickFrom(const ['project']);
         fixture = pickFrom(const ['fixture']);
-        quantity = pickFrom(const ['tempQuantity']);
+        quantity = tempQty(const ['tempQuantity']);
         blankListDescription = pickFrom(const ['description']);
         requiredOn = _formatDisplayDate(pickFrom(const ['odd']));
-        pickListPrintedOn = _formatLongDisplayDate(
-          pickFrom(const ['createdAt']),
-        );
         rma = pickFrom(const ['RMA']);
         leadHandSignOff = mpfRequestedBy;
         mpfStatus = parsedMpfStatus;
@@ -450,7 +452,9 @@ class ViewPickedLogState extends State<ViewPickedLog> {
       final loc = row.location;
       _sheetDataForSubmit[i]['Location'] = loc;
       _sheetDataForSubmit[i]['selectedLocation'] = loc;
-      _sheetDataForSubmit[i]['ActualQtyPicked'] = row.actualQtyPicked;
+      _sheetDataForSubmit[i]['ActualQtyPicked'] = mpfStatus == 1
+          ? row.mpfQty
+          : row.actualQtyPicked;
       _sheetDataForSubmit[i]['InventoryComments'] = row.inventoryComments;
       if (row.backorderQty.isNotEmpty) {
         _sheetDataForSubmit[i]['forBackorder'] =
@@ -548,9 +552,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
 
   @override
   Widget build(BuildContext context) {
-    final today = pickListPrintedOn == '-' || pickListPrintedOn.isEmpty
-        ? DateFormat('MMMM d, yyyy').format(DateTime.now())
-        : pickListPrintedOn;
+    final today = DateFormat('MMMM d, yyyy').format(DateTime.now());
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -660,8 +662,8 @@ class ViewPickedLogState extends State<ViewPickedLog> {
     final valueFontSize = isMobile ? 10.0 : 14.0;
     final leftLabelFlex = isMobile ? 26 : 22;
     final leftValueFlex = isMobile ? 20 : 24;
-    const defaultLabelBg = Color(0xFFB9C7D9);
-    const defaultValueBg = Color(0xFFF1F3F5);
+    const defaultLabelBg = Color(0xFFDBEAFE);
+    const defaultValueBg = Colors.white;
     const mpfHighlightBg = Color.fromRGBO(240, 253, 244, 1);
     final isMpf = mpfStatus == 1;
 
@@ -992,7 +994,9 @@ class ViewPickedLogState extends State<ViewPickedLog> {
 
     double? backorderFor(ViewPickLogModel row) {
       final total = parseQuantity(row.totalQtyNeeded);
-      final actual = parseQuantity(row.actualQtyPicked);
+      final actual = parseQuantity(
+        mpfStatus == 1 ? row.mpfQty : row.actualQtyPicked,
+      );
       if (total == null || actual == null) return null;
       final remainder = total - actual;
       return remainder > 0 && remainder < total ? remainder : null;
@@ -1025,7 +1029,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
                   _blankIfZero(row.qtyPerFixture),
                   row.unitOfMeasure,
                   _blankIfZero(row.totalQtyNeeded),
-                  row.actualQtyPicked,
+                  showMpfCol ? '' : row.actualQtyPicked,
                   if (showMpfCol) row.mpfQty,
                   row.backorderQty,
                   row.location,
@@ -1095,6 +1099,7 @@ class ViewPickedLogState extends State<ViewPickedLog> {
             Widget child;
             if (!isHeader &&
                 !_isReadOnly &&
+                mpfStatus != 1 &&
                 index == actualQtyCol &&
                 rowIndex != null &&
                 rowIndex < data.length) {
@@ -1109,6 +1114,22 @@ class ViewPickedLogState extends State<ViewPickedLog> {
                       _sheetDataForSubmit[rowIndex]['ActualQtyPicked'] = value;
                     }
                   });
+                },
+              );
+            } else if (!isHeader &&
+                !_isReadOnly &&
+                index == mpfCol &&
+                rowIndex != null &&
+                rowIndex < data.length) {
+              child = _ActualQtyField(
+                key: ValueKey('mpf-qty-$rowIndex-${data[rowIndex].TDGPN}'),
+                initialValue: data[rowIndex].mpfQty,
+                textStyle: bodyTextStyle,
+                onChanged: (value) {
+                  data[rowIndex].mpfQty = value;
+                  if (rowIndex < _sheetDataForSubmit.length) {
+                    _sheetDataForSubmit[rowIndex]['mpfQty'] = value;
+                  }
                 },
               );
             } else if (!isHeader &&

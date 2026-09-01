@@ -165,7 +165,7 @@ class _ShippingInState extends State<ShippingIn> {
         return "*";
       }
       DateTime parsedDate = DateTime.parse(dateStr);
-      return DateFormat('dd/MM/yyyy').format(parsedDate);
+      return DateFormat('MM/dd/yyyy').format(parsedDate);
     } catch (e) {
       // print("Date parse error: $e");
       return "-";
@@ -180,7 +180,7 @@ class _ShippingInState extends State<ShippingIn> {
         return "*";
       }
       DateTime parsedDate = DateTime.parse(dateStr);
-      return DateFormat('dd/MM/yyyy hh:mm a').format(parsedDate);
+      return DateFormat('MM/dd/yyyy hh:mm:ss a').format(parsedDate);
     } catch (e) {
       // print("DateTime parse error: $e");
       return "-";
@@ -270,9 +270,10 @@ class _ShippingInState extends State<ShippingIn> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
               child: Align(
-                alignment: Alignment.centerLeft,
+                alignment:  Alignment.centerLeft,
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
+                  mainAxisAlignment:
+                       MainAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Flexible(
@@ -307,7 +308,12 @@ class _ShippingInState extends State<ShippingIn> {
     );
   }
 
-  Widget _bodyTextCell(String text, double width, {bool wrap = false}) {
+  Widget _bodyTextCell(
+    String text,
+    double width, {
+    bool wrap = false,
+    bool center = false,
+  }) {
     final displayText = wrap
         ? text
             .replaceAll('-', '-\u200B')
@@ -318,13 +324,13 @@ class _ShippingInState extends State<ShippingIn> {
       width: width,
       constraints: const BoxConstraints(minHeight: 56),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      alignment: Alignment.centerLeft,
+      alignment: center ? Alignment.center : Alignment.centerLeft,
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey, width: 0.5),
       ),
       child: Text(
         displayText,
-        textAlign: TextAlign.left,
+        textAlign: center ? TextAlign.center : TextAlign.left,
         softWrap: wrap,
         maxLines: wrap ? null : 1,
         overflow: wrap ? TextOverflow.visible : TextOverflow.ellipsis,
@@ -343,6 +349,7 @@ class _ShippingInState extends State<ShippingIn> {
             widths[i],
             // Action column is last — not sortable.
             sortIndex: i < _sortKeys.length ? i : null,
+            // center: i == 2 || i == 6 || i == 7,
           ),
       ],
     );
@@ -368,8 +375,8 @@ class _ShippingInState extends State<ShippingIn> {
             _bodyTextCell(
               values[i],
               widths[i],
-              // SOP, PO Num, Customer, Prgm — wrap long values instead of "..."
               wrap: i == 0 || i == 1 || i == 3 || i == 4,
+              center: i == 2 || i == 6 || i == 7,
             ),
           Container(
             width: widths.last,
@@ -481,7 +488,7 @@ class _ShippingInState extends State<ShippingIn> {
     final updateButton = ElevatedButton(
       onPressed: handleEditShippingInDate,
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF1E88E5),
+        backgroundColor: const Color(0xFF1565C0),
         foregroundColor: Colors.white,
         elevation: 0,
         shape: RoundedRectangleBorder(

@@ -1215,10 +1215,10 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
               ),
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  const fieldHeight = 48.0;
+                  const fieldHeight = 44.0;
                   final isNarrow = constraints.maxWidth < 700;
                   final sharedBorder = OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
                     borderSide: const BorderSide(
                       color: Color.fromARGB(255, 229, 231, 235),
                       width: 2,
@@ -1324,12 +1324,12 @@ class _InventoryPickedLogState extends State<InventoryPickedLog> {
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E88E5),
+                        backgroundColor: const Color(0xFF1565C0),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                       ),
                     ),

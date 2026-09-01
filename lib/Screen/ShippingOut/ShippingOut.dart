@@ -147,7 +147,7 @@ class _ShippingOutState extends State<ShippingOut> {
       icon: const Icon(Icons.search, size: 20),
       label: Text(isTablet ? 'Search SOP' : 'Search'),
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF1E88E5),
+        backgroundColor: const Color(0xFF1565C0),
         foregroundColor: Colors.white,
         elevation: 0,
         shape: RoundedRectangleBorder(

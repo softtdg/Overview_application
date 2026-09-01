@@ -41,54 +41,28 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
 
   Future<void> GetSOPById() async {
     await Dioservices.setToken();
-    setState(() {
-      isLoading = true;
-    });
     try {
       final response = await _service.SOPById(widget.SOPId);
       final data = response.data['data'];
-      setState(() {
-        SOPByIdData = List<Map<String, dynamic>>.from(data);
-        isLoading = false;
-      });
-      // debugPrint("SOP by ID data: $SOPByIdData");
+      if (!mounted) return;
+      SOPByIdData = List<Map<String, dynamic>>.from(data);
     } catch (e) {
       debugPrint("Error fetching SOP by ID: $e");
-      setState(() {
-        isLoading = false;
-      });
     }
   }
 
   Future<void> GetLocations() async {
     await Dioservices.setToken();
-    setState(() {
-      isLoading = true;
-    });
     try {
       final response = await _service.Locations();
-      setState(() {
-        locationOptions = List<Map<String, dynamic>>.from(
-          response.data['data'],
-        );
-        locations = List<String>.from(
-          (response.data['data'] as List)
-              .map((e) => (e['Location'] ?? '').toString())
-              .where((e) => e.isNotEmpty),
-        );
-        for (final item in SOPByIdData) {
-          if (item['SOPLocationId'] == null && item['Location'] != null) {
-            final selected = locationOptions.firstWhere(
-              (e) => e['Location']?.toString() == item['Location']?.toString(),
-              orElse: () => <String, dynamic>{},
-            );
-            if (selected.isNotEmpty) {
-              item['SOPLocationId'] = selected['SOPLocationId'];
-            }
-          }
-        }
-      });
-      // debugPrint("Locations data: ${response.data['data']}");
+      if (!mounted) return;
+      locationOptions = List<Map<String, dynamic>>.from(
+        response.data['data'],
+      );
+      locations = locationOptions
+          .map(_optionLocationName)
+          .where((e) => e.isNotEmpty)
+          .toList();
     } catch (e) {
       debugPrint("Error fetching locations: $e");
     }
@@ -96,35 +70,29 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
 
   Future<void> GetProgMgr() async {
     await Dioservices.setToken();
-    setState(() {
-      isLoading = true;
-    });
     try {
       final response = await _service.ProdMgr();
       final data = response.data['data'];
-      setState(() {
-        isLoading = false;
-        prodMgrOptions = List<Map<String, dynamic>>.from(data);
-        prodMgrs = List<String>.from(
-          (data as List)
-              .map((e) => (e['Name'] ?? '').toString())
-              .where((e) => e.isNotEmpty),
-        );
-        for (final item in SOPByIdData) {
-          if (item['SOPProductionManagerId'] == null &&
-              item['prodMgr'] != null) {
-            final selected = prodMgrOptions.firstWhere(
-              (e) => e['Name']?.toString() == item['prodMgr']?.toString(),
-              orElse: () => <String, dynamic>{},
-            );
-            if (selected.isNotEmpty) {
-              item['SOPProductionManagerId'] =
-                  selected['SOPProductionManagerId'];
-            }
+      if (!mounted) return;
+      prodMgrOptions = List<Map<String, dynamic>>.from(data);
+      prodMgrs = List<String>.from(
+        (data as List)
+            .map((e) => (e['Name'] ?? '').toString())
+            .where((e) => e.isNotEmpty),
+      );
+      for (final item in SOPByIdData) {
+        if (item['SOPProductionManagerId'] == null &&
+            item['prodMgr'] != null) {
+          final selected = prodMgrOptions.firstWhere(
+            (e) => e['Name']?.toString() == item['prodMgr']?.toString(),
+            orElse: () => <String, dynamic>{},
+          );
+          if (selected.isNotEmpty) {
+            item['SOPProductionManagerId'] =
+                selected['SOPProductionManagerId'];
           }
         }
-      });
-      // debugPrint("Prod Mgr data: $data");
+      }
     } catch (e) {
       debugPrint("Error fetching Prod Mgr: $e");
     }
@@ -132,23 +100,53 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
 
   Future<void> GetShippingOutHistory() async {
     await Dioservices.setToken();
-    setState(() {
-      isHistoryLoading = true;
-    });
     try {
       final response = await _service.ShippingOutHistory();
       final data = response.data['data'];
       if (!mounted) return;
       setState(() {
         ShippingOutHistory = List<Map<String, dynamic>>.from(data);
-        isHistoryLoading = false;
       });
     } catch (e) {
       debugPrint("Error fetching shipping out history: $e");
+    }
+  }
+
+  Future<void> _loadPage() async {
+    if (!mounted) return;
+    setState(() {
+      isLoading = true;
+      isHistoryLoading = true;
+    });
+    try {
+      await Future.wait([
+        GetSOPById(),
+        GetLocations(),
+        GetProgMgr(),
+        GetShippingOutHistory(),
+      ]);
       if (!mounted) return;
-      setState(() {
-        isHistoryLoading = false;
-      });
+      _syncLocationsOntoItems();
+      for (final item in SOPByIdData) {
+        if (item['SOPProductionManagerId'] == null &&
+            item['prodMgr'] != null) {
+          final selected = prodMgrOptions.firstWhere(
+            (e) => e['Name']?.toString() == item['prodMgr']?.toString(),
+            orElse: () => <String, dynamic>{},
+          );
+          if (selected.isNotEmpty) {
+            item['SOPProductionManagerId'] =
+                selected['SOPProductionManagerId'];
+          }
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          isHistoryLoading = false;
+        });
+      }
     }
   }
 
@@ -158,11 +156,9 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
         isLoading = true;
       });
 
-      if (item['SOPLocationId'] == null && item['Location'] != null) {
-        final selected = locationOptions.firstWhere(
-          (e) => e['Location']?.toString() == item['Location']?.toString(),
-          orElse: () => <String, dynamic>{},
-        );
+      if (item['SOPLocationId'] == null &&
+          _itemLocationName(item).isNotEmpty) {
+        final selected = _matchLocationOption(item);
         if (selected.isNotEmpty) {
           item['SOPLocationId'] = selected['SOPLocationId'];
         }
@@ -220,13 +216,77 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
     }
   }
 
+  String _optionLocationName(Map<String, dynamic> option) {
+    final value = option['Location'] ?? option['location'] ?? '';
+    return value.toString().trim();
+  }
+
+  String _optionLocationId(Map<String, dynamic> option) {
+    return (option['SOPLocationId'] ?? option['sopLocationId'] ?? '')
+        .toString()
+        .trim();
+  }
+
+  String _itemLocationName(Map<String, dynamic> item) {
+    for (final key in const ['Location', 'location']) {
+      final text = item[key]?.toString().trim() ?? '';
+      if (text.isNotEmpty && text.toLowerCase() != 'null') return text;
+    }
+    return '';
+  }
+
+  String _itemLocationId(Map<String, dynamic> item) {
+    return (item['SOPLocationId'] ?? item['sopLocationId'] ?? '')
+        .toString()
+        .trim();
+  }
+
+  Map<String, dynamic> _matchLocationOption(Map<String, dynamic> item) {
+    final id = _itemLocationId(item);
+    final name = _itemLocationName(item).toLowerCase();
+    for (final option in locationOptions) {
+      if (id.isNotEmpty && _optionLocationId(option) == id) return option;
+      final optionName = _optionLocationName(option).toLowerCase();
+      if (name.isNotEmpty && optionName == name) return option;
+    }
+    return <String, dynamic>{};
+  }
+
+  String? _dropdownLocationValue(Map<String, dynamic> item) {
+    final matched = _matchLocationOption(item);
+    if (matched.isNotEmpty) {
+      final name = _optionLocationName(matched);
+      if (name.isNotEmpty && locations.contains(name)) return name;
+    }
+    final raw = _itemLocationName(item);
+    if (raw.isEmpty) return null;
+    for (final loc in locations) {
+      if (loc.toLowerCase() == raw.toLowerCase()) return loc;
+    }
+    return locations.contains(raw) ? raw : null;
+  }
+
+  void _syncLocationsOntoItems() {
+    if (SOPByIdData.isEmpty) return;
+    for (final item in SOPByIdData) {
+      final matched = _matchLocationOption(item);
+      if (matched.isNotEmpty) {
+        item['Location'] = _optionLocationName(matched);
+        item['SOPLocationId'] =
+            matched['SOPLocationId'] ?? matched['sopLocationId'];
+      }
+      final name = _itemLocationName(item);
+      if (name.isNotEmpty &&
+          !locations.any((loc) => loc.toLowerCase() == name.toLowerCase())) {
+        locations.add(name);
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    GetSOPById();
-    GetLocations();
-    GetProgMgr();
-    GetShippingOutHistory();
+    _loadPage();
   }
 
   @override
@@ -275,7 +335,7 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
     if (_isNullOrEmptyDate(date) || _isMinDate(date)) return 'dd-mm-yyyy';
     try {
       final parsedDate = DateTime.parse(date.toString());
-      return DateFormat('dd-MM-yyyy').format(parsedDate);
+      return DateFormat('MM-dd-yyyy').format(parsedDate);
     } catch (e) {
       debugPrint("Date parse error: $e");
       return 'dd-mm-yyyy';
@@ -381,10 +441,10 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
           headingRowColor: MaterialStateProperty.all(
             Color.fromARGB(255, 57, 73, 95),
           ),
-          dataRowMinHeight: 56,
+          dataRowMinHeight: 48,
           dataRowMaxHeight: double.infinity,
-          horizontalMargin: 20,
-          columnSpacing: 20,
+          horizontalMargin: 12,
+          columnSpacing: 12,
           border: TableBorder.all(color: Colors.grey, width: 1),
           columns: const [
             DataColumn(
@@ -645,36 +705,40 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                   ),
                 ),
                 DataCell(
-                  SizedBox(
-                    width: 260,
-                    child: TextFormField(
-                      initialValue: item['customer']?.toString() ?? '',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12),
-                      maxLines: null,
-                      keyboardType: TextInputType.multiline,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 8,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
+                    child: SizedBox(
+                      width: 260,
+                      child: TextFormField(
+                        initialValue: item['customer']?.toString() ?? '',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 12),
+                        maxLines: null,
+                        keyboardType: TextInputType.multiline,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                            borderSide: const BorderSide(color: Colors.grey),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                            borderSide: const BorderSide(color: Colors.grey),
+                          ),
                         ),
-
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: const BorderSide(color: Colors.grey),
-                        ),
-
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: const BorderSide(color: Colors.grey),
-                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            item['customer'] = value;
+                          });
+                        },
                       ),
-                      onChanged: (value) {
-                        setState(() {
-                          item['customer'] = value;
-                        });
-                      },
                     ),
                   ),
                 ),
@@ -723,38 +787,43 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                 //   ),
                 // ),
                 DataCell(
-                  SizedBox(
-                    width: 150,
-                    child: DropdownButtonFormField<String>(
-                      value: locations.contains(item['Location']?.toString())
-                          ? item['Location']?.toString()
-                          : null,
-                      hint: const Text(
-                        'Select Location',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                      dropdownColor: Colors.white,
-                      decoration: InputDecoration(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 4,
+                    ),
+                    child: SizedBox(
+                      width: 150,
+                      child: DropdownButtonFormField<String>(
+                        isDense: true,
+                        value: _dropdownLocationValue(item),
+                        hint: const Text(
+                          'Select Location',
+                          style: TextStyle(fontSize: 12),
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: const BorderSide(color: Colors.grey),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: const BorderSide(color: Colors.grey),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: const BorderSide(
-                            color: Color.fromARGB(255, 22, 129, 218),
-                            width: 2,
+                        dropdownColor: Colors.white,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                            borderSide: const BorderSide(color: Colors.grey),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                            borderSide: const BorderSide(color: Colors.grey),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                            borderSide: const BorderSide(
+                              color: Color.fromARGB(255, 22, 129, 218),
+                              width: 2,
+                            ),
                           ),
                         ),
-                      ),
                       items: locations.map((location) {
                         return DropdownMenuItem<String>(
                           value: location,
@@ -765,14 +834,19 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                         setState(() {
                           item['Location'] = value ?? '';
                           final selected = locationOptions.firstWhere(
-                            (e) => e['Location']?.toString() == value,
+                            (e) =>
+                                _optionLocationName(e).toLowerCase() ==
+                                (value ?? '').toLowerCase(),
                             orElse: () => <String, dynamic>{},
                           );
                           if (selected.isNotEmpty) {
-                            item['SOPLocationId'] = selected['SOPLocationId'];
+                            item['SOPLocationId'] =
+                                selected['SOPLocationId'] ??
+                                selected['sopLocationId'];
                           }
                         });
                       },
+                    ),
                     ),
                   ),
                 ),
@@ -823,57 +897,65 @@ class _EditShippingOutEntryState extends State<EditShippingOutEntry> {
                   ),
                 ),
                 DataCell(
-                  SizedBox(
-                    width: 150,
-                    child: DropdownButtonFormField<String>(
-                      value: prodMgrs.contains(item['prodMgr']?.toString())
-                          ? item['prodMgr']?.toString()
-                          : null,
-                      hint: const Text(
-                        'Select Manager',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                      dropdownColor: Colors.white,
-                      decoration: InputDecoration(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 4,
+                    ),
+                    child: SizedBox(
+                      width: 150,
+                      child: DropdownButtonFormField<String>(
+                        isDense: true,
+                        value: prodMgrs.contains(item['prodMgr']?.toString())
+                            ? item['prodMgr']?.toString()
+                            : null,
+                        hint: const Text(
+                          'Select Manager',
+                          style: TextStyle(fontSize: 12),
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: const BorderSide(color: Colors.grey),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: const BorderSide(color: Colors.grey),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: const BorderSide(
-                            color: Color.fromARGB(255, 22, 129, 218),
-                            width: 2,
+                        dropdownColor: Colors.white,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                            borderSide: const BorderSide(color: Colors.grey),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                            borderSide: const BorderSide(color: Colors.grey),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                            borderSide: const BorderSide(
+                              color: Color.fromARGB(255, 22, 129, 218),
+                              width: 2,
+                            ),
                           ),
                         ),
-                      ),
-                      items: prodMgrs.map((mgr) {
-                        return DropdownMenuItem<String>(
-                          value: mgr,
-                          child: Text(mgr, style: TextStyle(fontSize: 12)),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          item['prodMgr'] = value ?? '';
-                          final selected = prodMgrOptions.firstWhere(
-                            (e) => e['Name']?.toString() == value,
-                            orElse: () => <String, dynamic>{},
+                        items: prodMgrs.map((mgr) {
+                          return DropdownMenuItem<String>(
+                            value: mgr,
+                            child: Text(mgr, style: TextStyle(fontSize: 12)),
                           );
-                          if (selected.isNotEmpty) {
-                            item['SOPProductionManagerId'] =
-                                selected['SOPProductionManagerId'];
-                          }
-                        });
-                      },
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            item['prodMgr'] = value ?? '';
+                            final selected = prodMgrOptions.firstWhere(
+                              (e) => e['Name']?.toString() == value,
+                              orElse: () => <String, dynamic>{},
+                            );
+                            if (selected.isNotEmpty) {
+                              item['SOPProductionManagerId'] =
+                                  selected['SOPProductionManagerId'];
+                            }
+                          });
+                        },
+                      ),
                     ),
                   ),
                 ),
