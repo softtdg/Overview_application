@@ -21,6 +21,7 @@ class PickList extends StatefulWidget {
   final String mpf;
   final bool customMpf;
   final bool livePdmMpf;
+  final String location;
 
   const PickList({
     super.key,
@@ -29,6 +30,7 @@ class PickList extends StatefulWidget {
     required this.mpf,
     this.customMpf = false,
     this.livePdmMpf = false,
+    this.location = '',
   });
 
   @override
@@ -42,6 +44,8 @@ class _PickListState extends State<PickList> {
   final ScrollController _verticalScrollController = ScrollController();
   String? selectedMpfRequestedBy;
   String? selectedComment;
+  final TextEditingController _customCommentController =
+      TextEditingController();
 
   final List<String> mpfRequestedByList = [
     "GEORGEK",
@@ -98,6 +102,7 @@ class _PickListState extends State<PickList> {
   String _programName = '';
   String _sopNum = '';
 
+
   bool _dropdownOpen = false;
   bool _inventoryDownloading = false;
   int _selectedIndex = 0;
@@ -117,9 +122,24 @@ class _PickListState extends State<PickList> {
       ..addAll(rows.map((r) => TextEditingController(text: r.mpfQty)));
   }
 
+  bool get _isMpf =>
+      widget.mpf.toLowerCase() == 'true' ||
+      widget.customMpf ||
+      widget.livePdmMpf;
+
+  bool get _isUsaProductionLocation {
+    final loc = widget.location.trim().toLowerCase();
+    return loc == 'usa' || loc == 'usa production';
+  }
+
+  static const _usaProductionLabel = 'USA Production';
+
   @override
   void initState() {
     super.initState();
+    if (_isUsaProductionLocation) {
+      selectedMpfRequestedBy = _usaProductionLabel;
+    }
     if (widget.livePdmMpf) {
       _fetchLivePdmPickList();
     } else {
@@ -133,6 +153,7 @@ class _PickListState extends State<PickList> {
   void dispose() {
     _qtyController.dispose();
     _rmaController.dispose();
+    _customCommentController.dispose();
     _verticalScrollController.dispose();
     for (final c in _mpfControllers) {
       c.dispose();
@@ -268,7 +289,9 @@ class _PickListState extends State<PickList> {
       return;
     }
 
-    final requestedBy = selectedMpfRequestedBy?.trim() ?? '';
+    final requestedBy = _isUsaProductionLocation
+        ? _usaProductionLabel
+        : (selectedMpfRequestedBy?.trim() ?? '');
     if (requestedBy.isEmpty) {
       AppToast.error(context, 'MPF Requested By is required');
       return;
@@ -283,11 +306,32 @@ class _PickListState extends State<PickList> {
       final sheetData = <Map<String, dynamic>>[];
       var hasAtLeastOneMpfQty = false;
       var hasMissingCommentForMpfQty = false;
+      
+      // Helper to check if value is truthy
+      bool isTruthy(dynamic value) {
+        if (value == null) return false;
+        if (value is bool) return value;
+        if (value is int) return value != 0;
+        if (value is double) return value != 0;
+        if (value is String) {
+          final lower = value.toLowerCase().trim();
+          return lower == 'true' || lower == '1' || lower == 'yes';
+        }
+        return false;
+      }
+      
       for (var i = 0; i < _rawSheetData.length; i++) {
         final item = _rawSheetData[i];
         final isGray =
-            item['isGray'] == true ||
-            item['isGrayRow'] == true ||
+            isTruthy(item['isGray']) ||
+            isTruthy(item['isGrayRow']) ||
+            isTruthy(item['isGrey']) ||
+            isTruthy(item['is_gray']) ||
+            isTruthy(item['is_grey']) ||
+            isTruthy(item['IsGray']) ||
+            isTruthy(item['IsGrey']) ||
+            isTruthy(item['grayRow']) ||
+            isTruthy(item['greyRow']) ||
             (i < _sheetRows.length && _sheetRows[i].isGray);
         if (isGray) continue;
 
@@ -550,11 +594,12 @@ class _PickListState extends State<PickList> {
       //   'LIVE PDM CALL → sop=${widget.sopNumber} fixture=${widget.fixtureNumber} user=$user',
       // );
 
-      final response = await _services.getFixtureDataFromLivePdm(
+      final response = await _services.mpfFixtureDataGetFromLivePdm(
         sopNumber: widget.sopNumber,
         fixtureNumber: widget.fixtureNumber,
         user: user,
         lhrEntryId: '',
+        location: widget.location,
       );
 
       // debugPrint('LIVE PDM URL: ${response.requestOptions.uri}');
@@ -575,6 +620,20 @@ class _PickListState extends State<PickList> {
 
       final map = Map<String, dynamic>.from(data);
       final listData = map['listData'];
+      
+      // Debug: Show API response structure
+      debugPrint('🔍 LIVE PDM API RESPONSE:');
+      debugPrint('   Root keys: ${root.keys.toList()}');
+      debugPrint('   Data keys: ${data.keys.toList()}');
+      if (listData is List) {
+        debugPrint('   listData length: ${listData.length}');
+        if (listData.isNotEmpty && listData.first is Map) {
+          final firstRow = listData.first as Map;
+          debugPrint('   First row keys: ${firstRow.keys.toList()}');
+          debugPrint('   First row values: $firstRow');
+        }
+      }
+      
       _applyPickListMap(map, rows: listData is List ? listData : const []);
     } catch (e) {
       debugPrint('LIVE PDM PICK LIST ERROR: $e');
@@ -588,11 +647,7 @@ class _PickListState extends State<PickList> {
         }
       }
       if (!mounted) return;
-      AppToast.error(
-        context,
-        message,
-        duration: const Duration(seconds: 6),
-      );
+      AppToast.error(context, message, duration: const Duration(seconds: 6));
     }
   }
 
@@ -661,6 +716,18 @@ class _PickListState extends State<PickList> {
     Color? textColor,
     double fontSize = 14,
   }) {
+    if (_isUsaProductionLocation) {
+      return _tableCell(
+        _usaProductionLabel,
+        height: rowHeight,
+        bgColor: bgColor,
+        fontSize: fontSize,
+        textColor: textColor,
+        isBold: true,
+        alignCenter: true,
+      );
+    }
+
     return Container(
       height: rowHeight,
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
@@ -731,7 +798,14 @@ class _PickListState extends State<PickList> {
           child: Text(option['label']!),
         );
       }).toList(),
-      onChanged: (value) => setState(() => selectedComment = value),
+      onChanged: (value) {
+        setState(() {
+          selectedComment = value;
+          if (value != 'Other') {
+            _customCommentController.clear();
+          }
+        });
+      },
     );
   }
 
@@ -764,11 +838,41 @@ class _PickListState extends State<PickList> {
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        Expanded(child: commentDropdown()),
+                        Expanded(flex: 2, child: commentDropdown()),
+                        if (selectedComment == 'Other') ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 2,
+                            child: TextField(
+                              controller: _customCommentController,
+                              onChanged: (_) => setState(() {}),
+                              decoration: InputDecoration(
+                                hintText: 'Enter custom comment...',
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 12,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                  borderSide: const BorderSide(
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                  borderSide: const BorderSide(
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(width: 8),
                         Flexible(
                           child: OutlinedButton(
-                            onPressed: selectedComment == null
+                            onPressed: _commentToApply == null
                                 ? null
                                 : _applyCommentToAll,
                             style: OutlinedButton.styleFrom(
@@ -784,6 +888,7 @@ class _PickListState extends State<PickList> {
                             child: Text(
                               isMobile ? 'Apply All' : 'Apply Comment to All',
                               overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Color.fromARGB(255, 6, 54, 94)),
                             ),
                           ),
                         ),
@@ -1006,6 +1111,39 @@ class _PickListState extends State<PickList> {
     return widget.sopNumber;
   }
 
+  /// Bolds "GOES INTO" and the following part number; rest stays regular.
+  Widget _goesIntoDescription(
+    String text,
+    TextStyle style, {
+    TextAlign textAlign = TextAlign.center,
+  }) {
+    final match = RegExp(
+      r'^(Goes into\s+\S+)([\s\S]*)$',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (match == null) {
+      return Text(
+        text,
+        style: style,
+        textAlign: textAlign,
+        softWrap: true,
+      );
+    }
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: match.group(1),
+            style: style.copyWith(fontWeight: FontWeight.w700),
+          ),
+          TextSpan(text: match.group(2), style: style),
+        ],
+      ),
+      textAlign: textAlign,
+      softWrap: true,
+    );
+  }
+
   Widget _buildInfoGrid({required bool isMobile}) {
     const borderColor = Color(0xFF2C3138);
     final rowHeight = isMobile ? 48.0 : 44.0;
@@ -1016,16 +1154,15 @@ class _PickListState extends State<PickList> {
     final isBlankPickList =
         _dropdownOptions[_selectedIndex.clamp(0, _dropdownOptions.length - 1)]
             .isBlank;
-    final labelBg = isBlankPickList
-        ? const Color(0xFFB9C7D9)
-        : const Color(0xFFE8F5E9);
-    final valueBg = isBlankPickList
-        ? const Color(0xFFF1F3F5)
-        : const Color(0xFFF5F9F5);
-    final pickListLogBg = isBlankPickList ? const Color(0xFFE8F5E9) : valueBg;
-    final textColor = isBlankPickList
-        ? const Color(0xFF0C4A7D)
-        : const Color(0xFF166534);
+    final useMpfGreen = _isMpf || !isBlankPickList;
+    final labelBg = useMpfGreen
+        ? const Color(0xFFE8F5E9)
+        : const Color(0xFFB9C7D9);
+    final valueBg = useMpfGreen ? Colors.white : const Color(0xFFF1F3F5);
+    const pickListLogBg = Color(0xFFE8F5E9);
+    final textColor = useMpfGreen
+        ? const Color(0xFF166534)
+        : const Color(0xFF0C4A7D);
 
     return Container(
       decoration: BoxDecoration(border: Border.all(color: borderColor)),
@@ -1227,8 +1364,17 @@ class _PickListState extends State<PickList> {
     );
   }
 
+  String? get _commentToApply {
+    if (selectedComment == null) return null;
+    if (selectedComment == 'Other') {
+      final custom = _customCommentController.text.trim();
+      return custom.isEmpty ? null : custom;
+    }
+    return selectedComment;
+  }
+
   void _applyCommentToAll() {
-    final comment = selectedComment;
+    final comment = _commentToApply;
     if (comment == null) return;
     setState(() {
       _sheetRows = [
@@ -1578,8 +1724,11 @@ class _PickListState extends State<PickList> {
 
       final options = commentOptions.map((e) => e['value']!).toList();
       final current = row.comments.trim();
-      final value = options.contains(current) ? current : '';
-      final display = value.isEmpty ? 'Select comment...' : value;
+      final isPreset = options.contains(current);
+      final value = isPreset
+          ? current
+          : (current.isEmpty ? '' : 'Other');
+      final display = current.isEmpty ? 'Select comment...' : current;
 
       return Container(
         width: w,
@@ -1760,6 +1909,25 @@ class _PickListState extends State<PickList> {
                         r.unitOfMeasure,
                         widths[5],
                         bgColor: rowBg,
+                      );
+                    }
+                    if (i == 1) {
+                      return Container(
+                        width: widths[1],
+                        height: rowH,
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: rowBg,
+                          border: const Border(
+                            right: BorderSide(color: borderColor),
+                            bottom: BorderSide(color: borderColor),
+                          ),
+                        ),
+                        child: _goesIntoDescription(r.description, bodyStyle),
                       );
                     }
                     if (i == 8 && !isPlaceholder) {
@@ -1946,14 +2114,45 @@ class _SheetRow {
       return v?.toString().trim() ?? '';
     }
 
+    // Helper function to check if a value represents true
+    bool isTruthy(dynamic value) {
+      if (value == null) return false;
+      if (value is bool) return value;
+      if (value is int) return value != 0;
+      if (value is double) return value != 0;
+      if (value is String) {
+        final lower = value.toLowerCase().trim();
+        return lower == 'true' || lower == '1' || lower == 'yes';
+      }
+      return false;
+    }
+
     final uom = p('UnitOfMeasure').toUpperCase();
+    
+    // Check all possible field name variations for grey indicator
     final isGray =
-        row['isGray'] == true ||
-        row['isGrayRow'] == true ||
-        row['isGrey'] == true;
+        isTruthy(row['isGray']) ||
+        isTruthy(row['isGrayRow']) ||
+        isTruthy(row['isGrey']) ||
+        isTruthy(row['is_gray']) ||
+        isTruthy(row['is_grey']) ||
+        isTruthy(row['IsGray']) ||
+        isTruthy(row['IsGrey']) ||
+        isTruthy(row['grayRow']) ||
+        isTruthy(row['greyRow']) ||
+        isTruthy(detail['isGray']) ||
+        isTruthy(detail['isGrey']);
+    
+    // Debug logging
+    final tdgpn = p('TDGPN');
+    if (tdgpn.isNotEmpty) {
+      debugPrint('📦 ROW [$tdgpn] - isGray=$isGray');
+      debugPrint('   Raw keys: ${row.keys.toList()}');
+      debugPrint('   isGray values: {isGray: ${row['isGray']}, isGrayRow: ${row['isGrayRow']}, isGrey: ${row['isGrey']}}');
+    }
 
     return _SheetRow(
-      tdgpn: p('TDGPN'),
+      tdgpn: tdgpn,
       description: p('Description'),
       vendor: p('Vendor'),
       vendorPN: p('VendorPN'),

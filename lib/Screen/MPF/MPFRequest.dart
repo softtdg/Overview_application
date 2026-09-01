@@ -141,6 +141,27 @@ class _MPFRequestState extends State<MPFRequest> {
     }
   }
 
+  void _openCustomSopPickList() {
+    final sop = _newCustomSopController.text.trim();
+    final fixture = _fixtureController.text.trim();
+    if (sop.isEmpty || fixture.isEmpty) return;
+    if (_fixtureValidation != _SopValidation.valid) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PickList(
+          fixtureNumber: fixture,
+          sopNumber: sop,
+          mpf: "true",
+          customMpf: true,
+          livePdmMpf: false,
+          location: "USA",
+        ),
+      ),
+    );
+  }
+
   void _openLivePdmPickList() {
     final sop = _newCustomSopController.text.trim();
     final fixture = _fixtureController.text.trim();
@@ -155,6 +176,7 @@ class _MPFRequestState extends State<MPFRequest> {
           mpf: "true",
           customMpf: true,
           livePdmMpf: true,
+          location: "USA",
         ),
       ),
     );
@@ -391,6 +413,7 @@ class _MPFRequestState extends State<MPFRequest> {
                       fixtureNumber: fixture["FixtureNumber"]?.toString() ?? "",
                       sopNumber: _sopController.text.trim(),
                       mpf: "true",
+                      location: "USA",
                     ),
                   ),
                 );
@@ -1261,12 +1284,12 @@ class _MPFRequestState extends State<MPFRequest> {
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(4),
-                                  borderSide: BorderSide(color: fieldColor),
+                                  borderSide: BorderSide(color: _borderColor),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(4),
                                   borderSide: BorderSide(
-                                    color: fieldColor,
+                                    color: _borderColor,
                                     width: 1.5,
                                   ),
                                 ),
@@ -1549,7 +1572,9 @@ class _MPFRequestState extends State<MPFRequest> {
                           runSpacing: 8,
                           children: [
                             ElevatedButton(
-                              onPressed: fixtureValid ? () {} : null,
+                              onPressed: fixtureValid
+                                  ? _openCustomSopPickList
+                                  : null,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF1976D2),
                                 foregroundColor: Colors.white,
@@ -1571,23 +1596,24 @@ class _MPFRequestState extends State<MPFRequest> {
                               ),
                               child: const Text("Submit"),
                             ),
-                            if (fixtureInvalid) ...[
-                              const SizedBox(width: 12),
-                              OutlinedButton.icon(
-                                onPressed: _openLivePdmPickList,
-                                icon: const Icon(Icons.open_in_new, size: 16),
-                                label: const Text("Search from Live PDM"),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF37475E),
-                                  side: const BorderSide(
-                                    color: Color(0xFF37475E),
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
+                            OutlinedButton.icon(
+                              onPressed:
+                                  _newCustomSopController.text.trim().isEmpty ||
+                                      _fixtureController.text.trim().isEmpty
+                                  ? null
+                                  : _openLivePdmPickList,
+                              icon: const Icon(Icons.open_in_new, size: 16),
+                              label: const Text("Search from Live PDM"),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF37475E),
+                                side: const BorderSide(
+                                  color: Color(0xFF37475E),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
                                 ),
                               ),
-                            ],
+                            ),
                           ],
                         ),
                       ],
