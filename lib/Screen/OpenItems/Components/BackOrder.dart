@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:overview_app/Screen/OpenItems/Services/OpenItemsServices.dart';
 import 'package:overview_app/Screen/Public-Search/PublicSearch.dart';
+import 'package:overview_app/Utils/api_date.dart';
 import 'package:overview_app/Utils/responsive.dart';
+import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/AppToast.dart';
 
 /// Table header background (dark blue-gray).
@@ -83,6 +85,7 @@ class _BackOrderState extends State<BackOrder> {
   late final TextEditingController _productionResponseCtrl;
   late final TextEditingController _inventoryCommentCtrl;
   Map<String, dynamic>? _apiItem;
+  bool _isDetailLoading = false;
   bool? _notifyPurchasingOverride;
   bool? _pickedOverride;
   bool? _notifyProductionOverride;
@@ -122,6 +125,7 @@ class _BackOrderState extends State<BackOrder> {
     _productionNoticeCtrl = TextEditingController();
     _productionResponseCtrl = TextEditingController();
     _inventoryCommentCtrl = TextEditingController();
+    _isDetailLoading = widget.sopLeadHandEntryId?.trim().isNotEmpty ?? false;
     _fetchDetailByLeadHandEntryId();
   }
 
@@ -133,6 +137,7 @@ class _BackOrderState extends State<BackOrder> {
       _purchasingNoticeCtrl.text = widget.purchasingNotice;
     }
     if (oldWidget.sopLeadHandEntryId != widget.sopLeadHandEntryId) {
+      _isDetailLoading = widget.sopLeadHandEntryId?.trim().isNotEmpty ?? false;
       _fetchDetailByLeadHandEntryId();
     }
   }
@@ -140,6 +145,11 @@ class _BackOrderState extends State<BackOrder> {
   Future<void> _fetchDetailByLeadHandEntryId() async {
     final id = widget.sopLeadHandEntryId?.trim() ?? '';
     if (id.isEmpty) return;
+
+    if (mounted) {
+      setState(() => _isDetailLoading = true);
+    }
+
     try {
       final response = await OpenItemsServices().SearchOpenItemsByFixtureId(
         sopLeadHandEntryId: id,
@@ -175,7 +185,12 @@ class _BackOrderState extends State<BackOrder> {
       if (productionResponse.isNotEmpty) {
         _productionResponseCtrl.text = productionResponse;
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      if (mounted) {
+        setState(() => _isDetailLoading = false);
+      }
+    }
   }
 
   Map<String, dynamic>? _mapFromSpecificInventoryResponse(
@@ -309,40 +324,9 @@ class _BackOrderState extends State<BackOrder> {
     setState(() {});
   }
 
-  String _formatOddDate(String raw) {
-    final value = raw.trim();
-    if (value.isEmpty) return value;
-    try {
-      final parsed = DateTime.parse(value);
-      final dd = parsed.day.toString().padLeft(2, '0');
-      final mm = parsed.month.toString().padLeft(2, '0');
-      final yyyy = parsed.year.toString();
-      return '$dd/$mm/$yyyy';
-    } catch (_) {
-      return value;
-    }
-  }
+  String _formatOddDate(String raw) => ApiDate.formatMmDdYyyy(raw);
 
-  String _formatDateTime(String raw) {
-    final value = raw.trim();
-    if (value.isEmpty) return value;
-    if (value.startsWith('0001-01-01')) return '*';
-    try {
-      final parsed = DateTime.parse(value);
-      if (parsed.year <= 1) return '';
-      final month = parsed.month.toString();
-      final day = parsed.day.toString();
-      final year = parsed.year.toString();
-      final hour24 = parsed.hour;
-      final period = hour24 >= 12 ? 'PM' : 'AM';
-      final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
-      final min = parsed.minute.toString().padLeft(2, '0');
-      final ss = parsed.second.toString().padLeft(2, '0');
-      return '$month/$day/$year,\n$hour12:$min:$ss $period';
-    } catch (_) {
-      return value;
-    }
-  }
+  String _formatDateTime(String raw) => ApiDate.formatMmDdYyyyTime(raw);
 
   String _leadHandNameFromNested(Map<String, dynamic>? item) {
     if (item == null) return '';
@@ -372,8 +356,14 @@ class _BackOrderState extends State<BackOrder> {
   }
 
   String get _odd {
-    final value = _valueFromItem(_apiItem, ['ODD']);
-    final raw = value.isEmpty ? widget.odd : value;
+    var raw = _valueFromItem(_apiItem, ['ODD', 'odd', 'Date']);
+    if (raw.isEmpty) {
+      final sop = _apiItem?['SOP'];
+      if (sop is Map) {
+        raw = _valueFromItem(Map<String, dynamic>.from(sop), ['ODD']);
+      }
+    }
+    if (raw.isEmpty) raw = widget.odd;
     return _formatOddDate(raw);
   }
 
@@ -419,6 +409,65 @@ class _BackOrderState extends State<BackOrder> {
     final row = _draftBackorders.removeAt(index);
     row.dispose();
     setState(() {});
+  }
+
+  Future<bool> _confirmDeleteBackorder() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text(
+          'Confirm Delete',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 20,
+            color: Color(0xFF111827),
+          ),
+        ),
+        content: const Text(
+          'Are you sure you want to delete this backorder entry? '
+          'This action cannot be undone.',
+          style: TextStyle(color: Color(0xFF4B5563), fontSize: 15, height: 1.4),
+        ),
+        actionsAlignment: MainAxisAlignment.end,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: Color(0xFF1976D2),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53935),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text(
+              'Delete',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
+  void _removeSavedBackorderRow(Map<String, dynamic> row) {
+    setState(() {
+      _editableBackorders.remove(row);
+    });
   }
 
   bool get _isNotifyPurchasingTrue {
@@ -489,10 +538,14 @@ class _BackOrderState extends State<BackOrder> {
           ],
           ElevatedButton.icon(
             onPressed: _onUpdateEntry,
-            icon: const Icon(Icons.save_outlined, size: 18),
+            icon: const Icon(Icons.save_outlined, size: 22),
             label: const Text('Update Entry'),
             style: ElevatedButton.styleFrom(
               backgroundColor: _kPrimaryBlue,
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -504,12 +557,13 @@ class _BackOrderState extends State<BackOrder> {
             const SizedBox(width: 10),
             OutlinedButton.icon(
               onPressed: widget.onNewSearch ?? () {},
-              icon: const Icon(Icons.search, size: 18, color: _kPrimaryBlue),
+              icon: const Icon(Icons.search, size: 22, color: _kPrimaryBlue),
               label: const Text(
                 'New Search',
                 style: TextStyle(
                   color: _kPrimaryBlue,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
                 ),
               ),
               style: OutlinedButton.styleFrom(
@@ -685,8 +739,8 @@ class _BackOrderState extends State<BackOrder> {
   Widget _buildHorizontallyScrollableNotices(Widget child) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final viewportWidth = constraints.hasBoundedWidth &&
-                constraints.maxWidth.isFinite
+        final viewportWidth =
+            constraints.hasBoundedWidth && constraints.maxWidth.isFinite
             ? constraints.maxWidth
             : MediaQuery.sizeOf(context).width;
         final contentWidth = viewportWidth < _kNoticesContentMinWidth
@@ -698,14 +752,11 @@ class _BackOrderState extends State<BackOrder> {
           child: Responsive.hideScrollbars(
             context,
             SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const ClampingScrollPhysics(),
-            clipBehavior: Clip.hardEdge,
-            primary: false,
-            child: SizedBox(
-              width: contentWidth,
-              child: child,
-            ),
+              scrollDirection: Axis.horizontal,
+              physics: const ClampingScrollPhysics(),
+              clipBehavior: Clip.hardEdge,
+              primary: false,
+              child: SizedBox(width: contentWidth, child: child),
             ),
           ),
         );
@@ -772,114 +823,114 @@ class _BackOrderState extends State<BackOrder> {
                       SizedBox(
                         height: 44,
                         child: ElevatedButton(
-                              onPressed: () {
-                                setState(() {
-                                  _notifyPurchasingOverride =
-                                      !_isNotifyPurchasingTrue;
-                                });
-                                (widget.onPurchasingClosed ?? () {})();
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _isNotifyPurchasingTrue
-                                    ? _yellow
-                                    : _kPrimaryBlue,
-                                foregroundColor: _isNotifyPurchasingTrue
-                                    ? Colors.black
-                                    : Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 6,
-                                ),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                visualDensity: const VisualDensity(
-                                  horizontal: -2,
-                                  vertical: -2,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              ),
-                              child: Text(
-                                _isNotifyPurchasingTrue
-                                    ? 'Purchasing Issue is Open'
-                                    : 'Purchasing Issue is Closed',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                          onPressed: () {
+                            setState(() {
+                              _notifyPurchasingOverride =
+                                  !_isNotifyPurchasingTrue;
+                            });
+                            (widget.onPurchasingClosed ?? () {})();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _isNotifyPurchasingTrue
+                                ? _yellow
+                                : _kPrimaryBlue,
+                            foregroundColor: _isNotifyPurchasingTrue
+                                ? Colors.black
+                                : Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 6,
+                            ),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: const VisualDensity(
+                              horizontal: -2,
+                              vertical: -2,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            height: 40,
-                            child: ElevatedButton(
-                              onPressed: () async {
-                                final newValue = !_isPickedTrue;
-                                setState(() {
-                                  _pickedOverride = newValue;
-                                });
-                                // try {
-                                //   await _onUpdateEntry();
-                                // } catch (e) {
-                                //   setState(() {
-                                //     _pickedOverride = !_pickedOverride!;
-                                //   });
-                                // }
-                                (widget.onPicked ?? () {})();
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _isPickedTrue
-                                    ? _yellow
-                                    : _kPrimaryBlue,
-                                foregroundColor: _isPickedTrue
-                                    ? Colors.black
-                                    : Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 6,
-                                ),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                visualDensity: const VisualDensity(
-                                  horizontal: -2,
-                                  vertical: -2,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              ),
-                              child: Text(
-                                _isPickedTrue ? 'Picked' : 'Not Picked',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: _isPickedTrue
-                                      ? Colors.black
-                                      : Colors.white,
-                                ),
-                              ),
+                          child: Text(
+                            _isNotifyPurchasingTrue
+                                ? 'Purchasing Issue is Open'
+                                : 'Purchasing Issue is Closed',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                    purchasingBodyCell(
-                      flex: 3,
-                      child: TextField(
-                        controller: _purchasingNoticeCtrl,
-                        maxLines: 4,
-                        decoration: _fieldDecoration(),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 40,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final newValue = !_isPickedTrue;
+                            setState(() {
+                              _pickedOverride = newValue;
+                            });
+                            // try {
+                            //   await _onUpdateEntry();
+                            // } catch (e) {
+                            //   setState(() {
+                            //     _pickedOverride = !_pickedOverride!;
+                            //   });
+                            // }
+                            (widget.onPicked ?? () {})();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _isPickedTrue
+                                ? _yellow
+                                : _kPrimaryBlue,
+                            foregroundColor: _isPickedTrue
+                                ? Colors.black
+                                : Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 6,
+                            ),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: const VisualDensity(
+                              horizontal: -2,
+                              vertical: -2,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                          child: Text(
+                            _isPickedTrue ? 'Picked' : 'Not Picked',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: _isPickedTrue
+                                  ? Colors.black
+                                  : Colors.white,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    purchasingBodyCell(
-                      flex: 3,
-                      rightBorder: false,
-                      child: TextField(
-                        controller: _purchasingResponseCtrl,
-                        maxLines: 4,
-                        decoration: _fieldDecoration(),
-                      ),
+                    ],
+                  ),
+                ),
+                purchasingBodyCell(
+                  flex: 3,
+                  child: TextField(
+                    controller: _purchasingNoticeCtrl,
+                    maxLines: 4,
+                    decoration: _fieldDecoration(),
+                  ),
+                ),
+                purchasingBodyCell(
+                  flex: 3,
+                  rightBorder: false,
+                  child: TextField(
+                    controller: _purchasingResponseCtrl,
+                    maxLines: 4,
+                    decoration: _fieldDecoration(),
+                  ),
                 ),
               ],
             ),
@@ -1026,46 +1077,8 @@ class _BackOrderState extends State<BackOrder> {
                         ),
                         child: GestureDetector(
                           onTap: () async {
-                            final confirmed = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                backgroundColor: Colors.white,
-                                title: const Text(
-                                  'Delete Backorder',
-                                  style: TextStyle(color: Colors.black),
-                                ),
-                                content: const Text(
-                                  'Are you sure you want to delete this backorder?',
-                                  style: TextStyle(color: Colors.black87),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, false),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: Colors.grey,
-                                    ),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, true),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: const Color.fromARGB(
-                                        255,
-                                        201,
-                                        46,
-                                        44,
-                                      ),
-                                    ),
-                                    child: const Text('Delete'),
-                                  ),
-                                ],
-                              ),
-                            );
-                            if (confirmed == true) {
-                              print("Backorder deleted");
-                            }
+                            if (!await _confirmDeleteBackorder()) return;
+                            _removeSavedBackorderRow(row);
                           },
                           child: const Icon(
                             Icons.delete,
@@ -1254,7 +1267,10 @@ class _BackOrderState extends State<BackOrder> {
                           color: Colors.red,
                           size: 18,
                         ),
-                        onPressed: () => _removeDraftBackorderRow(index),
+                        onPressed: () async {
+                          if (!await _confirmDeleteBackorder()) return;
+                          _removeDraftBackorderRow(index);
+                        },
                       ),
                     ),
                   ),
@@ -1348,9 +1364,7 @@ class _BackOrderState extends State<BackOrder> {
         Container(
           decoration: const BoxDecoration(
             color: Colors.white,
-            border: Border(
-              top: BorderSide(color: Color(0xFF374151), width: 1),
-            ),
+            border: Border(top: BorderSide(color: Color(0xFF374151), width: 1)),
           ),
           child: IntrinsicHeight(
             child: Row(
@@ -1365,7 +1379,8 @@ class _BackOrderState extends State<BackOrder> {
                       child: ElevatedButton(
                         onPressed: () {
                           setState(() {
-                            _notifyProductionOverride = !_isNotifyProductionTrue;
+                            _notifyProductionOverride =
+                                !_isNotifyProductionTrue;
                           });
                           (widget.onProductionClosed ?? () {})();
                         },
@@ -1695,8 +1710,37 @@ class _BackOrderState extends State<BackOrder> {
     }
   }
 
+  Widget _buildDetailLoader() {
+    return const SizedBox(
+      height: 360,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppLoader(size: 64),
+            SizedBox(height: 12),
+            Text(
+              'Loading entry...',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF6B7280),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final shouldShowLoader =
+        _isDetailLoading && (widget.sopLeadHandEntryId?.trim().isNotEmpty ?? false);
+    if (shouldShowLoader) {
+      return _buildDetailLoader();
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         const minTableWidth = 700.0;

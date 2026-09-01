@@ -160,11 +160,7 @@ class _QAInEditEntryState extends State<QAInEditEntry> {
     GetQAInSOPById();
   }
 
-  String formatDate(dynamic date) {
-    final parsed = ApiDate.parse(date);
-    if (parsed == null) return '01-01-0001';
-    return DateFormat('dd-MM-yyyy').format(parsed);
-  }
+  String formatDate(dynamic date) => ApiDate.formatMmDdYyyy(date, empty: '-');
 
   Widget buildTable() {
     return SingleChildScrollView(

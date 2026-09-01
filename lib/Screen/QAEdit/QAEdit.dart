@@ -125,7 +125,7 @@ class _QAEditState extends State<QAEdit> {
     140, // Final Date Received In QC
     100, // QC Out
     160, // Comments
-    150, // Last Edited On
+    160, // Last Edited On
     72, // Action
   ];
 
@@ -157,6 +157,23 @@ class _QAEditState extends State<QAEdit> {
   void _runSearch() {
     setState(() {
       _searchQuery = SOPController.text.trim();
+      _currentPage = 1;
+      _clampCurrentPage();
+    });
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() {
+      _searchQuery = value.trim();
+      _currentPage = 1;
+      _clampCurrentPage();
+    });
+  }
+
+  void _clearSearch() {
+    SOPController.clear();
+    setState(() {
+      _searchQuery = '';
       _currentPage = 1;
       _clampCurrentPage();
     });
@@ -246,9 +263,10 @@ class _QAEditState extends State<QAEdit> {
     _currentPage = _currentPage.clamp(1, _totalPages);
   }
 
-  String formatDate(dynamic date) => ApiDate.formatDate(date);
+  String formatDate(dynamic date) => ApiDate.formatMmDdYyyy(date, empty: '-');
 
-  String formatDateTime(dynamic date) => ApiDate.formatDateTime(date);
+  String formatDateTime(dynamic date) =>
+      ApiDate.formatMmDdYyyyDateTime(date, empty: '-');
 
   String _wrapFriendly(String text) {
     return text
@@ -387,9 +405,7 @@ class _QAEditState extends State<QAEdit> {
                       Icon(
                         up ? Icons.arrow_upward : Icons.arrow_downward,
                         size: 12,
-                        color: active
-                            ? Colors.white
-                            : const Color(0x99B8C8E8),
+                        color: active ? Colors.white : const Color(0x99B8C8E8),
                       ),
                     ],
                   ],
@@ -614,11 +630,7 @@ class _QAEditState extends State<QAEdit> {
           widths[8],
         ),
         _bodyCell(formatDate(item['QCOut']?.toString() ?? '-'), widths[9]),
-        _bodyCell(
-          item['QAComments']?.toString() ?? '',
-          widths[10],
-          wrap: true,
-        ),
+        _bodyCell(item['QAComments']?.toString() ?? '', widths[10], wrap: true),
         _bodyCell(
           formatDateTime(item['LastEdit']?.toString() ?? '-'),
           widths[11],
@@ -646,130 +658,130 @@ class _QAEditState extends State<QAEdit> {
     return Responsive.hideScrollbars(
       context,
       LayoutBuilder(
-      builder: (context, constraints) {
-        final reserved = leftWidth + actionWidth;
-        final tooNarrow = constraints.maxWidth < reserved + 48;
-        final isPhone = MediaQuery.sizeOf(context).width < 700;
+        builder: (context, constraints) {
+          final reserved = leftWidth + actionWidth;
+          final tooNarrow = constraints.maxWidth < reserved + 48;
+          final isPhone = MediaQuery.sizeOf(context).width < 700;
 
-        final contentH = _rowHeight + (_rowHeight * rows.length);
-        final maxH = constraints.maxHeight.isFinite
-            ? constraints.maxHeight
-            : contentH;
-        final tableH = contentH > maxH ? maxH : contentH;
+          final contentH = _rowHeight + (_rowHeight * rows.length);
+          final maxH = constraints.maxHeight.isFinite
+              ? constraints.maxHeight
+              : contentH;
+          final tableH = contentH > maxH ? maxH : contentH;
 
-        if (tooNarrow || isPhone) {
-          final widths = _plainTableWidths(constraints.maxWidth);
-          final tableWidth = widths.fold<double>(0, (sum, w) => sum + w);
-          return SizedBox(
-            width: constraints.maxWidth,
-            height: tableH,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              controller: _middleHorizontalScroll,
-              child: SizedBox(
-                width: tableWidth,
-                height: tableH,
-                child: Column(
-                  children: [
-                    _buildPlainHeaderRow(widths),
-                    Expanded(
-                      child: ListView.builder(
-                        controller: _middleVerticalScroll,
-                        itemCount: rows.length,
-                        itemExtent: _rowHeight,
-                        itemBuilder: (context, index) {
-                          return _buildPlainDataRow(rows[index], widths);
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }
-
-        final middleAvailable = (constraints.maxWidth - reserved).clamp(
-          0.0,
-          double.infinity,
-        );
-        final middleWidths = _scaledMiddleWidths(middleAvailable);
-        final middleWidth = middleWidths.fold<double>(0, (sum, w) => sum + w);
-
-        return SizedBox(
-          width: constraints.maxWidth,
-          height: tableH,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                width: leftWidth,
-                child: Column(
-                  children: [
-                    _leftHeader(leftWidths),
-                    Expanded(
-                      child: ListView.builder(
-                        controller: _leftVerticalScroll,
-                        itemCount: rows.length,
-                        itemExtent: _rowHeight,
-                        itemBuilder: (context, index) {
-                          return _leftDataRow(rows[index], leftWidths);
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  controller: _middleHorizontalScroll,
-                  child: SizedBox(
-                    width: middleWidth,
-                    child: Column(
-                      children: [
-                        _middleHeader(middleWidths),
-                        Expanded(
-                          child: ListView.builder(
-                            controller: _middleVerticalScroll,
-                            itemCount: rows.length,
-                            itemExtent: _rowHeight,
-                            itemBuilder: (context, index) {
-                              return _middleDataRow(
-                                rows[index],
-                                middleWidths,
-                              );
-                            },
-                          ),
+          if (tooNarrow || isPhone) {
+            final widths = _plainTableWidths(constraints.maxWidth);
+            final tableWidth = widths.fold<double>(0, (sum, w) => sum + w);
+            return SizedBox(
+              width: constraints.maxWidth,
+              height: tableH,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                controller: _middleHorizontalScroll,
+                child: SizedBox(
+                  width: tableWidth,
+                  height: tableH,
+                  child: Column(
+                    children: [
+                      _buildPlainHeaderRow(widths),
+                      Expanded(
+                        child: ListView.builder(
+                          controller: _middleVerticalScroll,
+                          itemCount: rows.length,
+                          itemExtent: _rowHeight,
+                          itemBuilder: (context, index) {
+                            return _buildPlainDataRow(rows[index], widths);
+                          },
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              SizedBox(
-                width: actionWidth,
-                child: Column(
-                  children: [
-                    _actionHeader(actionWidth),
-                    Expanded(
-                      child: ListView.builder(
-                        controller: _actionsVerticalScroll,
-                        itemCount: rows.length,
-                        itemExtent: _rowHeight,
-                        itemBuilder: (context, index) {
-                          return _actionDataCell(rows[index], actionWidth);
-                        },
+            );
+          }
+
+          final middleAvailable = (constraints.maxWidth - reserved).clamp(
+            0.0,
+            double.infinity,
+          );
+          final middleWidths = _scaledMiddleWidths(middleAvailable);
+          final middleWidth = middleWidths.fold<double>(0, (sum, w) => sum + w);
+
+          return SizedBox(
+            width: constraints.maxWidth,
+            height: tableH,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: leftWidth,
+                  child: Column(
+                    children: [
+                      _leftHeader(leftWidths),
+                      Expanded(
+                        child: ListView.builder(
+                          controller: _leftVerticalScroll,
+                          itemCount: rows.length,
+                          itemExtent: _rowHeight,
+                          itemBuilder: (context, index) {
+                            return _leftDataRow(rows[index], leftWidths);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    controller: _middleHorizontalScroll,
+                    child: SizedBox(
+                      width: middleWidth,
+                      child: Column(
+                        children: [
+                          _middleHeader(middleWidths),
+                          Expanded(
+                            child: ListView.builder(
+                              controller: _middleVerticalScroll,
+                              itemCount: rows.length,
+                              itemExtent: _rowHeight,
+                              itemBuilder: (context, index) {
+                                return _middleDataRow(
+                                  rows[index],
+                                  middleWidths,
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
-    ),
+                SizedBox(
+                  width: actionWidth,
+                  child: Column(
+                    children: [
+                      _actionHeader(actionWidth),
+                      Expanded(
+                        child: ListView.builder(
+                          controller: _actionsVerticalScroll,
+                          itemCount: rows.length,
+                          itemExtent: _rowHeight,
+                          itemBuilder: (context, index) {
+                            return _actionDataCell(rows[index], actionWidth);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -779,6 +791,7 @@ class _QAEditState extends State<QAEdit> {
     final r = Responsive.of(context);
     final sopField = TextField(
       controller: SOPController,
+      onChanged: _onSearchChanged,
       style: TextStyle(fontSize: r.searchFieldFontSize),
       decoration: InputDecoration(
         hintText: 'Search in table...',
@@ -787,6 +800,13 @@ class _QAEditState extends State<QAEdit> {
           horizontal: 14,
           vertical: r.searchFieldContentPaddingV,
         ),
+        suffixIcon: SOPController.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Clear',
+                onPressed: _clearSearch,
+                icon: const Icon(Icons.clear, size: 20),
+              ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(r.fieldRadius),
           borderSide: BorderSide(
@@ -891,28 +911,23 @@ class _QAEditState extends State<QAEdit> {
           const SizedBox(height: 10),
           if (isLoading)
             const Expanded(
-              child: Center(
-                child: Center(child: AppLoader())
-              ),
+              child: Center(child: Center(child: AppLoader())),
             )
           else
             Expanded(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    isTablet ? 16 : 12,
-                    0,
-                    isTablet ? 16 : 12,
-                    isTablet ? 16 : 12,
-                  ),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  isTablet ? 16 : 12,
+                  0,
+                  isTablet ? 16 : 12,
+                  isTablet ? 16 : 12,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // loose = table only as tall as rows (or max), so pager
                     // stays ~12px under the table — not a big empty body.
-                    Flexible(
-                      fit: FlexFit.loose,
-                      child: buildTable(),
-                    ),
+                    Flexible(fit: FlexFit.loose, child: buildTable()),
                     if (_filteredHistory.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Align(

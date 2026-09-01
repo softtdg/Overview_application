@@ -5,6 +5,7 @@ import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/AppToast.dart';
 import 'package:overview_app/Widgets/CommonAppBar.dart';
+import 'package:intl/intl.dart';
 
 class SearchOpenItems extends StatefulWidget {
   final String username = "";
@@ -396,7 +397,7 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
                                   children: [
-                                    if (isTablet) ...[  
+                                    if (isTablet) ...[
                                       const Center(
                                         child: Text(
                                           "Search SOP Number",
@@ -424,6 +425,9 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
                                           hintText: isTablet
                                               ? 'Enter SOP Number (e.g., 70101)'
                                               : 'Enter SOP Number',
+                                          hintStyle: const TextStyle(
+                                            color: Color(0xFF9CA3AF),
+                                          ),
                                           contentPadding:
                                               const EdgeInsets.symmetric(
                                                 horizontal: 16,
@@ -464,20 +468,13 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
                                           ? null
                                           : handleSOPSearch,
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color.fromARGB(
-                                          255,
-                                          57,
-                                          73,
-                                          95,
+                                        backgroundColor: const Color(
+                                          0xFF1565C0,
                                         ),
                                         foregroundColor: Colors.white,
-                                        disabledBackgroundColor:
-                                            const Color.fromARGB(
-                                              255,
-                                              57,
-                                              73,
-                                              95,
-                                            ),
+                                        disabledBackgroundColor: const Color(
+                                          0xFF1565C0,
+                                        ),
                                         disabledForegroundColor: Colors.white70,
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 20,
@@ -508,10 +505,7 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
                               else if (SOPData != null)
                                 SizedBox(
                                   width: double.infinity,
-                                  child: _buildTable(
-                                    SOPData!,
-                                    loading: false,
-                                  ),
+                                  child: _buildTable(SOPData!, loading: false),
                                 )
                               else
                                 const Padding(
@@ -522,7 +516,7 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w400,
-                                      color: Color(0xFF9CA3AF),
+                                      color: Color(0xFF6B7280),
                                     ),
                                   ),
                                 ),

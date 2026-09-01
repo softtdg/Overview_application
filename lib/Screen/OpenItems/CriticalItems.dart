@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:overview_app/Services/DioServices.dart';
 import 'package:overview_app/Screen/OpenItems/Components/Query.dart';
 import 'package:overview_app/Screen/OpenItems/Services/OpenItemsServices.dart';
+import 'package:overview_app/Utils/api_date.dart';
 import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/AppToast.dart';
@@ -78,6 +79,19 @@ class _CriticalItemsState extends State<CriticalItems> {
       }
     }
     return _pick(row, ['SOP']);
+  }
+
+  String _pickOdd(Map<String, dynamic> row) {
+    final direct = _pick(row, ['ODD', 'odd', 'Date']);
+    if (direct.isNotEmpty) return direct;
+
+    final sop = row['SOP'];
+    if (sop is Map) {
+      final odd = _pick(Map<String, dynamic>.from(sop), ['ODD', 'odd', 'Date']);
+      if (odd.isNotEmpty) return odd;
+    }
+
+    return _pickPath(row, ['SOP', 'ODD']);
   }
 
   String _pickPath(Map<String, dynamic> row, List<String> path) {
@@ -223,14 +237,9 @@ class _CriticalItemsState extends State<CriticalItems> {
     final hours = double.tryParse(hoursText) ?? 0;
     final parts = <String>[
       _pickSopNum(row),
-      _formatDate(_pickPath(row, ['SOP', 'ODD'])),
+      _formatDate(_pickOdd(row)),
       _pick(row, ['FixtureNumber']),
-      _pickPath(row, [
-        'SOP',
-        'ProductionLogEntry',
-        'LeadHand',
-        'LeadHandName',
-      ]),
+      _pickPath(row, ['SOP', 'ProductionLogEntry', 'LeadHand', 'LeadHandName']),
       _pickPath(row, ['Assembler', 'Name']),
       _pick(row, ['FixtureDescription']),
       qtyText,
@@ -307,17 +316,9 @@ class _CriticalItemsState extends State<CriticalItems> {
   }
 
   DateTime? _oddAsDateTime(Map<String, dynamic> row) {
-    final raw = _pickPath(row, ['SOP', 'ODD']).trim();
+    final raw = _pickOdd(row).trim();
     if (raw.isEmpty || raw == '-') return null;
-    final iso = DateTime.tryParse(raw);
-    if (iso != null) return iso;
-    final m = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})$').firstMatch(raw);
-    if (m == null) return null;
-    final d = int.tryParse(m.group(1)!);
-    final mo = int.tryParse(m.group(2)!);
-    final y = int.tryParse(m.group(3)!);
-    if (d == null || mo == null || y == null) return null;
-    return DateTime(y, mo, d);
+    return ApiDate.parseFlexible(raw);
   }
 
   double _numValue(Map<String, dynamic> row, List<String> keys) {
@@ -345,10 +346,7 @@ class _CriticalItemsState extends State<CriticalItems> {
         if (da != null && db != null) return da.compareTo(db);
         if (da != null) return -1;
         if (db != null) return 1;
-        return _pickPath(a, [
-          'SOP',
-          'ODD',
-        ]).toLowerCase().compareTo(_pickPath(b, ['SOP', 'ODD']).toLowerCase());
+        return _pickOdd(a).toLowerCase().compareTo(_pickOdd(b).toLowerCase());
       case _leadHandColumnIndex:
         return _pickPath(a, [
           'SOP',
@@ -384,11 +382,11 @@ class _CriticalItemsState extends State<CriticalItems> {
       case _amountColumnIndex:
         return _numValue(a, ['Amount']).compareTo(_numValue(b, ['Amount']));
       case _inventoryCommentColumnIndex:
-        return _pick(a, ['InventoryCommentsForProduction'])
-            .toLowerCase()
-            .compareTo(
-              _pick(b, ['InventoryCommentsForProduction']).toLowerCase(),
-            );
+        return _pick(a, [
+          'InventoryCommentsForProduction',
+        ]).toLowerCase().compareTo(
+          _pick(b, ['InventoryCommentsForProduction']).toLowerCase(),
+        );
       case _pickedColumnIndex:
         return _pickedSortKey(a).compareTo(_pickedSortKey(b));
       default:
@@ -450,8 +448,7 @@ class _CriticalItemsState extends State<CriticalItems> {
         textScaler: textScaler,
       )..layout(maxWidth: maxTextWidth);
 
-      final needed =
-          painter.height + (_noticeCellVerticalPadding * 2) + 8;
+      final needed = painter.height + (_noticeCellVerticalPadding * 2) + 8;
       return needed < _noticeMinSubRowHeight ? _noticeMinSubRowHeight : needed;
     }).toList();
   }
@@ -517,8 +514,8 @@ class _CriticalItemsState extends State<CriticalItems> {
                     alignment: textAlign == TextAlign.left
                         ? Alignment.centerLeft
                         : textAlign == TextAlign.right
-                            ? Alignment.centerRight
-                            : Alignment.center,
+                        ? Alignment.centerRight
+                        : Alignment.center,
                     padding: const EdgeInsets.symmetric(
                       horizontal: _noticeCellHorizontalPadding,
                       vertical: _noticeCellVerticalPadding,
@@ -642,16 +639,7 @@ class _CriticalItemsState extends State<CriticalItems> {
     return const Color(0xFF607D99);
   }
 
-  String _formatDate(String value) {
-    final raw = value.trim();
-    if (raw.isEmpty || raw == '-') return '*';
-    final parsed = DateTime.tryParse(raw);
-    if (parsed == null || parsed.year <= 1) return '*';
-    final dd = parsed.day.toString().padLeft(2, '0');
-    final mm = parsed.month.toString().padLeft(2, '0');
-    final yyyy = parsed.year.toString();
-    return '$dd/$mm/$yyyy';
-  }
+  String _formatDate(String value) => ApiDate.formatMmDdYyyy(value);
 
   Widget _heading(String text) {
     final multi = text.contains('\n');
@@ -853,7 +841,8 @@ class _CriticalItemsState extends State<CriticalItems> {
     final fixture = _pick(row, ['FixtureNumber']);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final cellW = constraints.hasBoundedWidth && constraints.maxWidth.isFinite
+        final cellW =
+            constraints.hasBoundedWidth && constraints.maxWidth.isFinite
             ? constraints.maxWidth
             : 76.0;
         final boxW = min(76.0, max(24.0, cellW - 8));
@@ -874,28 +863,31 @@ class _CriticalItemsState extends State<CriticalItems> {
               child: Container(
                 width: boxW,
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFF39495F)),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: _highlightedText(
-              _fixtureDisplayText(fixture),
-              textAlign: TextAlign.center,
-              softWrap: true,
-              maxLines: 2,
-              overflow: TextOverflow.clip,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF5A6A83),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFF39495F)),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: _highlightedText(
+                  _fixtureDisplayText(fixture),
+                  textAlign: TextAlign.center,
+                  softWrap: true,
+                  maxLines: 2,
+                  overflow: TextOverflow.clip,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF5A6A83),
+                ),
+              ),
             ),
           ),
-        ),
-      ),
         );
       },
     );
   }
 
-  Widget _buildActionButton(Map<String, dynamic> row, {required bool isDisabled}) {
+  Widget _buildActionButton(
+    Map<String, dynamic> row, {
+    required bool isDisabled,
+  }) {
     return IconButton(
       onPressed: () {
         final sopLeadHandEntryId = _pick(row, ['SOPLeadHandEntryId']);
@@ -946,9 +938,7 @@ class _CriticalItemsState extends State<CriticalItems> {
             alignment: Alignment.centerLeft,
             decoration: const BoxDecoration(
               color: Color(0xFF344963),
-              border: Border(
-                left: BorderSide(color: borderColor),
-              ),
+              border: Border(left: BorderSide(color: borderColor)),
             ),
             child: const Text(
               'Action',
@@ -962,36 +952,36 @@ class _CriticalItemsState extends State<CriticalItems> {
           ),
           Expanded(
             child: ScrollConfiguration(
-              behavior: ScrollConfiguration.of(context).copyWith(
-                scrollbars: false,
-              ),
+              behavior: ScrollConfiguration.of(
+                context,
+              ).copyWith(scrollbars: false),
               child: ListView.builder(
-              controller: _actionsVerticalScroll,
-              itemCount: groupedRows.length,
-              itemBuilder: (context, index) {
-                final group = groupedRows[index];
-                final row = group['row'] as Map<String, dynamic>;
-                final isDisabled = row['Disabled'] == true;
-                return Container(
-                  height: _dataRowHeightForGroup(
-                    group,
-                    context,
-                    noticeWidth: noticeWidth,
-                  ),
-                  width: _actionColumnWidth,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: isDisabled
-                        ? const Color(0xFFB5B5B5)
-                        : const Color(0xFFF0F1F3),
-                    border: const Border(
-                      left: BorderSide(color: borderColor),
-                      bottom: BorderSide(color: borderColor),
+                controller: _actionsVerticalScroll,
+                itemCount: groupedRows.length,
+                itemBuilder: (context, index) {
+                  final group = groupedRows[index];
+                  final row = group['row'] as Map<String, dynamic>;
+                  final isDisabled = row['Disabled'] == true;
+                  return Container(
+                    height: _dataRowHeightForGroup(
+                      group,
+                      context,
+                      noticeWidth: noticeWidth,
                     ),
-                  ),
-                  child: _buildActionButton(row, isDisabled: isDisabled),
-                );
-              },
+                    width: _actionColumnWidth,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: isDisabled
+                          ? const Color(0xFFB5B5B5)
+                          : const Color(0xFFF0F1F3),
+                      border: const Border(
+                        left: BorderSide(color: borderColor),
+                        bottom: BorderSide(color: borderColor),
+                      ),
+                    ),
+                    child: _buildActionButton(row, isDisabled: isDisabled),
+                  );
+                },
               ),
             ),
           ),
@@ -1109,7 +1099,8 @@ class _CriticalItemsState extends State<CriticalItems> {
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxW = width ??
+        final maxW =
+            width ??
             (constraints.hasBoundedWidth && constraints.maxWidth.isFinite
                 ? constraints.maxWidth
                 : null);
@@ -1242,7 +1233,11 @@ class _CriticalItemsState extends State<CriticalItems> {
       style: TextStyle(fontSize: r.searchFieldFontSize),
       decoration: InputDecoration(
         hintText: 'Search in table...',
-        hintStyle: TextStyle(fontSize: r.searchFieldFontSize),
+        hintStyle: TextStyle(
+          fontSize: r.searchFieldFontSize,
+          color: const Color(0xFF9AA8B8),
+          fontWeight: FontWeight.w500,
+        ),
         contentPadding: EdgeInsets.symmetric(
           horizontal: 14,
           vertical: r.searchFieldContentPaddingV,
@@ -1400,19 +1395,25 @@ class _CriticalItemsState extends State<CriticalItems> {
                                 builder: (context, constraints) {
                                   final includeAction = !isTablet;
                                   final compact = !isTablet;
-                                  final actionW =
-                                      isTablet ? _actionColumnWidth : 0.0;
+                                  final actionW = isTablet
+                                      ? _actionColumnWidth
+                                      : 0.0;
                                   final available =
-                                      (constraints.maxWidth - actionW)
-                                          .clamp(0.0, double.infinity);
+                                      (constraints.maxWidth - actionW).clamp(
+                                        0.0,
+                                        double.infinity,
+                                      );
                                   final colWidths = _columnWidthsFor(
                                     available: available,
                                     includeAction: includeAction,
                                     compact: compact,
                                   );
                                   final tableMinWidth =
-                                      colWidths.fold<double>(0, (a, b) => a + b) +
-                                          1;
+                                      colWidths.fold<double>(
+                                        0,
+                                        (a, b) => a + b,
+                                      ) +
+                                      1;
                                   final noticeW = colWidths[14];
                                   final dateW = colWidths[12];
                                   final deptW = colWidths[13];
@@ -1423,280 +1424,358 @@ class _CriticalItemsState extends State<CriticalItems> {
                                     compact: compact,
                                   );
                                   return Row(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Expanded(
-                                    child: Theme(
-                                      data: Theme.of(context).copyWith(
-                                        scrollbarTheme:
-                                            const ScrollbarThemeData(
-                                          thickness: WidgetStatePropertyAll(0),
-                                          thumbVisibility:
-                                              WidgetStatePropertyAll(false),
-                                          trackVisibility:
-                                              WidgetStatePropertyAll(false),
-                                          crossAxisMargin: 0,
-                                          mainAxisMargin: 0,
-                                          minThumbLength: 0,
-                                        ),
-                                      ),
-                                      child: ScrollConfiguration(
-                                        behavior: ScrollConfiguration.of(
-                                          context,
-                                        ).copyWith(scrollbars: false),
-                                        child: DataTable2(
-                                      fixedTopRows: 1,
-                                      scrollController: _tableVerticalScroll,
-                                      horizontalScrollController:
-                                          _tableHorizontalScroll,
-                                      showCheckboxColumn: false,
-                                      sortColumnIndex: _sortColumnIndex,
-                                      sortAscending: _sortAscending,
-                                      sortArrowBuilder: (_, __) =>
-                                          const SizedBox.shrink(),
-                                      headingRowColor:
-                                          MaterialStateProperty.all(
-                                        const Color(0xFF344963),
-                                      ),
-                                      dataRowColor: MaterialStateProperty.all(
-                                        const Color(0xFFF0F1F3),
-                                      ),
-                                      fixedCornerColor: const Color(0xFF344963),
-                                      fixedColumnsColor: const Color(0xFFF0F1F3),
-                                      headingRowHeight: isTablet ? 52 : 48,
-                                      dataRowHeight: 52,
-                                      columnSpacing: 0,
-                                      horizontalMargin: 0,
-                                      dividerThickness: 1,
-                                      isHorizontalScrollBarVisible: false,
-                                      isVerticalScrollBarVisible: false,
-                                      minWidth: tableMinWidth,
-                                      fixedLeftColumns: 3,
-                                      border: tableBorder,
-                                      columns: tableColumns,
-                                      rows: groupedRows.map((group) {
-                                  final row =
-                                      group['row'] as Map<String, dynamic>;
-                                  final notices =
-                                      group['notices']
-                                          as List<Map<String, dynamic>>;
-                                  final qtyText = _pick(row, ['Quantity']);
-                                  final hoursText = _pick(row, ['Hours']);
-                                  final qty = int.tryParse(qtyText) ?? 0;
-                                  final hours = double.tryParse(hoursText) ?? 0;
-                                  final isDisabled = row['Disabled'] == true;
-                                  final noticeBg = _noticeBlockBackground(
-                                    notices,
-                                  );
-                                  final responseRowBackgrounds = notices
-                                      .map(
-                                        (n) => _responseRowBackground(row, n),
-                                      )
-                                      .toList();
-                                  final dateValues = _noticeValues(
-                                    notices,
-                                    'date',
-                                    hideDash: true,
-                                  );
-                                  final deptValues = _noticeValues(
-                                    notices,
-                                    'dept',
-                                    hideDash: true,
-                                  );
-                                  final noticeValues = _noticeValues(
-                                    notices,
-                                    'notice',
-                                    hideDash: true,
-                                  );
-                                  final responseValues = _noticeValues(
-                                    notices,
-                                    'response',
-                                    hideDash: true,
-                                  );
-                                  final noticeRowHeights = _noticeRowHeights(
-                                    noticeValues: noticeValues,
-                                    noticeWidth: noticeW,
-                                    textScaler: MediaQuery.textScalerOf(
-                                      context,
-                                    ),
-                                  );
-
-                                  return DataRow2(
-                                    specificRowHeight: _dataRowHeightForGroup(
-                                      group,
-                                      context,
-                                      noticeWidth: noticeW,
-                                    ),
-                                    color: WidgetStateProperty.all(
-                                      isDisabled
-                                          ? const Color(0xFFB5B5B5)
-                                          : const Color(0xFFF0F1F3),
-                                    ),
-                                    cells: [
-                                      DataCell(
-                                        _tableTextCell(_pickSopNum(row)),
-                                      ),
-                                      DataCell(
-                                        _tableTextCell(
-                                          _formatDate(
-                                            _pickPath(row, ['SOP', 'ODD']),
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(
+                                        child: Theme(
+                                          data: Theme.of(context).copyWith(
+                                            scrollbarTheme:
+                                                const ScrollbarThemeData(
+                                                  thickness:
+                                                      WidgetStatePropertyAll(0),
+                                                  thumbVisibility:
+                                                      WidgetStatePropertyAll(
+                                                        false,
+                                                      ),
+                                                  trackVisibility:
+                                                      WidgetStatePropertyAll(
+                                                        false,
+                                                      ),
+                                                  crossAxisMargin: 0,
+                                                  mainAxisMargin: 0,
+                                                  minThumbLength: 0,
+                                                ),
                                           ),
-                                        ),
-                                      ),
-                                      DataCell(_buildFixtureCell(row)),
-                                      DataCell(
-                                        _tableTextCell(
-                                          _pickPath(row, [
-                                            'SOP',
-                                            'ProductionLogEntry',
-                                            'LeadHand',
-                                            'LeadHandName',
-                                          ]),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        _tableTextCell(
-                                          _pickPath(row, ['Assembler', 'Name']),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        _tableTextCell(
-                                          _pick(row, ['FixtureDescription']),
-                                          maxLines: 4,
-                                        ),
-                                      ),
-                                      DataCell(
-                                        _tableTextCell(
-                                          _pick(row, ['Quantity']),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        _tableTextCell(hoursText),
-                                      ),
-                                      DataCell(
-                                        _tableTextCell(
-                                          (qty * hours).toStringAsFixed(2),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        _tableTextCell(
-                                          _pick(row, ['Amount']),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        _tableTextCell(
-                                          _pick(row, [
-                                            'InventoryCommentsForProduction',
-                                          ]),
-                                          maxLines: 4,
-                                        ),
-                                      ),
-                                      DataCell(
-                                        LayoutBuilder(
-                                          builder: (context, constraints) {
-                                            final w =
-                                                constraints.hasBoundedWidth &&
-                                                    constraints.maxWidth > 0
-                                                ? constraints.maxWidth
-                                                : 58.0;
-                                            return SizedBox(
-                                              width: w,
-                                              child: Stack(
-                                                clipBehavior: Clip.hardEdge,
-                                                fit: StackFit.expand,
-                                                children: [
-                                                  Positioned(
-                                                    left: 0,
-                                                    right: 0,
-                                                    top: 0,
-                                                    bottom: 0,
-                                                    child: ColoredBox(
-                                                      color:
-                                                          _pickedCellBackground(
-                                                            row,
-                                                          ),
-                                                    ),
+                                          child: ScrollConfiguration(
+                                            behavior: ScrollConfiguration.of(
+                                              context,
+                                            ).copyWith(scrollbars: false),
+                                            child: DataTable2(
+                                              fixedTopRows: 1,
+                                              scrollController:
+                                                  _tableVerticalScroll,
+                                              horizontalScrollController:
+                                                  _tableHorizontalScroll,
+                                              showCheckboxColumn: false,
+                                              sortColumnIndex: _sortColumnIndex,
+                                              sortAscending: _sortAscending,
+                                              sortArrowBuilder: (_, __) =>
+                                                  const SizedBox.shrink(),
+                                              headingRowColor:
+                                                  MaterialStateProperty.all(
+                                                    const Color(0xFF344963),
                                                   ),
-                                                  Center(
-                                                    child: Text(
-                                                      row['Picked'] == true
-                                                          ? 'Yes'
-                                                          : 'No',
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                      style: const TextStyle(
-                                                        fontSize: 13,
-                                                        fontWeight:
-                                                            FontWeight.w600,
+                                              dataRowColor:
+                                                  MaterialStateProperty.all(
+                                                    const Color(0xFFF0F1F3),
+                                                  ),
+                                              fixedCornerColor: const Color(
+                                                0xFF344963,
+                                              ),
+                                              fixedColumnsColor: const Color(
+                                                0xFFF0F1F3,
+                                              ),
+                                              headingRowHeight: isTablet
+                                                  ? 52
+                                                  : 48,
+                                              dataRowHeight: 52,
+                                              columnSpacing: 0,
+                                              horizontalMargin: 0,
+                                              dividerThickness: 1,
+                                              isHorizontalScrollBarVisible:
+                                                  false,
+                                              isVerticalScrollBarVisible: false,
+                                              minWidth: tableMinWidth,
+                                              fixedLeftColumns: 3,
+                                              border: tableBorder,
+                                              columns: tableColumns,
+                                              rows: groupedRows.map((group) {
+                                                final row =
+                                                    group['row']
+                                                        as Map<String, dynamic>;
+                                                final notices =
+                                                    group['notices']
+                                                        as List<
+                                                          Map<String, dynamic>
+                                                        >;
+                                                final qtyText = _pick(row, [
+                                                  'Quantity',
+                                                ]);
+                                                final hoursText = _pick(row, [
+                                                  'Hours',
+                                                ]);
+                                                final qty =
+                                                    int.tryParse(qtyText) ?? 0;
+                                                final hours =
+                                                    double.tryParse(
+                                                      hoursText,
+                                                    ) ??
+                                                    0;
+                                                final isDisabled =
+                                                    row['Disabled'] == true;
+                                                final noticeBg =
+                                                    _noticeBlockBackground(
+                                                      notices,
+                                                    );
+                                                final responseRowBackgrounds =
+                                                    notices
+                                                        .map(
+                                                          (n) =>
+                                                              _responseRowBackground(
+                                                                row,
+                                                                n,
+                                                              ),
+                                                        )
+                                                        .toList();
+                                                final dateValues =
+                                                    _noticeValues(
+                                                      notices,
+                                                      'date',
+                                                      hideDash: true,
+                                                    );
+                                                final deptValues =
+                                                    _noticeValues(
+                                                      notices,
+                                                      'dept',
+                                                      hideDash: true,
+                                                    );
+                                                final noticeValues =
+                                                    _noticeValues(
+                                                      notices,
+                                                      'notice',
+                                                      hideDash: true,
+                                                    );
+                                                final responseValues =
+                                                    _noticeValues(
+                                                      notices,
+                                                      'response',
+                                                      hideDash: true,
+                                                    );
+                                                final noticeRowHeights =
+                                                    _noticeRowHeights(
+                                                      noticeValues:
+                                                          noticeValues,
+                                                      noticeWidth: noticeW,
+                                                      textScaler:
+                                                          MediaQuery.textScalerOf(
+                                                            context,
+                                                          ),
+                                                    );
+
+                                                return DataRow2(
+                                                  specificRowHeight:
+                                                      _dataRowHeightForGroup(
+                                                        group,
+                                                        context,
+                                                        noticeWidth: noticeW,
+                                                      ),
+                                                  color:
+                                                      WidgetStateProperty.all(
+                                                        isDisabled
+                                                            ? const Color(
+                                                                0xFFB5B5B5,
+                                                              )
+                                                            : const Color(
+                                                                0xFFF0F1F3,
+                                                              ),
+                                                      ),
+                                                  cells: [
+                                                    DataCell(
+                                                      _tableTextCell(
+                                                        _pickSopNum(row),
                                                       ),
                                                     ),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                      DataCell(
-                                        _stackedNoticeCell(
-                                          width: dateW,
-                                          values: dateValues,
-                                          backgroundColor: noticeBg,
-                                          rowHeights: noticeRowHeights,
-                                        ),
-                                      ),
-                                      DataCell(
-                                        _stackedNoticeCell(
-                                          width: deptW,
-                                          values: deptValues,
-                                          backgroundColor: noticeBg,
-                                          rowHeights: noticeRowHeights,
-                                        ),
-                                      ),
-                                      DataCell(
-                                        _stackedNoticeCell(
-                                          width: noticeW,
-                                          values: noticeValues,
-                                          backgroundColor: noticeBg,
-                                          rowHeights: noticeRowHeights,
-                                          textAlign: TextAlign.left,
-                                        ),
-                                      ),
-                                      DataCell(
-                                        _stackedNoticeCell(
-                                          width: responseW,
-                                          values: responseValues,
-                                          backgroundColor: notices.isEmpty
-                                              ? Colors.transparent
-                                              : noticeBg,
-                                          rowBackgrounds:
-                                              responseRowBackgrounds,
-                                          rowHeights: noticeRowHeights,
-                                        ),
-                                      ),
-                                      if (!isTablet)
-                                        DataCell(
-                                          Center(
-                                            child: _buildActionButton(
-                                              row,
-                                              isDisabled: isDisabled,
+                                                    DataCell(
+                                                      _tableTextCell(
+                                                        _formatDate(_pickOdd(row)),
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      _buildFixtureCell(row),
+                                                    ),
+                                                    DataCell(
+                                                      _tableTextCell(
+                                                        _pickPath(row, [
+                                                          'SOP',
+                                                          'ProductionLogEntry',
+                                                          'LeadHand',
+                                                          'LeadHandName',
+                                                        ]),
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      _tableTextCell(
+                                                        _pickPath(row, [
+                                                          'Assembler',
+                                                          'Name',
+                                                        ]),
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      _tableTextCell(
+                                                        _pick(row, [
+                                                          'FixtureDescription',
+                                                        ]),
+                                                        maxLines: 4,
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      _tableTextCell(
+                                                        _pick(row, [
+                                                          'Quantity',
+                                                        ]),
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      _tableTextCell(hoursText),
+                                                    ),
+                                                    DataCell(
+                                                      _tableTextCell(
+                                                        (qty * hours)
+                                                            .toStringAsFixed(2),
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      _tableTextCell(
+                                                        _pick(row, ['Amount']),
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      _tableTextCell(
+                                                        _pick(row, [
+                                                          'InventoryCommentsForProduction',
+                                                        ]),
+                                                        maxLines: 4,
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      LayoutBuilder(
+                                                        builder: (context, constraints) {
+                                                          final w =
+                                                              constraints
+                                                                      .hasBoundedWidth &&
+                                                                  constraints
+                                                                          .maxWidth >
+                                                                      0
+                                                              ? constraints
+                                                                    .maxWidth
+                                                              : 58.0;
+                                                          return SizedBox(
+                                                            width: w,
+                                                            child: Stack(
+                                                              clipBehavior:
+                                                                  Clip.hardEdge,
+                                                              fit: StackFit
+                                                                  .expand,
+                                                              children: [
+                                                                Positioned(
+                                                                  left: 0,
+                                                                  right: 0,
+                                                                  top: 0,
+                                                                  bottom: 0,
+                                                                  child: ColoredBox(
+                                                                    color:
+                                                                        _pickedCellBackground(
+                                                                          row,
+                                                                        ),
+                                                                  ),
+                                                                ),
+                                                                Center(
+                                                                  child: Text(
+                                                                    row['Picked'] ==
+                                                                            true
+                                                                        ? 'Yes'
+                                                                        : 'No',
+                                                                    textAlign:
+                                                                        TextAlign
+                                                                            .center,
+                                                                    style: const TextStyle(
+                                                                      fontSize:
+                                                                          13,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w600,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          );
+                                                        },
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      _stackedNoticeCell(
+                                                        width: dateW,
+                                                        values: dateValues,
+                                                        backgroundColor:
+                                                            noticeBg,
+                                                        rowHeights:
+                                                            noticeRowHeights,
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      _stackedNoticeCell(
+                                                        width: deptW,
+                                                        values: deptValues,
+                                                        backgroundColor:
+                                                            noticeBg,
+                                                        rowHeights:
+                                                            noticeRowHeights,
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      _stackedNoticeCell(
+                                                        width: noticeW,
+                                                        values: noticeValues,
+                                                        backgroundColor:
+                                                            noticeBg,
+                                                        rowHeights:
+                                                            noticeRowHeights,
+                                                        textAlign:
+                                                            TextAlign.left,
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      _stackedNoticeCell(
+                                                        width: responseW,
+                                                        values: responseValues,
+                                                        backgroundColor:
+                                                            notices.isEmpty
+                                                            ? Colors.transparent
+                                                            : noticeBg,
+                                                        rowBackgrounds:
+                                                            responseRowBackgrounds,
+                                                        rowHeights:
+                                                            noticeRowHeights,
+                                                      ),
+                                                    ),
+                                                    if (!isTablet)
+                                                      DataCell(
+                                                        Center(
+                                                          child:
+                                                              _buildActionButton(
+                                                                row,
+                                                                isDisabled:
+                                                                    isDisabled,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                );
+                                              }).toList(),
                                             ),
                                           ),
                                         ),
+                                      ),
+                                      if (isTablet)
+                                        _buildStickyActionsPane(
+                                          groupedRows,
+                                          noticeWidth: noticeW,
+                                        ),
                                     ],
                                   );
-                                }).toList(),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  if (isTablet)
-                                    _buildStickyActionsPane(
-                                      groupedRows,
-                                      noticeWidth: noticeW,
-                                    ),
-                                ],
-                              );
                                 },
                               ),
                             ),
@@ -1706,15 +1785,9 @@ class _CriticalItemsState extends State<CriticalItems> {
                           child: DecoratedBox(
                             decoration: const BoxDecoration(
                               border: Border(
-                                left: BorderSide(
-                                  color: Color(0xFF9AA8B8),
-                                ),
-                                right: BorderSide(
-                                  color: Color(0xFF9AA8B8),
-                                ),
-                                bottom: BorderSide(
-                                  color: Color(0xFF9AA8B8),
-                                ),
+                                left: BorderSide(color: Color(0xFF9AA8B8)),
+                                right: BorderSide(color: Color(0xFF9AA8B8)),
+                                bottom: BorderSide(color: Color(0xFF9AA8B8)),
                               ),
                             ),
                             child: Padding(

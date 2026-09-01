@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:overview_app/Screen/Backorder/Services/BackorderService.dart';
 import 'package:overview_app/Services/DioServices.dart';
+import 'package:overview_app/Utils/api_date.dart';
 import 'package:overview_app/Utils/responsive.dart';
 import 'package:overview_app/Widgets/AppLoader.dart';
 import 'package:overview_app/Widgets/AppToast.dart';
@@ -25,7 +26,10 @@ class _BackordersTableState extends State<Backorders> {
   String _searchQuery = "";
   int _currentPage = 1;
   static const int _rowsPerPage = 50;
+  static const int _lastSortableColumnIndex = 11; // Picked (Date Sent+ not sortable)
   bool _isLoading = false;
+  int? _sortColumnIndex;
+  bool _sortAscending = true;
 
   String _text(dynamic v) {
     if (v == null) return '-';
@@ -46,11 +50,24 @@ class _BackordersTableState extends State<Backorders> {
   }
 
   String _formatDate(String raw) {
-    if (raw == '-' || raw.startsWith('0001-01-01')) return '-';
-    final d = DateTime.tryParse(raw);
-    if (d == null) return raw;
-    final x = d.toLocal();
-    return '${x.day.toString().padLeft(2, '0')}/${x.month.toString().padLeft(2, '0')}/${x.year}';
+    if (raw == '-' || raw.trim().isEmpty) return '-';
+    return ApiDate.formatMmDdYyyy(raw, empty: '-');
+  }
+
+  String _formatAmount(dynamic value) {
+    final raw = value?.toString().trim() ?? '';
+    if (raw.isEmpty || raw == '-' || raw.toLowerCase() == 'null') {
+      return '\$0';
+    }
+    if (raw.startsWith('\$')) return raw;
+
+    final n = num.tryParse(raw.replaceAll(',', ''));
+    if (n == null) return '\$$raw';
+
+    if (n == n.roundToDouble()) {
+      return '\$${n.toInt()}';
+    }
+    return '\$${n.toStringAsFixed(2)}';
   }
 
   String _backorderNotice(Map bo) {
@@ -160,10 +177,7 @@ class _BackordersTableState extends State<Backorders> {
         _allRows
           ..clear()
           ..addAll(data);
-        _rows.clear();
-        if (_searchQuery.isNotEmpty) {
-          _rows.addAll(_allRows.where((row) => _rowMatches(row, _searchQuery)));
-        }
+        _applySearchFilter();
         _isLoading = false;
       });
     } catch (e) {
@@ -195,28 +209,153 @@ class _BackordersTableState extends State<Backorders> {
     return part.isNotEmpty && part.contains(search);
   }
 
+  void _applySearchFilter() {
+    _rows.clear();
+    if (_searchQuery.isEmpty) {
+      _rows.addAll(_allRows);
+    } else {
+      _rows.addAll(_allRows.where((row) => _rowMatches(row, _searchQuery)));
+    }
+  }
+
   void _filterRows(String value) {
     final search = value.toLowerCase().trim();
 
     setState(() {
       _searchQuery = search;
       _currentPage = 1;
-      _rows.clear();
-      if (search.isNotEmpty) {
-        _rows.addAll(_allRows.where((row) => _rowMatches(row, search)));
-      }
+      _applySearchFilter();
     });
   }
 
   int get _totalPages =>
       _rows.isEmpty ? 1 : ((_rows.length + _rowsPerPage - 1) ~/ _rowsPerPage);
 
+  String _sopNum(Map<String, dynamic> row) {
+    final sop = row['SOP'];
+    if (sop is Map) return _text(sop['SOPNum']);
+    return '';
+  }
+
+  String _oddRaw(Map<String, dynamic> row) {
+    final sop = row['SOP'];
+    if (sop is Map) return _text(sop['ODD']);
+    return '';
+  }
+
+  String _leadHandName(Map<String, dynamic> row) {
+    final sop = row['SOP'];
+    final log = sop is Map ? sop['ProductionLogEntry'] : null;
+    final leadHand = log is Map ? log['LeadHand'] : null;
+    if (leadHand is Map) return _text(leadHand['LeadHandName']);
+    return '';
+  }
+
+  String _assemblerName(Map<String, dynamic> row) {
+    final assembler = row['Assembler'];
+    if (assembler is Map) return _text(assembler['Name']);
+    return '';
+  }
+
+  double _numFromRow(Map<String, dynamic> row, List<String> keys) {
+    for (final key in keys) {
+      final n = num.tryParse(_text(row[key]).replaceAll(',', ''));
+      if (n != null) return n.toDouble();
+    }
+    return 0;
+  }
+
+  double _totalBuildHours(Map<String, dynamic> row) {
+    final qty = _numFromRow(row, ['Quantity']);
+    final hours = _numFromRow(row, ['Hours']);
+    return (qty * hours).ceilToDouble();
+  }
+
+  int _pickedSortKey(Map<String, dynamic> row) => row['Picked'] == true ? 1 : 0;
+
+  int _compareForSort(Map<String, dynamic> a, Map<String, dynamic> b, int col) {
+    switch (col) {
+      case 0:
+        final sa = _sopNum(a);
+        final sb = _sopNum(b);
+        final ia = int.tryParse(sa);
+        final ib = int.tryParse(sb);
+        if (ia != null && ib != null) return ia.compareTo(ib);
+        return sa.toLowerCase().compareTo(sb.toLowerCase());
+      case 1:
+        final da = ApiDate.parseFlexible(_oddRaw(a));
+        final db = ApiDate.parseFlexible(_oddRaw(b));
+        if (da != null && db != null) return da.compareTo(db);
+        if (da != null) return -1;
+        if (db != null) return 1;
+        return _oddRaw(a).toLowerCase().compareTo(_oddRaw(b).toLowerCase());
+      case 2:
+        return _leadHandName(
+          a,
+        ).toLowerCase().compareTo(_leadHandName(b).toLowerCase());
+      case 3:
+        return _assemblerName(
+          a,
+        ).toLowerCase().compareTo(_assemblerName(b).toLowerCase());
+      case 4:
+        return _text(
+          a['FixtureNumber'],
+        ).toLowerCase().compareTo(_text(b['FixtureNumber']).toLowerCase());
+      case 5:
+        return _text(
+          a['FixtureDescription'],
+        ).toLowerCase().compareTo(_text(b['FixtureDescription']).toLowerCase());
+      case 6:
+        return _numFromRow(
+          a,
+          ['Quantity'],
+        ).compareTo(_numFromRow(b, ['Quantity']));
+      case 7:
+        return _numFromRow(a, ['Hours']).compareTo(_numFromRow(b, ['Hours']));
+      case 8:
+        return _totalBuildHours(a).compareTo(_totalBuildHours(b));
+      case 9:
+        return _numFromRow(a, ['Amount']).compareTo(_numFromRow(b, ['Amount']));
+      case 10:
+        return _text(
+          a['InventoryComments'],
+        ).toLowerCase().compareTo(_text(b['InventoryComments']).toLowerCase());
+      case 11:
+        return _pickedSortKey(a).compareTo(_pickedSortKey(b));
+      default:
+        return 0;
+    }
+  }
+
+  List<Map<String, dynamic>> get _sortedRows {
+    final list = List<Map<String, dynamic>>.from(_rows);
+    final col = _sortColumnIndex;
+    if (col == null || col > _lastSortableColumnIndex) return list;
+
+    list.sort((a, b) {
+      final cmp = _compareForSort(a, b, col);
+      if (cmp != 0) return _sortAscending ? cmp : -cmp;
+      return _sopNum(a).compareTo(_sopNum(b));
+    });
+    return list;
+  }
+
+  void _onSort(int columnIndex, bool ascending) {
+    if (columnIndex > _lastSortableColumnIndex) return;
+    setState(() {
+      _sortColumnIndex = columnIndex;
+      _sortAscending = ascending;
+      _currentPage = 1;
+    });
+  }
+
   List<Map<String, dynamic>> get _pagedRows {
-    if (_rows.isEmpty) return [];
+    final sorted = _sortedRows;
+    if (sorted.isEmpty) return [];
     final page = _currentPage.clamp(1, _totalPages);
     final start = (page - 1) * _rowsPerPage;
-    final end = min(start + _rowsPerPage, _rows.length);
-    return _rows.sublist(start, end);
+    final end = min(start + _rowsPerPage, sorted.length);
+    return sorted.sublist(start, end);
   }
 
   @override
@@ -231,41 +370,107 @@ class _BackordersTableState extends State<Backorders> {
     super.dispose();
   }
 
-  Widget _heading(String text) {
+  Widget _heading(String text, {required int columnIndex}) {
+    final multi = text.contains('\n');
+    final sortable = columnIndex <= _lastSortableColumnIndex;
+    final active = sortable && _sortColumnIndex == columnIndex;
+    final up = !active || _sortAscending;
+
+    const textStyle = TextStyle(
+      color: Colors.white,
+      fontWeight: FontWeight.w700,
+      fontSize: 12,
+      height: 1.15,
+    );
+
+    final sortIcon = sortable
+        ? Icon(
+            up ? Icons.arrow_upward : Icons.arrow_downward,
+            size: 11,
+            color: active ? Colors.white : const Color(0x99B8C8E8),
+          )
+        : null;
+
     return Align(
       alignment: Alignment.centerLeft,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: Text(
-          text,
-          textAlign: TextAlign.left,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
-            height: 1.15,
-          ),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: multi
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      text,
+                      textAlign: TextAlign.left,
+                      maxLines: 3,
+                      softWrap: true,
+                      overflow: TextOverflow.clip,
+                      style: textStyle,
+                    ),
+                  ),
+                  if (sortIcon != null) ...[
+                    const SizedBox(width: 2),
+                    sortIcon,
+                  ],
+                ],
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    fit: FlexFit.loose,
+                    child: Text(
+                      text,
+                      textAlign: TextAlign.left,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.clip,
+                      style: textStyle,
+                    ),
+                  ),
+                  if (sortIcon != null) ...[
+                    const SizedBox(width: 4),
+                    sortIcon,
+                  ],
+                ],
+              ),
       ),
     );
   }
 
-  DataColumn2 _fixedColumn(String text, {required double width}) {
+  DataColumn2 _fixedColumn(
+    String text, {
+    required double width,
+    required int columnIndex,
+  }) {
+    final sortable = columnIndex <= _lastSortableColumnIndex;
     return DataColumn2(
       headingRowAlignment: MainAxisAlignment.start,
       fixedWidth: width,
-      label: SizedBox(width: width, child: _heading(text)),
+      onSort: sortable ? _onSort : null,
+      label: SizedBox(
+        width: width,
+        child: _heading(text, columnIndex: columnIndex),
+      ),
     );
   }
 
-  DataColumn2 _scrollColumn(String text, {required double minWidth}) {
+  DataColumn2 _scrollColumn(
+    String text, {
+    required double minWidth,
+    required int columnIndex,
+  }) {
+    final sortable = columnIndex <= _lastSortableColumnIndex;
     return DataColumn2(
       headingRowAlignment: MainAxisAlignment.start,
       minWidth: minWidth,
       size: ColumnSize.S,
-      label: _heading(text),
+      onSort: sortable ? _onSort : null,
+      label: SizedBox(
+        width: minWidth,
+        child: _heading(text, columnIndex: columnIndex),
+      ),
     );
   }
 
@@ -274,25 +479,25 @@ class _BackordersTableState extends State<Backorders> {
   /// scroll horizontally without asserting.
   static const double _sopW = 56;
   static const double _oddW = 90;
-  static const double _leadHandW = 72;
+  static const double _leadHandW = 80;
   static const double _fixtureW = 96;
   static const List<double> _otherPreferred = [
-    72, // Assembler
+    96, // Assembler
     96, // Fixture
-    140, // Desc
-    36, // Qty
-    64, // Time To Build/Per Unit
-    68, // Total Time To Build
-    55, // Amount
-    110, // Inventory Comment
-    48, // Picked
-    72, // Date Sent
-    64, // Dept
+    150, // Desc
+    52, // Qty
+    104, // Time To Build/Per Unit
+    100, // Total Time To Build
+    80, // Amount
+    120, // Inventory Comment
+    72, // Picked
+    88, // Date Sent
+    72, // Dept
     260, // Notice
     130, // Response
-    44, // UOM
-    64, // B/O QTY
-    44, // QTY (Received)
+    48, // UOM
+    72, // B/O QTY
+    56, // QTY (Received)
   ];
 
   Widget _tableTextCell(
@@ -439,25 +644,33 @@ class _BackordersTableState extends State<Backorders> {
   List<DataColumn2> _columns() {
     final other = _otherPreferred;
     return [
-      _fixedColumn("SOP", width: _sopW),
-      _fixedColumn("ODD", width: _oddW),
-      _fixedColumn("Lead Hand", width: _leadHandW),
-      _scrollColumn("Assembler", minWidth: other[0]),
-      _scrollColumn("Fixture", minWidth: other[1]),
-      _scrollColumn("Desc", minWidth: other[2]),
-      _scrollColumn("Qty", minWidth: other[3]),
-      _scrollColumn("Time To Build/\nPer Unit", minWidth: other[4]),
-      _scrollColumn("Total Time\nTo Build", minWidth: other[5]),
-      _scrollColumn("Amount", minWidth: other[6]),
-      _scrollColumn("Inventory\nComment", minWidth: other[7]),
-      _scrollColumn("Picked", minWidth: other[8]),
-      _scrollColumn("Date Sent", minWidth: other[9]),
-      _scrollColumn("Dept", minWidth: other[10]),
-      _scrollColumn("Notice", minWidth: other[11]),
-      _scrollColumn("Response", minWidth: other[12]),
-      _scrollColumn("UOM", minWidth: other[13]),
-      _scrollColumn("B/O QTY", minWidth: other[14]),
-      _scrollColumn("QTY", minWidth: other[15]),
+      _fixedColumn("SOP", width: _sopW, columnIndex: 0),
+      _fixedColumn("ODD", width: _oddW, columnIndex: 1),
+      _fixedColumn("Lead Hand", width: _leadHandW, columnIndex: 2),
+      _scrollColumn("Assembler", minWidth: other[0], columnIndex: 3),
+      _scrollColumn("Fixture", minWidth: other[1], columnIndex: 4),
+      _scrollColumn("Desc", minWidth: other[2], columnIndex: 5),
+      _scrollColumn("Qty", minWidth: other[3], columnIndex: 6),
+      _scrollColumn(
+        "Time To Build/\nPer Unit",
+        minWidth: other[4],
+        columnIndex: 7,
+      ),
+      _scrollColumn(
+        "Total Time\nTo Build",
+        minWidth: other[5],
+        columnIndex: 8,
+      ),
+      _scrollColumn("Amount", minWidth: other[6], columnIndex: 9),
+      _scrollColumn("Inventory\nComment", minWidth: other[7], columnIndex: 10),
+      _scrollColumn("Picked", minWidth: other[8], columnIndex: 11),
+      _scrollColumn("Date Sent", minWidth: other[9], columnIndex: 12),
+      _scrollColumn("Dept", minWidth: other[10], columnIndex: 13),
+      _scrollColumn("Notice", minWidth: other[11], columnIndex: 14),
+      _scrollColumn("Response", minWidth: other[12], columnIndex: 15),
+      _scrollColumn("UOM", minWidth: other[13], columnIndex: 16),
+      _scrollColumn("B/O QTY", minWidth: other[14], columnIndex: 17),
+      _scrollColumn("QTY", minWidth: other[15], columnIndex: 18),
     ];
   }
 
@@ -631,7 +844,11 @@ class _BackordersTableState extends State<Backorders> {
       style: TextStyle(fontSize: r.searchFieldFontSize),
       decoration: InputDecoration(
         hintText: 'Search by part number...',
-        hintStyle: TextStyle(fontSize: r.searchFieldFontSize),
+        hintStyle: TextStyle(
+          fontSize: r.searchFieldFontSize,
+          color: const Color(0xFF9AA8B8),
+          fontWeight: FontWeight.w500,
+        ),
         isDense: true,
         contentPadding: EdgeInsets.symmetric(
           horizontal: 14,
@@ -770,7 +987,7 @@ class _BackordersTableState extends State<Backorders> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               headerBar,
-              if (_searchQuery.isNotEmpty) ...[
+              if (_allRows.isNotEmpty || _isLoading) ...[
                 const SizedBox(height: 12),
                 Expanded(
                   child: _isLoading
@@ -810,6 +1027,10 @@ class _BackordersTableState extends State<Backorders> {
                                           0xFF344963,
                                         ),
                                         showCheckboxColumn: false,
+                                        sortColumnIndex: _sortColumnIndex,
+                                        sortAscending: _sortAscending,
+                                        sortArrowBuilder: (_, __) =>
+                                            const SizedBox.shrink(),
                                         headingRowColor:
                                             MaterialStateProperty.all(
                                               const Color(0xFF344963),
@@ -817,7 +1038,7 @@ class _BackordersTableState extends State<Backorders> {
                                         dataRowColor: MaterialStateProperty.all(
                                           Colors.white,
                                         ),
-                                        headingRowHeight: 52,
+                                        headingRowHeight: 58,
                                         dataRowHeight: 52,
                                         columnSpacing: 0,
                                         horizontalMargin: 0,
@@ -921,7 +1142,7 @@ class _BackordersTableState extends State<Backorders> {
                                               ),
                                               DataCell(
                                                 _tableTextCell(
-                                                  _text(row["Amount"]),
+                                                  _formatAmount(row["Amount"]),
                                                   width: null,
                                                 ),
                                               ),
