@@ -15,6 +15,25 @@ String _formatOdd(dynamic raw) {
   return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 }
 
+bool _isTruthy(dynamic value) {
+  if (value == null) return false;
+  if (value is bool) return value;
+  if (value is int) return value != 0;
+  if (value is double) return value != 0;
+  if (value is String) {
+    final lower = value.toLowerCase().trim();
+    return lower == 'true' || lower == '1' || lower == 'yes';
+  }
+  return false;
+}
+
+bool _isGrayRowMap(Map<String, dynamic> row, [Map<String, dynamic>? detail]) {
+  return _isTruthy(row['isGray']) ||
+      _isTruthy(row['isGrey']) ||
+      (detail != null &&
+          (_isTruthy(detail['isGray']) || _isTruthy(detail['isGrey'])));
+}
+
 class PickList extends StatefulWidget {
   final String fixtureNumber;
   final String sopNumber;
@@ -102,7 +121,6 @@ class _PickListState extends State<PickList> {
   String _programName = '';
   String _sopNum = '';
 
-
   bool _dropdownOpen = false;
   bool _inventoryDownloading = false;
   int _selectedIndex = 0;
@@ -111,15 +129,100 @@ class _PickListState extends State<PickList> {
   List<_SheetRow> _sheetRows = [];
   List<Map<String, dynamic>> _rawSheetData = [];
   Map<String, dynamic> _pickListResponse = {};
+  bool _loadedViaPickListDataApi = false;
   final List<TextEditingController> _mpfControllers = [];
+  final List<FocusNode> _mpfFocusNodes = [];
+  final List<TextEditingController> _rowCustomCommentControllers = [];
+  final Set<int> _grayMpfEditableRows = {};
+  final Set<int> _rowOtherCommentSelected = {};
+
+  Set<String> get _commentPresetOptions => commentOptions
+      .map((e) => e['value']!)
+      .where((value) => value != 'Other')
+      .toSet();
+
+  bool _rowShowsOtherComment(int index, _SheetRow row) {
+    if (_rowOtherCommentSelected.contains(index)) return true;
+    final current = row.comments.trim();
+    return current.isNotEmpty &&
+        !_commentPresetOptions.contains(current) &&
+        current != 'Other';
+  }
+
+  String _rowCommentDropdownValue(int index, _SheetRow row) {
+    final current = row.comments.trim();
+    if (_rowOtherCommentSelected.contains(index)) return 'Other';
+    if (current.isEmpty) return '';
+    if (_commentPresetOptions.contains(current)) return current;
+    return 'Other';
+  }
 
   void _syncMpfControllers(List<_SheetRow> rows) {
-    for (final c in _mpfControllers) {
-      c.dispose();
-    }
+    final oldMpfControllers = List<TextEditingController>.from(_mpfControllers);
+    final oldFocusNodes = List<FocusNode>.from(_mpfFocusNodes);
+    final oldCustomControllers = List<TextEditingController>.from(
+      _rowCustomCommentControllers,
+    );
+
     _mpfControllers
       ..clear()
       ..addAll(rows.map((r) => TextEditingController(text: r.mpfQty)));
+    _mpfFocusNodes
+      ..clear()
+      ..addAll(List.generate(rows.length, (_) => FocusNode()));
+    _rowCustomCommentControllers
+      ..clear()
+      ..addAll(
+        rows.map((r) {
+          final current = r.comments.trim();
+          final isCustom =
+              current.isNotEmpty &&
+              !_commentPresetOptions.contains(current) &&
+              current != 'Other';
+          return TextEditingController(text: isCustom ? current : '');
+        }),
+      );
+    _grayMpfEditableRows.clear();
+    _rowOtherCommentSelected.clear();
+    for (var i = 0; i < rows.length; i++) {
+      final current = rows[i].comments.trim();
+      if (current == 'Other' ||
+          (current.isNotEmpty &&
+              !_commentPresetOptions.contains(current) &&
+              current != 'Other')) {
+        _rowOtherCommentSelected.add(i);
+      }
+    }
+
+    if (oldMpfControllers.isEmpty &&
+        oldFocusNodes.isEmpty &&
+        oldCustomControllers.isEmpty) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final c in oldMpfControllers) {
+        c.dispose();
+      }
+      for (final f in oldFocusNodes) {
+        f.dispose();
+      }
+      for (final c in oldCustomControllers) {
+        c.dispose();
+      }
+    });
+  }
+
+  void _activateGrayMpfRow(int index) {
+    if (index < 0 || index >= _sheetRows.length) return;
+    if (!_sheetRows[index].isGray) return;
+    setState(() => _grayMpfEditableRows.add(index));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || index >= _mpfFocusNodes.length) return;
+      final node = _mpfFocusNodes[index];
+      if (node.context == null) return;
+      node.requestFocus();
+    });
   }
 
   bool get _isMpf =>
@@ -133,6 +236,16 @@ class _PickListState extends State<PickList> {
   }
 
   static const _usaProductionLabel = 'USA Production';
+
+  String get _mpfInquiryContactName {
+    final detail = _pickListResponse['excelFixtureDetail'];
+    if (detail is Map) {
+      final fileType =
+          detail['inventoryFileType']?.toString().trim().toUpperCase() ?? '';
+      if (fileType == 'USA') return 'KARINA';
+    }
+    return 'MARGARET';
+  }
 
   @override
   void initState() {
@@ -155,7 +268,13 @@ class _PickListState extends State<PickList> {
     _rmaController.dispose();
     _customCommentController.dispose();
     _verticalScrollController.dispose();
+    for (final f in _mpfFocusNodes) {
+      f.dispose();
+    }
     for (final c in _mpfControllers) {
+      c.dispose();
+    }
+    for (final c in _rowCustomCommentControllers) {
       c.dispose();
     }
     super.dispose();
@@ -297,6 +416,30 @@ class _PickListState extends State<PickList> {
       return;
     }
 
+    for (var i = 0; i < _rawSheetData.length; i++) {
+      final item = _rawSheetData[i];
+      final isGray =
+          _isGrayRowMap(item) ||
+          (i < _sheetRows.length && _sheetRows[i].isGray);
+      final controllerQty = i < _mpfControllers.length
+          ? _mpfControllers[i].text.trim()
+          : '';
+      final mpfQty = controllerQty.isNotEmpty
+          ? controllerQty
+          : (item['mpfQty'] ?? '').toString();
+      final hasMpf =
+          mpfQty.trim().isNotEmpty && mpfQty.trim() != '0';
+
+      if (isGray && !hasMpf) continue;
+      if (hasMpf && _isMpfQtyOverTotal(i, mpfQty)) {
+        AppToast.error(
+          context,
+          'MPF quantity cannot be greater than Total Qty Needed',
+        );
+        return;
+      }
+    }
+
     setState(() => _inventoryDownloading = true);
 
     try {
@@ -306,34 +449,12 @@ class _PickListState extends State<PickList> {
       final sheetData = <Map<String, dynamic>>[];
       var hasAtLeastOneMpfQty = false;
       var hasMissingCommentForMpfQty = false;
-      
-      // Helper to check if value is truthy
-      bool isTruthy(dynamic value) {
-        if (value == null) return false;
-        if (value is bool) return value;
-        if (value is int) return value != 0;
-        if (value is double) return value != 0;
-        if (value is String) {
-          final lower = value.toLowerCase().trim();
-          return lower == 'true' || lower == '1' || lower == 'yes';
-        }
-        return false;
-      }
-      
+
       for (var i = 0; i < _rawSheetData.length; i++) {
         final item = _rawSheetData[i];
         final isGray =
-            isTruthy(item['isGray']) ||
-            isTruthy(item['isGrayRow']) ||
-            isTruthy(item['isGrey']) ||
-            isTruthy(item['is_gray']) ||
-            isTruthy(item['is_grey']) ||
-            isTruthy(item['IsGray']) ||
-            isTruthy(item['IsGrey']) ||
-            isTruthy(item['grayRow']) ||
-            isTruthy(item['greyRow']) ||
+            _isGrayRowMap(item) ||
             (i < _sheetRows.length && _sheetRows[i].isGray);
-        if (isGray) continue;
 
         final row = Map<String, dynamic>.from(item);
         final totalQty = row['TotalQtyNeeded'] ?? row['totalQtyNeeded'] ?? 0;
@@ -346,6 +467,8 @@ class _PickListState extends State<PickList> {
         final hasMpf =
             mpfQty.toString().trim().isNotEmpty &&
             mpfQty.toString().trim() != '0';
+
+        if (isGray && !hasMpf) continue;
         final commentValue =
             (row['InventoryComments'] ??
                     row['Comments'] ??
@@ -513,9 +636,9 @@ class _PickListState extends State<PickList> {
                   child: const Icon(Icons.check, color: Colors.green, size: 45),
                 ),
                 const SizedBox(height: 25),
-                const Text(
-                  "For any inquiry, see MARGARET",
-                  style: TextStyle(
+                Text(
+                  'For any inquiry, see ${_mpfInquiryContactName}',
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF374151),
@@ -570,6 +693,7 @@ class _PickListState extends State<PickList> {
           ? Map<String, dynamic>.from(data.first)
           : null;
       if (map == null) return;
+      _loadedViaPickListDataApi = true;
       _applyPickListMap(map);
     } catch (e) {
       debugPrint('PICK LIST ERROR: $e');
@@ -620,20 +744,8 @@ class _PickListState extends State<PickList> {
 
       final map = Map<String, dynamic>.from(data);
       final listData = map['listData'];
-      
-      // Debug: Show API response structure
-      debugPrint('🔍 LIVE PDM API RESPONSE:');
-      debugPrint('   Root keys: ${root.keys.toList()}');
-      debugPrint('   Data keys: ${data.keys.toList()}');
-      if (listData is List) {
-        debugPrint('   listData length: ${listData.length}');
-        if (listData.isNotEmpty && listData.first is Map) {
-          final firstRow = listData.first as Map;
-          debugPrint('   First row keys: ${firstRow.keys.toList()}');
-          debugPrint('   First row values: $firstRow');
-        }
-      }
-      
+
+      _loadedViaPickListDataApi = false;
       _applyPickListMap(map, rows: listData is List ? listData : const []);
     } catch (e) {
       debugPrint('LIVE PDM PICK LIST ERROR: $e');
@@ -888,7 +1000,9 @@ class _PickListState extends State<PickList> {
                             child: Text(
                               isMobile ? 'Apply All' : 'Apply Comment to All',
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Color.fromARGB(255, 6, 54, 94)),
+                              style: const TextStyle(
+                                color: Color.fromARGB(255, 6, 54, 94),
+                              ),
                             ),
                           ),
                         ),
@@ -1122,12 +1236,7 @@ class _PickListState extends State<PickList> {
       caseSensitive: false,
     ).firstMatch(text);
     if (match == null) {
-      return Text(
-        text,
-        style: style,
-        textAlign: textAlign,
-        softWrap: true,
-      );
+      return Text(text, style: style, textAlign: textAlign, softWrap: true);
     }
     return Text.rich(
       TextSpan(
@@ -1154,12 +1263,14 @@ class _PickListState extends State<PickList> {
     final isBlankPickList =
         _dropdownOptions[_selectedIndex.clamp(0, _dropdownOptions.length - 1)]
             .isBlank;
-    final useMpfGreen = _isMpf || !isBlankPickList;
+    final useBlankBlueTheme = isBlankPickList && _loadedViaPickListDataApi;
+    final useMpfGreen = !useBlankBlueTheme;
     final labelBg = useMpfGreen
         ? const Color(0xFFE8F5E9)
         : const Color(0xFFB9C7D9);
     final valueBg = useMpfGreen ? Colors.white : const Color(0xFFF1F3F5);
-    const pickListLogBg = Color(0xFFE8F5E9);
+    final pickListLogBg =
+        useMpfGreen ? const Color(0xFFE8F5E9) : const Color(0xFFF1F3F5);
     final textColor = useMpfGreen
         ? const Color(0xFF166534)
         : const Color(0xFF0C4A7D);
@@ -1382,10 +1493,7 @@ class _PickListState extends State<PickList> {
           r.isGray ? r : r.copyWith(comments: comment),
       ];
       for (var i = 0; i < _rawSheetData.length; i++) {
-        final isGray =
-            _rawSheetData[i]['isGray'] == true ||
-            _rawSheetData[i]['isGrayRow'] == true;
-        if (isGray) continue;
+        if (_isGrayRowMap(_rawSheetData[i])) continue;
         _rawSheetData[i]['InventoryComments'] = comment;
         _rawSheetData[i]['Comments'] = comment;
       }
@@ -1410,24 +1518,78 @@ class _PickListState extends State<PickList> {
     });
   }
 
+  double? _parseQty(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    return double.tryParse(trimmed);
+  }
+
+  double _totalQtyForIndex(int index) {
+    if (index < _sheetRows.length) {
+      final fromRow = _parseQty(_sheetRows[index].totalQtyNeeded);
+      if (fromRow != null) return fromRow;
+    }
+    if (index < _rawSheetData.length) {
+      final raw =
+          _rawSheetData[index]['TotalQtyNeeded'] ??
+          _rawSheetData[index]['totalQtyNeeded'];
+      return _parseQty(raw?.toString() ?? '') ?? 0;
+    }
+    return 0;
+  }
+
+  bool _isMpfQtyOverTotal(int index, String value) {
+    final mpf = _parseQty(value);
+    if (mpf == null) return false;
+    return mpf > _totalQtyForIndex(index);
+  }
+
   void _updateMpfQty(int index, String value) {
     if (index < 0 || index >= _sheetRows.length) return;
-    _sheetRows[index] = _sheetRows[index].copyWith(mpfQty: value);
-    if (index < _rawSheetData.length) {
-      _rawSheetData[index]['mpfQty'] = value;
-    }
+    setState(() {
+      _sheetRows[index] = _sheetRows[index].copyWith(mpfQty: value);
+      if (index < _rawSheetData.length) {
+        _rawSheetData[index]['mpfQty'] = value;
+      }
+    });
   }
 
   void _updateRowComment(int index, String? value) {
     if (index < 0 || index >= _sheetRows.length) return;
-    final comment = value ?? '';
+    final selected = value ?? '';
     setState(() {
-      _sheetRows[index] = _sheetRows[index].copyWith(comments: comment);
+      if (selected == 'Other') {
+        _rowOtherCommentSelected.add(index);
+        _sheetRows[index] = _sheetRows[index].copyWith(comments: '');
+        if (index < _rowCustomCommentControllers.length) {
+          _rowCustomCommentControllers[index].clear();
+        }
+        if (index < _rawSheetData.length) {
+          _rawSheetData[index]['InventoryComments'] = '';
+          _rawSheetData[index]['Comments'] = '';
+        }
+        return;
+      }
+
+      _rowOtherCommentSelected.remove(index);
+      if (index < _rowCustomCommentControllers.length) {
+        _rowCustomCommentControllers[index].clear();
+      }
+      _sheetRows[index] = _sheetRows[index].copyWith(comments: selected);
       if (index < _rawSheetData.length) {
-        _rawSheetData[index]['InventoryComments'] = comment;
-        _rawSheetData[index]['Comments'] = comment;
+        _rawSheetData[index]['InventoryComments'] = selected;
+        _rawSheetData[index]['Comments'] = selected;
       }
     });
+  }
+
+  void _updateRowCustomComment(int index, String value) {
+    if (index < 0 || index >= _sheetRows.length) return;
+    _sheetRows[index] = _sheetRows[index].copyWith(comments: value);
+    if (index < _rawSheetData.length) {
+      _rawSheetData[index]['InventoryComments'] = value;
+      _rawSheetData[index]['Comments'] = value;
+    }
   }
 
   void _updateUnitOfMeasure(int index, String? value) {
@@ -1628,10 +1790,11 @@ class _PickListState extends State<PickList> {
       double w, {
       bool last = false,
       Color bgColor = Colors.white,
+      double? height,
     }) {
       return Container(
         width: w,
-        height: rowH,
+        height: height ?? rowH,
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         decoration: BoxDecoration(
@@ -1657,17 +1820,46 @@ class _PickListState extends State<PickList> {
       required _SheetRow row,
       required double w,
       required Color bgColor,
+      required double cellHeight,
     }) {
-      if (row.isGray) {
-        return dataCell('', w, bgColor: bgColor);
+      final isActivatedGray =
+          row.isGray && _grayMpfEditableRows.contains(index);
+
+      if (row.isGray && !isActivatedGray) {
+        return MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => _activateGrayMpfRow(index),
+            child: dataCell('', w, bgColor: bgColor, height: cellHeight),
+          ),
+        );
       }
-      final controller = index < _mpfControllers.length
-          ? _mpfControllers[index]
-          : TextEditingController(text: row.mpfQty);
+
+      if (index >= _mpfControllers.length) {
+        return dataCell(row.mpfQty, w, bgColor: bgColor, height: cellHeight);
+      }
+
+      final controller = _mpfControllers[index];
+      final focusNode = index < _mpfFocusNodes.length
+          ? _mpfFocusNodes[index]
+          : null;
+      final mpfValue = controller.text.trim();
+      final isOverTotal = _isMpfQtyOverTotal(index, mpfValue);
+      const normalBorderColor = Color(0xFF969797);
+      const errorBorderColor = Color(0xFFDC2626);
+      final inputBorderColor =
+          isOverTotal ? errorBorderColor : normalBorderColor;
+      final inputBorder = OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: BorderSide(
+          color: inputBorderColor,
+          width: isOverTotal ? 1.5 : 1,
+        ),
+      );
 
       return Container(
         width: w,
-        height: rowH,
+        height: cellHeight,
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         decoration: BoxDecoration(
@@ -1679,6 +1871,7 @@ class _PickListState extends State<PickList> {
         ),
         child: TextFormField(
           controller: controller,
+          focusNode: focusNode,
           keyboardType: TextInputType.number,
           textAlign: TextAlign.center,
           style: bodyStyle,
@@ -1691,21 +1884,9 @@ class _PickListState extends State<PickList> {
               horizontal: 8,
               vertical: 8,
             ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(2),
-              borderSide: const BorderSide(color: Color(0xFF9CA3AF)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(2),
-              borderSide: const BorderSide(color: Color(0xFF9CA3AF)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(2),
-              borderSide: const BorderSide(
-                color: Color(0xFF1B5E20),
-                width: 1.5,
-              ),
-            ),
+            border: inputBorder,
+            enabledBorder: inputBorder,
+            focusedBorder: inputBorder,
           ),
         ),
       );
@@ -1716,23 +1897,40 @@ class _PickListState extends State<PickList> {
       required _SheetRow row,
       required double w,
       required Color bgColor,
+      required double cellHeight,
       bool last = false,
     }) {
-      if (row.isGray) {
-        return dataCell(row.comments, w, last: last, bgColor: bgColor);
+      final isActivatedGray =
+          row.isGray && _grayMpfEditableRows.contains(index);
+
+      if (row.isGray && !isActivatedGray) {
+        return dataCell(
+          '',
+          w,
+          last: last,
+          bgColor: bgColor,
+          height: cellHeight,
+        );
       }
 
       final options = commentOptions.map((e) => e['value']!).toList();
-      final current = row.comments.trim();
-      final isPreset = options.contains(current);
-      final value = isPreset
-          ? current
-          : (current.isEmpty ? '' : 'Other');
-      final display = current.isEmpty ? 'Select comment...' : current;
+      final showsOther = _rowShowsOtherComment(index, row);
+      final value = _rowCommentDropdownValue(index, row);
+      final display = value.isEmpty ? 'Select comment...' : value;
+      if (index >= _rowCustomCommentControllers.length) {
+        return dataCell(
+          display,
+          w,
+          last: last,
+          bgColor: bgColor,
+          height: cellHeight,
+        );
+      }
+      final customController = _rowCustomCommentControllers[index];
 
       return Container(
         width: w,
-        height: rowH,
+        height: cellHeight,
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         decoration: BoxDecoration(
@@ -1744,80 +1942,123 @@ class _PickListState extends State<PickList> {
             bottom: const BorderSide(color: borderColor),
           ),
         ),
-        child: PopupMenuButton<String>(
-          tooltip: '',
-          initialValue: value,
-          position: PopupMenuPosition.under,
-          offset: const Offset(0, 2),
-          color: Colors.white,
-          elevation: 4,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 180, maxWidth: 260),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(3),
-            side: const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
-          ),
-          onSelected: (v) => _updateRowComment(index, v),
-          itemBuilder: (context) {
-            final all = ['', ...options];
-            return [
-              for (final o in all)
-                PopupMenuItem<String>(
-                  value: o,
-                  height: 36,
-                  padding: EdgeInsets.zero,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    color: o == value
-                        ? const Color(0xFF2563EB)
-                        : Colors.transparent,
-                    child: Text(
-                      o.isEmpty ? 'Select comment...' : o,
-                      style: TextStyle(
-                        fontSize: 13,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            PopupMenuButton<String>(
+              tooltip: '',
+              initialValue: value,
+              position: PopupMenuPosition.under,
+              offset: const Offset(0, 2),
+              color: Colors.white,
+              elevation: 4,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 180, maxWidth: 260),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(3),
+                side: const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
+              ),
+              onSelected: (v) => _updateRowComment(index, v),
+              itemBuilder: (context) {
+                final all = ['', ...options];
+                return [
+                  for (final o in all)
+                    PopupMenuItem<String>(
+                      value: o,
+                      height: 36,
+                      padding: EdgeInsets.zero,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         color: o == value
-                            ? Colors.white
-                            : const Color(0xFF111827),
+                            ? const Color(0xFF2563EB)
+                            : Colors.transparent,
+                        child: Text(
+                          o.isEmpty ? 'Select comment...' : o,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: o == value
+                                ? Colors.white
+                                : const Color(0xFF111827),
+                          ),
+                        ),
                       ),
                     ),
+                ];
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(
+                    color: showsOther
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xFFD1D5DB),
+                    width: showsOther ? 1.5 : 1,
                   ),
                 ),
-            ];
-          },
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(3),
-              border: Border.all(color: const Color(0xFFD1D5DB)),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        display,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: value.isEmpty
+                              ? const Color(0xFF6B7280)
+                              : const Color(0xFF111827),
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_drop_down,
+                      size: 18,
+                      color: Color(0xFF374151),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    display,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: value.isEmpty
-                          ? const Color(0xFF6B7280)
-                          : const Color(0xFF111827),
+            if (showsOther) ...[
+              const SizedBox(height: 4),
+              TextField(
+                controller: customController,
+                onChanged: (v) => _updateRowCustomComment(index, v),
+                style: const TextStyle(fontSize: 12),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: 'Enter custom comment...',
+                  hintStyle: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(3),
+                    borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(3),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF2563EB),
+                      width: 1.5,
                     ),
                   ),
                 ),
-                const Icon(
-                  Icons.arrow_drop_down,
-                  size: 18,
-                  color: Color(0xFF374151),
-                ),
-              ],
-            ),
-          ),
+              ),
+            ],
+          ],
         ),
       );
     }
@@ -1887,10 +2128,18 @@ class _PickListState extends State<PickList> {
                 r.comments,
               ];
               final isPlaceholder = _sheetRows.isEmpty;
-              final rowBg = r.isGray ? const Color(0xFFE9ECEF) : Colors.white;
+              final isActivatedGray =
+                  r.isGray && _grayMpfEditableRows.contains(index);
+              final rowBg = r.isGray
+                  ? (isActivatedGray
+                        ? const Color(0xFFE3F2FD)
+                        : const Color(0xFFE9ECEF))
+                  : Colors.white;
+              final showsOtherComment = _rowShowsOtherComment(index, r);
+              final effectiveRowH = showsOtherComment ? rowH + 40 : rowH;
               return SizedBox(
                 width: tableW,
-                height: rowH,
+                height: effectiveRowH,
                 child: Row(
                   children: List.generate(12, (i) {
                     if (i == 5 && !isPlaceholder && !r.isGray) {
@@ -1900,7 +2149,7 @@ class _PickListState extends State<PickList> {
                           index: index,
                           current: r.unitOfMeasure,
                           width: widths[5],
-                          rowHeight: rowH,
+                          rowHeight: effectiveRowH,
                         ),
                       );
                     }
@@ -1909,12 +2158,13 @@ class _PickListState extends State<PickList> {
                         r.unitOfMeasure,
                         widths[5],
                         bgColor: rowBg,
+                        height: effectiveRowH,
                       );
                     }
                     if (i == 1) {
                       return Container(
                         width: widths[1],
-                        height: rowH,
+                        height: effectiveRowH,
                         alignment: Alignment.center,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
@@ -1936,6 +2186,7 @@ class _PickListState extends State<PickList> {
                         row: r,
                         w: widths[8],
                         bgColor: rowBg,
+                        cellHeight: effectiveRowH,
                       );
                     }
                     if (i == 11 && !isPlaceholder) {
@@ -1944,6 +2195,7 @@ class _PickListState extends State<PickList> {
                         row: r,
                         w: widths[11],
                         bgColor: rowBg,
+                        cellHeight: effectiveRowH,
                         last: true,
                       );
                     }
@@ -1952,6 +2204,7 @@ class _PickListState extends State<PickList> {
                       widths[i],
                       last: i == 11,
                       bgColor: rowBg,
+                      height: effectiveRowH,
                     );
                   }),
                 ),
@@ -2114,45 +2367,11 @@ class _SheetRow {
       return v?.toString().trim() ?? '';
     }
 
-    // Helper function to check if a value represents true
-    bool isTruthy(dynamic value) {
-      if (value == null) return false;
-      if (value is bool) return value;
-      if (value is int) return value != 0;
-      if (value is double) return value != 0;
-      if (value is String) {
-        final lower = value.toLowerCase().trim();
-        return lower == 'true' || lower == '1' || lower == 'yes';
-      }
-      return false;
-    }
-
     final uom = p('UnitOfMeasure').toUpperCase();
-    
-    // Check all possible field name variations for grey indicator
-    final isGray =
-        isTruthy(row['isGray']) ||
-        isTruthy(row['isGrayRow']) ||
-        isTruthy(row['isGrey']) ||
-        isTruthy(row['is_gray']) ||
-        isTruthy(row['is_grey']) ||
-        isTruthy(row['IsGray']) ||
-        isTruthy(row['IsGrey']) ||
-        isTruthy(row['grayRow']) ||
-        isTruthy(row['greyRow']) ||
-        isTruthy(detail['isGray']) ||
-        isTruthy(detail['isGrey']);
-    
-    // Debug logging
-    final tdgpn = p('TDGPN');
-    if (tdgpn.isNotEmpty) {
-      debugPrint('📦 ROW [$tdgpn] - isGray=$isGray');
-      debugPrint('   Raw keys: ${row.keys.toList()}');
-      debugPrint('   isGray values: {isGray: ${row['isGray']}, isGrayRow: ${row['isGrayRow']}, isGrey: ${row['isGrey']}}');
-    }
+    final isGray = _isGrayRowMap(row, detail);
 
     return _SheetRow(
-      tdgpn: tdgpn,
+      tdgpn: p('TDGPN'),
       description: p('Description'),
       vendor: p('Vendor'),
       vendorPN: p('VendorPN'),

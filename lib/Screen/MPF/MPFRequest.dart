@@ -1596,24 +1596,25 @@ class _MPFRequestState extends State<MPFRequest> {
                               ),
                               child: const Text("Submit"),
                             ),
-                            OutlinedButton.icon(
-                              onPressed:
-                                  _newCustomSopController.text.trim().isEmpty ||
-                                      _fixtureController.text.trim().isEmpty
-                                  ? null
-                                  : _openLivePdmPickList,
-                              icon: const Icon(Icons.open_in_new, size: 16),
-                              label: const Text("Search from Live PDM"),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF37475E),
-                                side: const BorderSide(
-                                  color: Color(0xFF37475E),
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4),
+                            if (!fixtureValid)
+                              OutlinedButton.icon(
+                                onPressed:
+                                    _newCustomSopController.text.trim().isEmpty ||
+                                        _fixtureController.text.trim().isEmpty
+                                    ? null
+                                    : _openLivePdmPickList,
+                                icon: const Icon(Icons.open_in_new, size: 16),
+                                label: const Text("Search from Live PDM"),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF37475E),
+                                  side: const BorderSide(
+                                    color: Color(0xFF37475E),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
                       ],
