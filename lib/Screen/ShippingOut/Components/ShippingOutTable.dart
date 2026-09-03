@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:overview_app/Utils/responsive.dart';
 
 /// Shared Shipping Out data table (sticky history + plain search layout).
 class ShippingOutTable extends StatefulWidget {
@@ -504,8 +505,16 @@ class _ShippingOutTableState extends State<ShippingOutTable> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (widget.shrinkWrap || widget.isSearchTable) {
-          final includeAction = showAction && !widget.isSearchTable;
+        final reserved = leftWidth + (showAction ? actionWidth : 0);
+        final tooNarrow = constraints.maxWidth < reserved + 48;
+        final usePlainTable =
+            widget.shrinkWrap ||
+            widget.isSearchTable ||
+            tooNarrow ||
+            Responsive.isMobileTableLayout(context);
+
+        if (usePlainTable) {
+          final includeAction = showAction && !widget.isSearchTable && !widget.shrinkWrap;
           final widths = _plainTableWidths(
             showLastEdited: showLastEdited,
             showAction: includeAction,
@@ -514,35 +523,63 @@ class _ShippingOutTableState extends State<ShippingOutTable> {
                 : MediaQuery.sizeOf(context).width,
           );
           final tableWidth = widths.fold<double>(0, (sum, w) => sum + w);
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            controller: _middleHorizontalScroll,
-            child: SizedBox(
-              width: tableWidth,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildPlainHeaderRow(
+          final table = Column(
+            mainAxisSize: widget.shrinkWrap || widget.isSearchTable
+                ? MainAxisSize.min
+                : MainAxisSize.max,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildPlainHeaderRow(
+                widths,
+                showLastEdited: showLastEdited,
+                showAction: includeAction,
+              ),
+              if (widget.shrinkWrap || widget.isSearchTable)
+                ...rowsData.map(
+                  (item) => _buildPlainDataRow(
+                    item,
                     widths,
                     showLastEdited: showLastEdited,
                     showAction: includeAction,
                   ),
-                  ...rowsData.map(
-                    (item) => _buildPlainDataRow(
-                      item,
-                      widths,
-                      showLastEdited: showLastEdited,
-                      showAction: includeAction,
-                    ),
+                )
+              else
+                Expanded(
+                  child: ListView.builder(
+                    controller: _middleVerticalScroll,
+                    itemCount: rowsData.length,
+                    itemExtent: _rowHeight,
+                    itemBuilder: (context, index) {
+                      return _buildPlainDataRow(
+                        rowsData[index],
+                        widths,
+                        showLastEdited: showLastEdited,
+                        showAction: includeAction,
+                      );
+                    },
                   ),
-                ],
+                ),
+            ],
+          );
+          return SizedBox(
+            width: constraints.maxWidth,
+            height: widget.shrinkWrap || widget.isSearchTable
+                ? null
+                : constraints.maxHeight,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              controller: _middleHorizontalScroll,
+              child: SizedBox(
+                width: tableWidth,
+                height: widget.shrinkWrap || widget.isSearchTable
+                    ? null
+                    : constraints.maxHeight,
+                child: table,
               ),
             ),
           );
         }
 
-        final reserved = leftWidth + (showAction ? actionWidth : 0);
         final middleAvailable = (constraints.maxWidth - reserved).clamp(
           0.0,
           double.infinity,

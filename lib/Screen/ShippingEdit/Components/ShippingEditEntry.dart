@@ -111,20 +111,19 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
                 headingRowColor: MaterialStateProperty.all(
                   Color.fromARGB(255, 57, 73, 95),
                 ),
-                dataRowMinHeight: 56,
+                dataRowMinHeight: 48,
                 dataRowMaxHeight: double.infinity,
-                horizontalMargin: 20,
-                columnSpacing: 20,
+                horizontalMargin: 12,
+                columnSpacing: 12,
                 border: TableBorder.all(color: Colors.grey, width: 1),
                 columns: const [
                   DataColumn(
                     label: SizedBox(
                       width: 60,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
+                      child: Center(
                         child: Text(
                           "SOP",
-                          textAlign: TextAlign.left,
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -135,12 +134,11 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
                   ),
                   DataColumn(
                     label: SizedBox(
-                      width: 70,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
+                      width: 120,
+                      child: Center(
                         child: Text(
                           "PO Num",
-                          textAlign: TextAlign.left,
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -152,11 +150,10 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
                   DataColumn(
                     label: SizedBox(
                       width: 90,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
+                      child: Center(
                         child: Text(
                           "ODD",
-                          textAlign: TextAlign.left,
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -168,11 +165,10 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
                   DataColumn(
                     label: SizedBox(
                       width: 260,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
+                      child: Center(
                         child: Text(
                           "Customer",
-                          textAlign: TextAlign.left,
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -184,11 +180,10 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
                   DataColumn(
                     label: SizedBox(
                       width: 100,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
+                      child: Center(
                         child: Text(
                           "Prgm",
-                          textAlign: TextAlign.left,
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -199,12 +194,11 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
                   ),
                   DataColumn(
                     label: SizedBox(
-                      width: 90,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
+                      width: 150,
+                      child: Center(
                         child: Text(
                           "Loc.",
-                          textAlign: TextAlign.left,
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -216,11 +210,10 @@ class _ShippingEditEntryState extends State<ShippingEditEntry> {
                   DataColumn(
                     label: SizedBox(
                       width: 140,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
+                      child: Center(
                         child: Text(
                           "Ship In",
-                          textAlign: TextAlign.left,
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,

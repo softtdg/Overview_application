@@ -661,7 +661,6 @@ class _QAEditState extends State<QAEdit> {
         builder: (context, constraints) {
           final reserved = leftWidth + actionWidth;
           final tooNarrow = constraints.maxWidth < reserved + 48;
-          final isPhone = MediaQuery.sizeOf(context).width < 700;
 
           final contentH = _rowHeight + (_rowHeight * rows.length);
           final maxH = constraints.maxHeight.isFinite
@@ -669,7 +668,7 @@ class _QAEditState extends State<QAEdit> {
               : contentH;
           final tableH = contentH > maxH ? maxH : contentH;
 
-          if (tooNarrow || isPhone) {
+          if (tooNarrow || Responsive.isMobileTableLayout(context)) {
             final widths = _plainTableWidths(constraints.maxWidth);
             final tableWidth = widths.fold<double>(0, (sum, w) => sum + w);
             return SizedBox(
@@ -810,7 +809,7 @@ class _QAEditState extends State<QAEdit> {
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(r.fieldRadius),
           borderSide: BorderSide(
-            color: isTablet ? const Color(0xFFBDBDBD) : const Color(0xFF2196F3),
+            color: isTablet ? const Color(0xFFBDBDBD) : const Color(0xFF1565C0),
             width: isTablet ? 1 : 1.5,
           ),
         ),
@@ -835,7 +834,7 @@ class _QAEditState extends State<QAEdit> {
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1E88E5),
+          backgroundColor: const Color(0xFF1565C0),
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(

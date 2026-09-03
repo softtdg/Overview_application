@@ -668,10 +668,12 @@ class _QAOutState extends State<QAOut> {
         builder: (context, constraints) {
           final reserved = leftWidth + (showAction ? actionWidth : 0);
           final tooNarrow = constraints.maxWidth < reserved + 48;
-          final isPhone = MediaQuery.sizeOf(context).width < 700;
 
-          // Phone / search: one horizontally scrollable table (no sticky overflow).
-          if (shrinkWrap || isSearchTable || tooNarrow || isPhone) {
+          // Phone / small tablet / search: one horizontally scrollable table.
+          if (shrinkWrap ||
+              isSearchTable ||
+              tooNarrow ||
+              Responsive.isMobileTableLayout(context)) {
             final widths = _plainTableWidths(
               showLastEdited: showLastEdited,
               showAction: showAction && !isSearchTable && !shrinkWrap,
@@ -842,7 +844,7 @@ class _QAOutState extends State<QAOut> {
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(r.fieldRadius),
           borderSide: BorderSide(
-            color: isTablet ? const Color(0xFFBDBDBD) : const Color(0xFF2196F3),
+            color: isTablet ? const Color(0xFFBDBDBD) : const Color(0xFF1565C0),
             width: isTablet ? 1 : 1.5,
           ),
         ),
@@ -867,7 +869,7 @@ class _QAOutState extends State<QAOut> {
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1E88E5),
+          backgroundColor: const Color(0xFF1565C0),
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -888,7 +890,7 @@ class _QAOutState extends State<QAOut> {
         ),
       ),
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF1E88E5),
+        backgroundColor: const Color(0xFF1565C0),
         foregroundColor: Colors.white,
         elevation: 0,
         shape: RoundedRectangleBorder(

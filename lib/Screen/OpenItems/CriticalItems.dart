@@ -1245,7 +1245,7 @@ class _CriticalItemsState extends State<CriticalItems> {
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(r.fieldRadius),
           borderSide: BorderSide(
-            color: isTablet ? const Color(0xFFBDBDBD) : const Color(0xFF2196F3),
+            color: isTablet ? const Color(0xFFBDBDBD) : const Color(0xFF1565C0),
             width: isTablet ? 1 : 1.5,
           ),
         ),
@@ -1306,7 +1306,7 @@ class _CriticalItemsState extends State<CriticalItems> {
                       icon: const Icon(Icons.search, size: 20),
                       label: const Text('Search'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E88E5),
+                        backgroundColor: const Color(0xFF1565C0),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -1347,7 +1347,7 @@ class _CriticalItemsState extends State<CriticalItems> {
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E88E5),
+                            backgroundColor: const Color(0xFF1565C0),
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1393,9 +1393,13 @@ class _CriticalItemsState extends State<CriticalItems> {
                             child: ClipRRect(
                               child: LayoutBuilder(
                                 builder: (context, constraints) {
-                                  final includeAction = !isTablet;
+                                  final isMobileTable =
+                                      Responsive.isMobileTableLayout(context);
+                                  final showStickyActions =
+                                      !isMobileTable && isTablet;
+                                  final includeAction = !showStickyActions;
                                   final compact = !isTablet;
-                                  final actionW = isTablet
+                                  final actionW = showStickyActions
                                       ? _actionColumnWidth
                                       : 0.0;
                                   final available =
@@ -1487,7 +1491,9 @@ class _CriticalItemsState extends State<CriticalItems> {
                                                   false,
                                               isVerticalScrollBarVisible: false,
                                               minWidth: tableMinWidth,
-                                              fixedLeftColumns: 3,
+                                              fixedLeftColumns: isMobileTable
+                                                  ? 0
+                                                  : 3,
                                               border: tableBorder,
                                               columns: tableColumns,
                                               rows: groupedRows.map((group) {
@@ -1588,7 +1594,9 @@ class _CriticalItemsState extends State<CriticalItems> {
                                                     ),
                                                     DataCell(
                                                       _tableTextCell(
-                                                        _formatDate(_pickOdd(row)),
+                                                        _formatDate(
+                                                          _pickOdd(row),
+                                                        ),
                                                       ),
                                                     ),
                                                     DataCell(
@@ -1751,7 +1759,7 @@ class _CriticalItemsState extends State<CriticalItems> {
                                                             noticeRowHeights,
                                                       ),
                                                     ),
-                                                    if (!isTablet)
+                                                    if (includeAction)
                                                       DataCell(
                                                         Center(
                                                           child:
@@ -1769,7 +1777,7 @@ class _CriticalItemsState extends State<CriticalItems> {
                                           ),
                                         ),
                                       ),
-                                      if (isTablet)
+                                      if (showStickyActions)
                                         _buildStickyActionsPane(
                                           groupedRows,
                                           noticeWidth: noticeW,

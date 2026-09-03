@@ -19,6 +19,12 @@ class Responsive {
 
   factory Responsive.fromWidth(double width) => Responsive._(width);
 
+  /// Phones and small tablets: tables scroll as one unit (no sticky columns).
+  static bool isMobileTableLayout(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    return size.shortestSide < 800 && size.width < 1100;
+  }
+
   bool get isPhone => width < phoneMax;
 
   /// Includes most tablets (incl. landscape ~768–1099).

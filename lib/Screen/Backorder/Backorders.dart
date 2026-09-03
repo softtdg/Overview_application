@@ -1021,7 +1021,12 @@ class _BackordersTableState extends State<Backorders> {
                                       context,
                                       DataTable2(
                                         fixedTopRows: 1,
-                                        fixedLeftColumns: isTablet ? 3 : 0,
+                                        fixedLeftColumns:
+                                            Responsive.isMobileTableLayout(
+                                              context,
+                                            )
+                                            ? 0
+                                            : 3,
                                         fixedColumnsColor: Colors.white,
                                         fixedCornerColor: const Color(
                                           0xFF344963,

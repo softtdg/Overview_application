@@ -1333,6 +1333,8 @@ class ViewPickedLogState extends State<ViewPickedLog> {
       headers.length - 1,
       (i) => columnWidth(i + 1),
     ).fold<double>(0, (sum, width) => sum + width);
+    final fullTableWidth = tdgpnWidth + restWidth;
+    final isMobileTable = Responsive.isMobileTableLayout(context);
 
     return Container(
       height: tableHeight,
@@ -1342,6 +1344,22 @@ class ViewPickedLogState extends State<ViewPickedLog> {
         context,
         LayoutBuilder(
           builder: (context, constraints) {
+            if (isMobileTable) {
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: fullTableWidth,
+                  height: constraints.maxHeight,
+                  child: buildColumnPane(
+                    start: 0,
+                    end: headers.length,
+                    width: fullTableWidth,
+                    controller: _bodyVerticalScroll,
+                  ),
+                ),
+              );
+            }
+
             return Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

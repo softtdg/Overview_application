@@ -268,18 +268,17 @@ class _ShippingInState extends State<ShippingIn> {
               border: Border.all(color: Colors.grey, width: 0.5),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               child: Align(
-                alignment:  Alignment.centerLeft,
+                alignment: Alignment.center,
                 child: Row(
-                  mainAxisAlignment:
-                       MainAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Flexible(
                       child: Text(
                         text,
-                        textAlign: TextAlign.left,
+                        textAlign: TextAlign.center,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -462,6 +461,7 @@ class _ShippingInState extends State<ShippingIn> {
 
   @override
   Widget build(BuildContext context) {
+    final r = Responsive.of(context);
     final isTablet = MediaQuery.sizeOf(context).width >= 700;
     final sopField = TextField(
       controller: SOPController,
@@ -540,11 +540,14 @@ class _ShippingInState extends State<ShippingIn> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
+                  Text(
                     'Update SOP Shipping In Date',
-                    style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      fontSize: r.pageTitleSize,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: r.sectionGap),
                   sopField,
                   const SizedBox(height: 12),
                   updateButton,

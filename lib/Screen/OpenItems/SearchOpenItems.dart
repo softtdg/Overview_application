@@ -444,7 +444,7 @@ class _SearchOpenItemsState extends State<SearchOpenItems> {
                                               10,
                                             ),
                                             borderSide: const BorderSide(
-                                              color: Color(0xFF2196F3),
+                                              color: Color(0xFF1565C0),
                                               width: 1.5,
                                             ),
                                           ),
