@@ -15,23 +15,72 @@ String _formatOdd(dynamic raw) {
   return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 }
 
-bool _isTruthy(dynamic value) {
-  if (value == null) return false;
-  if (value is bool) return value;
-  if (value is int) return value != 0;
-  if (value is double) return value != 0;
-  if (value is String) {
-    final lower = value.toLowerCase().trim();
-    return lower == 'true' || lower == '1' || lower == 'yes';
+bool _isGrayRowMap(
+  Map<String, dynamic> row, {
+  Map<String, dynamic>? detail,
+  bool includeLightTrellis = false,
+}) {
+  bool readFlag(Map<String, dynamic>? source) {
+    if (source == null || source.isEmpty) return false;
+
+    for (final entry in source.entries) {
+      final key = entry.key
+          .toString()
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+      final isGrayKey = key == 'isgray' || key == 'isgrey';
+      final isTrellisKey = includeLightTrellis && key == 'islighttrellis';
+      if (!isGrayKey && !isTrellisKey) continue;
+
+      final v = entry.value;
+      if (v == true) return true;
+      if (v is num && v == 1) return true;
+      if (v is String) {
+        final s = v.toLowerCase().trim();
+        if (s == 'true' || s == '1' || s == 'yes') return true;
+      }
+    }
+    return false;
+  }
+
+  return readFlag(row) || readFlag(detail);
+}
+
+bool _isWhiteRowMap(Map<String, dynamic> row) {
+  for (final entry in row.entries) {
+    final key = entry.key
+        .toString()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), '');
+    if (key != 'iswhite') continue;
+    final v = entry.value;
+    if (v == true) return true;
+    if (v is String && v.toLowerCase().trim() == 'true') return true;
   }
   return false;
 }
 
-bool _isGrayRowMap(Map<String, dynamic> row, [Map<String, dynamic>? detail]) {
-  return _isTruthy(row['isGray']) ||
-      _isTruthy(row['isGrey']) ||
-      (detail != null &&
-          (_isTruthy(detail['isGray']) || _isTruthy(detail['isGrey'])));
+/// PickListData (Submit) matches web: only Total Qty Needed == 0 rows are gray
+/// (LABEL headers). "GOES INTO" / PC rows stay white even if API isGray is wrong.
+bool _isPickListDataGrayRow(Map<String, dynamic> row) {
+  if (_isWhiteRowMap(row)) return false;
+  final totalRaw = row['TotalQtyNeeded'] ?? row['totalQtyNeeded'];
+  final total = double.tryParse(totalRaw?.toString().trim() ?? '');
+  return total != null && total == 0;
+}
+
+Map<String, dynamic> _normalizeSheetRowMap(
+  Map raw, {
+  required bool fromPickListDataApi,
+}) {
+  final row = Map<String, dynamic>.from(
+    raw.map((k, v) => MapEntry(k.toString(), v)),
+  );
+  row['isGray'] = fromPickListDataApi
+      ? _isPickListDataGrayRow(row)
+      : _isGrayRowMap(row, includeLightTrellis: true);
+  return row;
 }
 
 class PickList extends StatefulWidget {
@@ -369,7 +418,12 @@ class _PickListState extends State<PickList> {
     final rawRows = rows ?? map['listData'] ?? map['sheetData'] ?? const [];
     final mappedRows = (rawRows is List ? rawRows : const [])
         .whereType<Map>()
-        .map((e) => Map<String, dynamic>.from(e))
+        .map(
+          (e) => _normalizeSheetRowMap(
+            e,
+            fromPickListDataApi: _loadedViaPickListDataApi,
+          ),
+        )
         .toList();
 
     setState(() {
@@ -419,7 +473,7 @@ class _PickListState extends State<PickList> {
     for (var i = 0; i < _rawSheetData.length; i++) {
       final item = _rawSheetData[i];
       final isGray =
-          _isGrayRowMap(item) ||
+          item['isGray'] == true ||
           (i < _sheetRows.length && _sheetRows[i].isGray);
       final controllerQty = i < _mpfControllers.length
           ? _mpfControllers[i].text.trim()
@@ -427,8 +481,7 @@ class _PickListState extends State<PickList> {
       final mpfQty = controllerQty.isNotEmpty
           ? controllerQty
           : (item['mpfQty'] ?? '').toString();
-      final hasMpf =
-          mpfQty.trim().isNotEmpty && mpfQty.trim() != '0';
+      final hasMpf = mpfQty.trim().isNotEmpty && mpfQty.trim() != '0';
 
       if (isGray && !hasMpf) continue;
       if (hasMpf && _isMpfQtyOverTotal(i, mpfQty)) {
@@ -453,7 +506,7 @@ class _PickListState extends State<PickList> {
       for (var i = 0; i < _rawSheetData.length; i++) {
         final item = _rawSheetData[i];
         final isGray =
-            _isGrayRowMap(item) ||
+            item['isGray'] == true ||
             (i < _sheetRows.length && _sheetRows[i].isGray);
 
         final row = Map<String, dynamic>.from(item);
@@ -694,7 +747,8 @@ class _PickListState extends State<PickList> {
           : null;
       if (map == null) return;
       _loadedViaPickListDataApi = true;
-      _applyPickListMap(map);
+      final listData = map['listData'] ?? map['sheetData'];
+      _applyPickListMap(map, rows: listData is List ? listData : null);
     } catch (e) {
       debugPrint('PICK LIST ERROR: $e');
     }
@@ -1269,8 +1323,9 @@ class _PickListState extends State<PickList> {
         ? const Color(0xFFE8F5E9)
         : const Color(0xFFB9C7D9);
     final valueBg = useMpfGreen ? Colors.white : const Color(0xFFF1F3F5);
-    final pickListLogBg =
-        useMpfGreen ? const Color(0xFFE8F5E9) : const Color(0xFFF1F3F5);
+    final pickListLogBg = useMpfGreen
+        ? const Color(0xFFE8F5E9)
+        : const Color(0xFFF1F3F5);
     final textColor = useMpfGreen
         ? const Color(0xFF166534)
         : const Color(0xFF0C4A7D);
@@ -1493,7 +1548,7 @@ class _PickListState extends State<PickList> {
           r.isGray ? r : r.copyWith(comments: comment),
       ];
       for (var i = 0; i < _rawSheetData.length; i++) {
-        if (_isGrayRowMap(_rawSheetData[i])) continue;
+        if (_rawSheetData[i]['isGray'] == true) continue;
         _rawSheetData[i]['InventoryComments'] = comment;
         _rawSheetData[i]['Comments'] = comment;
       }
@@ -1847,8 +1902,9 @@ class _PickListState extends State<PickList> {
       final isOverTotal = _isMpfQtyOverTotal(index, mpfValue);
       const normalBorderColor = Color(0xFF969797);
       const errorBorderColor = Color(0xFFDC2626);
-      final inputBorderColor =
-          isOverTotal ? errorBorderColor : normalBorderColor;
+      final inputBorderColor = isOverTotal
+          ? errorBorderColor
+          : normalBorderColor;
       final inputBorder = OutlineInputBorder(
         borderRadius: BorderRadius.circular(4),
         borderSide: BorderSide(
@@ -2142,7 +2198,16 @@ class _PickListState extends State<PickList> {
                 height: effectiveRowH,
                 child: Row(
                   children: List.generate(12, (i) {
-                    if (i == 5 && !isPlaceholder && !r.isGray) {
+                    if (i == 5 && !isPlaceholder) {
+                      // Match web: PickListData gray LABEL rows still show UOM dropdown
+                      if (r.isGray && !_loadedViaPickListDataApi) {
+                        return dataCell(
+                          r.unitOfMeasure,
+                          widths[5],
+                          bgColor: rowBg,
+                          height: effectiveRowH,
+                        );
+                      }
                       return ColoredBox(
                         color: rowBg,
                         child: _unitOfMeasureDropdown(
@@ -2151,14 +2216,6 @@ class _PickListState extends State<PickList> {
                           width: widths[5],
                           rowHeight: effectiveRowH,
                         ),
-                      );
-                    }
-                    if (i == 5 && r.isGray) {
-                      return dataCell(
-                        r.unitOfMeasure,
-                        widths[5],
-                        bgColor: rowBg,
-                        height: effectiveRowH,
                       );
                     }
                     if (i == 1) {
@@ -2359,16 +2416,15 @@ class _SheetRow {
     final row = Map<String, dynamic>.from(
       raw.map((k, v) => MapEntry(k.toString(), v)),
     );
-    final detail = row['excelFixtureDetail'] is Map
-        ? Map<String, dynamic>.from(row['excelFixtureDetail'])
-        : <String, dynamic>{};
+    // isGray is normalized in _applyPickListMap before this runs
+    final isGray = row['isGray'] == true;
+
     String p(String k) {
-      final v = row[k] ?? detail[k];
+      final v = row[k];
       return v?.toString().trim() ?? '';
     }
 
     final uom = p('UnitOfMeasure').toUpperCase();
-    final isGray = _isGrayRowMap(row, detail);
 
     return _SheetRow(
       tdgpn: p('TDGPN'),

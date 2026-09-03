@@ -85,8 +85,7 @@ class _LoginPageState extends State<LoginPage> {
       );
     } catch (e) {
       print("LOGIN ERROR: $e");
-      // 5. Error message
-      AppToast.error(context, "Login Failed");
+      AppToast.error(context, "Username and password are not valid");
     }
 
     // 6. Stop loading
