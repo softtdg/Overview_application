@@ -890,7 +890,7 @@ class _PublicSearchState extends State<Publicsearch> {
     Responsive r, {
     TextStyle? style,
   }) {
-    final borderColor = Colors.grey.shade300;
+    final borderColor = Colors.grey.shade500;
     final baseStyle = TextStyle(
       fontSize: r.bomCellFontSize,
       height: 1.2,
@@ -999,7 +999,7 @@ class _PublicSearchState extends State<Publicsearch> {
                   colW[8],
                   r,
                   style: TextStyle(
-                    fontSize: r.bomCellFontSize,
+                    fontSize: 15,
                     height: 1.2,
                     fontFamily: 'Courier New',
                     fontFamilyFallback: const [
@@ -1008,8 +1008,8 @@ class _PublicSearchState extends State<Publicsearch> {
                       'Consolas',
                       'monospace',
                     ],
-                    color: const Color(0xFF6B7280),
-                    fontWeight: FontWeight.w400,
+                    color: const Color.fromARGB(255, 0, 0, 0),
+                    fontWeight: FontWeight.w500,
                     letterSpacing: 0,
                   ),
                 ),
@@ -1025,7 +1025,7 @@ class _PublicSearchState extends State<Publicsearch> {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: Colors.grey.shade500),
       ),
       child: ClipRect(
         child: ScrollConfiguration(

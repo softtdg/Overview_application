@@ -421,7 +421,7 @@ class _InventorySearchState extends State<InventorySearch> {
           decoration: BoxDecoration(
             color: _headerBlue,
             border: Border(
-              right: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+              right: BorderSide(color: Colors.grey.shade500),
             ),
           ),
           child: Row(
@@ -459,8 +459,8 @@ class _InventorySearchState extends State<InventorySearch> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         decoration: BoxDecoration(
           border: Border(
-            right: BorderSide(color: Colors.grey.shade300),
-            bottom: BorderSide(color: Colors.grey.shade300),
+            right: BorderSide(color: Colors.grey.shade500),
+            bottom: BorderSide(color: Colors.grey.shade500),
           ),
         ),
         child: Text(
@@ -506,7 +506,7 @@ class _InventorySearchState extends State<InventorySearch> {
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(
-                color: Colors.grey.shade300,
+                color: Colors.grey.shade500,
                 width: borderWidth,
               ),
             ),
